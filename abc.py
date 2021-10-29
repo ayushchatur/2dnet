@@ -429,7 +429,7 @@ class DD_net(nn.Module):
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
 
         vgg_inp = self.transform(dc7_1)
-        print("type of dc7_1: " + str(type(dc7_1)))
+        # print("type of dc7_1: " + str(type(dc7_1)))
         vgg_en = self.vgg(vgg_inp)
         output = dc7_1
 
@@ -746,9 +746,10 @@ def dd_train(gpu, args):
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)
+                reshape = enhanced_image.squeeze(HQ_vgg_op)
                 # print("shape of vgg output of enhanced image: " + str(vgg_en_image.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image)
-                MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op) # enhanced image : [1, 256, 56, 56] dim should be same (1,224,224,64)
+                MSSSIM_loss = nn.MSELoss()(vgg_en_image , reshape) # enhanced image : [1, 256, 56, 56] dim should be same (1,224,224,64)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
 
@@ -775,10 +776,10 @@ def dd_train(gpu, args):
                 HQ_vgg_op = HQ_vgg.to(gpu)
 
                 enhanced_image, vgg_en_image1 = model(lq_image)
-
+                reshape = enhanced_image.squeeze(HQ_vgg_op)
                 #outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image)
-                MSSSIM_loss = nn.MSELoss()(HQ_vgg_op , vgg_en_image1)
+                MSSSIM_loss = nn.MSELoss()(reshape , vgg_en_image1)
                 #loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
                 #loss = MSE_loss
