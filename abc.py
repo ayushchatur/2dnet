@@ -552,7 +552,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
             f.write("%f\n" % item)
 
 new_transform =   transforms.Compose([
-        #transforms.ToTensor(),
+        transforms.ToTensor(),
         transforms.RandomHorizontalFlip(),
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
         transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
@@ -598,7 +598,7 @@ class CTDataset(Dataset):
         #exit()
         image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        vgg_hq_img = np.load(self.data_root_h_vgg + self.vgg_hq_img_list[idx]) ## shape : 1,244,244,64
+        vgg_hq_img = torch.load(self.data_root_h_vgg + self.vgg_hq_img_list[idx]) ## shape : 1,244,244,64
 
         input_file = self.img_list_l[idx] ## low quality image
         assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
@@ -623,8 +623,8 @@ class CTDataset(Dataset):
 
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
-        vgg_hq_img_tsr = torch.from_numpy(vgg_hq_img)
-        vgg_hq_img_tsr =  vgg_hq_img_tsr.type(torch.FloatTensor)
+
+        vgg_hq_img_tsr =  vgg_hq_img.type(torch.FloatTensor)
 
 
         sample = {'vol': input_file,
@@ -659,9 +659,9 @@ def dd_train(gpu, args):
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-    root_hq_vgg_tr = "/projects/synergy_lab/ayush/modcat/train/vgg_output_b3/HQ/"
-    root_hq_vgg_te = "/projects/synergy_lab/ayush/modcat/test/vgg_output_b3/HQ/"
-    root_hq_vgg_va = "/projects/synergy_lab/ayush/modcat/val/vgg_output_b3/HQ/"
+    root_hq_vgg_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
+    root_hq_vgg_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
+    root_hq_vgg_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
 
     #root = add
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l,root_hq_vgg=root_hq_vgg_tr, length=5120)
