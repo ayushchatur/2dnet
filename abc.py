@@ -751,6 +751,12 @@ def dd_train(gpu, args):
                 MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op) # enhanced image : [1, 256, 56, 56] dim should be same (1,224,224,64)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
+
+                loss = MSE_loss
+                print("MSE_loss", MSE_loss.item())
+                print("MSSSIM_loss", MSSSIM_loss.item())
+                print("Total_loss", loss.item())
+                print("====================================")
     
                 train_MSE_loss.append(MSE_loss.item())
                 train_MSSSIM_loss.append(MSSSIM_loss.item())
