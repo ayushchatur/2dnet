@@ -552,7 +552,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
             f.write("%f\n" % item)
 
 new_transform =   transforms.Compose([
-        transforms.ToTensor(),
+        # transforms.ToTensor(),
         transforms.RandomHorizontalFlip(),
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
         transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
