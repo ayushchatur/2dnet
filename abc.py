@@ -741,12 +741,14 @@ def dd_train(gpu, args):
                 #inputs = LQ_img.cuda(non_blocking=True)
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
+                print("shape of vgg hq image: " + str(HQ_vgg_op.shape))
+
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)
                 print("shape of vgg output of enhanced image: " + str(vgg_en_image.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image)
-                MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op) # dim should be same (1,224,224,64)
+                MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op) # enhanced image : [1, 256, 56, 56] dim should be same (1,224,224,64)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
     
