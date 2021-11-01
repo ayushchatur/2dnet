@@ -743,23 +743,24 @@ def dd_train(gpu, args):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 #inputs = LQ_img.cuda(non_blocking=True)
-                print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([2, 1, 256, 56, 56])
+                print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([1, 1, 512,512])
 
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
                 print("shape of vgg_hq pre computed HQ image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
-
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                print("shape of vgg output of enhanced image(ddnet): before reshape" + str(enhanced_image.shape)) ## size: ([2, 1, 512, 512])
-                print("shape of hq target image(ddnet): before " + str(hq_image.shape)) ## size: ([2, 1, 512, 512])
+                assert (lq_image.size() == enhanced_image.size())
+                assert (HQ_vgg_op.size() == vgg_en_image.size())
+                print("shape of DDnet HQ image" + str(enhanced_image.shape)) ## size: ([1, 1, 512, 512])
+                print("shape of DDnet target HQ image " + str(hq_image.shape)) ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
 
                 print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape)) ## ([2, 256, 56, 56])
 
-                print(vgg_en_image[0])
-                print("")
-                print(vgg_en_image[1])
+                # print(vgg_en_image[0])
+                # print("")
+                # print(vgg_en_image[1])
 
                 # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
