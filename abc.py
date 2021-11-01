@@ -751,12 +751,15 @@ def dd_train(gpu, args):
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+                print("shape of DDnet HQ image" + str(enhanced_image.shape))  ## size: ([1, 1, 512, 512])
+                print("shape of DDnet target HQ image " + str(
+                    hq_image.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
+
+                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
+                    vgg_en_image.shape))  ## ([2, 256, 56, 56])
+
                 assert (lq_image.size() == enhanced_image.size())
                 assert (HQ_vgg_op.size() == vgg_en_image.size())
-                print("shape of DDnet HQ image" + str(enhanced_image.shape)) ## size: ([1, 1, 512, 512])
-                print("shape of DDnet target HQ image " + str(hq_image.shape)) ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
-
-                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape)) ## ([2, 256, 56, 56])
 
                 # print(vgg_en_image[0])
                 # print("")
