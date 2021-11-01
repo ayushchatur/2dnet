@@ -751,6 +751,8 @@ def dd_train(gpu, args):
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
                 print("shape of vgg output of enhanced image(ddnet): before reshape" + str(enhanced_image.shape)) ## size: ([2, 1, 512, 512])
+                print("shape of hq target image(ddnet): before " + str(hq_image.shape)) ## size: ([2, 1, 512, 512])
+
                 print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape)) ## ([2, 256, 56, 56])
 
                 print(vgg_en_image[0])
@@ -764,7 +766,7 @@ def dd_train(gpu, args):
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
 
-                loss = MSE_loss
+                # loss = MSE_loss
                 print("MSE_loss", MSE_loss.item())
                 print("MSSSIM_loss", MSSSIM_loss.item())
                 print("Total_loss", loss.item())
