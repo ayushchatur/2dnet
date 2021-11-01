@@ -793,13 +793,9 @@ def dd_train(gpu, args):
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
-                print("shape of vgg hq image: " + str(HQ_vgg_op.shape))
                 enhanced_image, vgg_en_image1 = model(lq_image)
-                reshape = enhanced_image.squeeze(HQ_vgg_op)
-                print("shape of vgg output of enhanced image: " + str(reshape.shape))
+
                 #outputs = model(inputs)
-                MSE_loss = nn.MSELoss()(enhanced_image , hq_image)
-                MSSSIM_loss = nn.MSELoss()(reshape , vgg_en_image1)
                 #loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
                 #loss = MSE_loss
