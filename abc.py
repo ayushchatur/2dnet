@@ -743,6 +743,8 @@ def dd_train(gpu, args):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 #inputs = LQ_img.cuda(non_blocking=True)
+                print("shape of vgg_hq LQ image: " + str(lq_image.shape)) # size current : ([2, 1, 256, 56, 56])
+
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
                 print("shape of vgg_hq image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
