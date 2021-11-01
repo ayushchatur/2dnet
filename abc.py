@@ -597,6 +597,9 @@ class CTDataset(Dataset):
         #print("test")
         #exit()
         image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
+        print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
+        print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
+        print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
         vgg_hq_img = torch.load(self.data_root_h_vgg + self.vgg_hq_img_list[idx]) ## shape : 1,244,244,64
 
