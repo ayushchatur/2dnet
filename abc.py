@@ -745,16 +745,17 @@ def dd_train(gpu, args):
                 #inputs = LQ_img.cuda(non_blocking=True)
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
-                print("shape of vgg_hq image: " + str(HQ_vgg_op.shape))
+                print("shape of vgg_hq image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
 
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                print("shape of vgg output of enhanced image(ddnet): before reshape" + str(enhanced_image.shape))
-                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape))
+                print("shape of vgg output of enhanced image(ddnet): before reshape" + str(enhanced_image.shape)) ## size: ([2, 1, 512, 512])
+                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape)) ## ([2, 256, 56, 56])
 
-                print("vgg[0]: ".format(vgg_en_image[0]))
-                print("vgg[1]: ".format(vgg_en_image[1]))
+                print(vgg_en_image[0])
+                print("")
+                print(vgg_en_image[1])
 
                 # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
