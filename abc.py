@@ -427,11 +427,12 @@ class DD_net(nn.Module):
         x = torch.cat((nn.Upsample(scale_factor=2,mode='bilinear', align_corners=True)(dc6_1), c0),dim=1)
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
+        output = dc7_1
 
         vgg_inp = self.transform(dc7_1)
         # print("type of dc7_1: " + str(type(dc7_1)))
         vgg_en = self.vgg(vgg_inp)
-        output = dc7_1
+
 
         return  output,vgg_en
 
@@ -553,9 +554,8 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
 new_transform =   transforms.Compose([
         # transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(),
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
-        transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
+        # transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
         transforms.CenterCrop((224, 224))
         # transforms.ToPILImage(),
         # transforms.ToTensor()
@@ -597,9 +597,9 @@ class CTDataset(Dataset):
         #print("test")
         #exit()
         image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
-        print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
-        print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
+        # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
+        # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
+        # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
         vgg_hq_img = torch.load(self.data_root_h_vgg + self.vgg_hq_img_list[idx]) ## shape : 1,244,244,64
 
@@ -630,10 +630,11 @@ class CTDataset(Dataset):
         vgg_hq_img_tsr =  vgg_hq_img.type(torch.FloatTensor)
 
 
+
         sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_hq_img_tsr, ## 1,244,244,64
+                  'HQ_vgg_op':vgg_hq_img_tsr, ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return sample
@@ -744,14 +745,17 @@ def dd_train(gpu, args):
                 #inputs = LQ_img.cuda(non_blocking=True)
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
-                print("shape of vgg hq image: " + str(HQ_vgg_op.shape))
+                print("shape of vgg_hq image: " + str(HQ_vgg_op.shape))
 
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
-                enhanced_image,vgg_en_image  = model(lq_image)
-                reshape = enhanced_image.squeeze(HQ_vgg_op)
-                print("shape of vgg output of enhanced image: " + str(reshape.shape))
-                MSE_loss = nn.MSELoss()(enhanced_image , hq_image)
+                enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+                print("shape of vgg output of enhanced image(ddnet): before reshape" + str(enhanced_image.shape))
+                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(vgg_en_image.shape))
+
+                reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
+                print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
+                MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = nn.MSELoss()(vgg_en_image , reshape) # enhanced image : [1, 256, 56, 56] dim should be same (1,224,224,64)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
