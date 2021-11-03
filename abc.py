@@ -718,15 +718,15 @@ def dd_train(gpu, args):
     #max_val_img_init = 16;
     #max_test_img = 784;
 
-    train_MSE_loss = []
-    train_MSSSIM_loss = []
-    train_total_loss = []
-    val_MSE_loss = []
-    val_MSSSIM_loss = []
-    val_total_loss = []
-    test_MSE_loss = []
-    test_MSSSIM_loss = []
-    test_total_loss = []
+    train_MSE_loss = [0]
+    train_MSSSIM_loss = [0]
+    train_total_loss = [0]
+    val_MSE_loss = [0]
+    val_MSSSIM_loss = [0]
+    val_total_loss = [0]
+    test_MSE_loss = [0]
+    test_MSSSIM_loss = [0]
+    test_total_loss = [0]
 
     start = datetime.now()
 
@@ -737,33 +737,36 @@ def dd_train(gpu, args):
     ## ~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~
     if (not(path.exists(model_file))):
         for k in range(epochs):
-            print("Epoch: ", k)
+
+            # print("Epoch: ", k)
+            print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
+                  train_MSSSIM_loss[k])
             train_sampler.set_epoch(epochs)
             for batch_index, batch_samples in enumerate(train_loader):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 #inputs = LQ_img.cuda(non_blocking=True)
-                print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([1, 1, 512,512])
+                # print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([1, 1, 512,512])
 
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
-                print("shape of vgg_hq pre computed HQ image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
+                # print("shape of vgg_hq pre computed HQ image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                print("shape of DDnet HQ image" + str(enhanced_image.shape))  ## size: ([1, 1, 512, 512])
-                print("shape of DDnet target HQ image " + str(
-                    hq_image.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
+                # print("shape of DDnet HQ image" + str(enhanced_image.shape))  ## size: ([1, 1, 512, 512])
+                # print("shape of DDnet target HQ image " + str(
+                #     hq_image.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
 
-                print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
-                    vgg_en_image.shape))  ## ([2, 256, 56, 56])
-
-                assert (lq_image.size() == enhanced_image.size())
-                assert (HQ_vgg_op[0].size() == vgg_en_image.size())
+                # print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
+                #     vgg_en_image.shape))  ## ([2, 256, 56, 56])
+                #
+                # assert (lq_image.size() == enhanced_image.size())
+                # assert (HQ_vgg_op[0].size() == vgg_en_image.size())
 
                 # print(vgg_en_image[0])
                 # print("")
-                # print(vgg_en_image[1])
+                print(vgg_en_image[0])
 
                 # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
@@ -773,26 +776,24 @@ def dd_train(gpu, args):
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
 
                 # loss = MSE_loss
-                print("MSE_loss", MSE_loss.item())
-                print("MSSSIM_loss", MSSSIM_loss.item())
-                print("Total_loss", loss.item())
-                print("====================================")
-    
+
+
                 train_MSE_loss.append(MSE_loss.item())
                 train_MSSSIM_loss.append(MSSSIM_loss.item())
                 train_total_loss.append(loss.item())
 
-                model.zero_grad()
-                loss.backward()
-                optimizer.step()
+                model.zero_grad() # zero the gradients
+                loss.backward() # back propogation
+                optimizer.step() # update the parameters
 
-            scheduler.step()
+            # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
+
+            scheduler.step() #
             #print("Validation")
             for batch_index, batch_samples in enumerate(val_loader):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
-                HQ_vgg_op = HQ_vgg.to(gpu)
                 enhanced_image, vgg_en_image1 = model(lq_image)
 
                 #outputs = model(inputs)
@@ -803,7 +804,7 @@ def dd_train(gpu, args):
                 #print("MSSSIM_loss", MSSSIM_loss.item())
                 #print("Total_loss", loss.item())
                 #print("====================================")
-    
+
                 val_MSE_loss.append(MSE_loss.item())
                 val_MSSSIM_loss.append(MSSSIM_loss.item())
                 val_total_loss.append(loss.item())
@@ -820,11 +821,12 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
+            print('total loss:' , loss)
         print("train end")
         if(rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
-    
+
         with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
             for item in train_MSE_loss:
                 f.write("%f " % item)
@@ -847,19 +849,18 @@ def dd_train(gpu, args):
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-
+    print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins,HQ_vgg = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
         HQ_vgg_op = HQ_vgg.to(gpu)
-        print("shape of vgg hq image: " + str(HQ_vgg_op.shape))
+
         enhanced_image, vgg_en_image1 = model(lq_image)
-        reshape = enhanced_image.squeeze(HQ_vgg_op)
-        print("shape of vgg output of enhanced image: " + str(reshape.shape))
+
         # outputs = model(inputs)
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = nn.MSELoss()(reshape, vgg_en_image1)
+        MSSSIM_loss = nn.MSELoss()(HQ_vgg_op[0], vgg_en_image1)
         # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
         loss = MSE_loss + 0.5 * (MSSSIM_loss)
         #loss = MSE_loss
