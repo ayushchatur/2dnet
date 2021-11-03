@@ -766,7 +766,16 @@ def dd_train(gpu, args):
 
                 # print(vgg_en_image[0])
                 # print("")
-                print(vgg_en_image[0])
+                # print(vgg_en_image[0])
+                print("HQ pre compute")
+                print(torch.std(HQ_vgg_op[0]))
+                print(torch.min(HQ_vgg_op[0]))
+                print(torch.max(HQ_vgg_op[0]))
+
+                print("vgg output")
+                print(torch.std(vgg_en_image[0]))
+                print(torch.min(vgg_en_image[0]))
+                print(torch.max(vgg_en_image[0]))
 
                 # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
