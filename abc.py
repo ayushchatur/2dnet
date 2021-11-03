@@ -308,6 +308,8 @@ class denseblock(nn.Module):
 
         return x
 
+# class vgg16(nn.Module):
+
 class DD_net(nn.Module):
     def __init__(self):
         super(DD_net, self).__init__()
@@ -780,7 +782,7 @@ def dd_train(gpu, args):
                 # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op[0]) # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = torch.abs(torch.sub(vgg_en_image , HQ_vgg_op[0])) # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss)
 
@@ -803,11 +805,17 @@ def dd_train(gpu, args):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
+                HQ_vgg_gpu = HQ_vgg.to(gpu)
                 enhanced_image, vgg_en_image1 = model(lq_image)
 
                 #outputs = model(inputs)
-                #loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.5*(MSSSIM_loss)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                # loss = MSE_loss + 0.5*(MSSSIM_loss)
+
+                MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
+                MSSSIM_loss = torch.abs(torch.sub(vgg_en_image1, HQ_vgg_gpu[0]))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
+                loss = MSE_loss + 0.5 * (MSSSIM_loss)
                 #loss = MSE_loss
                 #print("MSE_loss", MSE_loss.item())
                 #print("MSSSIM_loss", MSSSIM_loss.item())
@@ -869,7 +877,7 @@ def dd_train(gpu, args):
 
         # outputs = model(inputs)
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = nn.MSELoss()(HQ_vgg_op[0], vgg_en_image1)
+        MSSSIM_loss = torch.abs(torch.sub(HQ_vgg_op[0], vgg_en_image1))
         # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
         loss = MSE_loss + 0.5 * (MSSSIM_loss)
         #loss = MSE_loss
