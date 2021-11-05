@@ -375,7 +375,8 @@ class DD_net(nn.Module):
         self.batch11 = nn.BatchNorm2d(self.convT5.out_channels)
         self.batch12 = nn.BatchNorm2d(self.convT6.out_channels+self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
-
+        self.xx = torch.zeros((3, 224, 224))
+        self.zz = self.xx[None, :]
     def forward_hook(self,layer):
         def hook(module,input,output):
             self.selectedOut[layer] = output
@@ -444,13 +445,12 @@ class DD_net(nn.Module):
         vgg_inp = self.transform(dc7_1)
         print("shape of vgg_inp: " + str(vgg_inp.size()))
 
-        xx = torch.zeros((3, 224, 224))
-        xx[0, :, :] = vgg_inp
-        xx[1, :, :] = vgg_inp
-        xx[2, :, :] = vgg_inp
-        zz = xx[None, :]
-        print("shape of zz: " + str(zz.size()))
-        vgg_b3 = self.vgg(zz)
+        self.xx[0, :, :] = vgg_inp
+        self.xx[1, :, :] = vgg_inp
+        self.xx[2, :, :] = vgg_inp
+        print("shape of zz: " + str(self.zz.size()))
+        # zz.to(gpu)
+        vgg_b3 = self.vgg(self.zz)
 
 
         return  output,vgg_b3,self.selectedOut[3]
