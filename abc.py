@@ -815,7 +815,7 @@ def dd_train(gpu, args):
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op[0]) # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = nn.MSELoss()(hq_vgg_b1_gpu,vgg_b1)
+                MSSSIM_loss2 = nn.MSELoss()(hq_vgg_b1_gpu[0],vgg_b1)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
                 loss = MSE_loss + 0.5*(MSSSIM_loss + MSSSIM_loss2)
 
