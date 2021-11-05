@@ -329,7 +329,7 @@ class DD_net(nn.Module):
         modules = list(list(self.vgg.children())[0])[:16]
         for i in range(len(list(self.vgg._modules['features']))):
             if i == 3:
-                self.submodule._modules['features'][i].register_forward_hook(self.forward_hook(i))
+                self.vgg._modules['features'][i].register_forward_hook(self.forward_hook(i))
         # first_conv_layer.fromkeys(modules: modules)
         # module_dict = {**first_conv_layer, **{str(i + 1): modules[i] for i in range(len(modules))}}
         module_dict = {**{str(i + 1): modules[i] for i in range(len(modules))}}
