@@ -1,7 +1,6 @@
 #!/bin/bash
-export batch_size=1
-export epochs=3
-#SBATCH --job-name=ddnet_$epoch_$batch_size
+
+#SBATCH --job-name=ddnet
 #SBATCH --partition=a100_normal_q
 #SBATCH --time=16:00:00
 #SBATCH -A HPCBIGDATA2
@@ -62,7 +61,8 @@ module reset
 module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
 nvidia-smi
-
+export batch_size=1
+export epochs=3
 
 # cd ~
 source activate test
