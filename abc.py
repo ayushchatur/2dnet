@@ -439,10 +439,18 @@ class DD_net(nn.Module):
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
         output = dc7_1
-        print('shape of dc7_1', output.size())
+        # print('shape of dc7_1', output.size()) ## 1,1,512,512
+
         vgg_inp = self.transform(dc7_1)
-        # print("type of dc7_1: " + str(type(dc7_1)))
-        vgg_b3 = self.vgg(vgg_inp)
+        print("shape of vgg_inp: " + str(type(vgg_inp)))
+
+        xx = torch.zeros((3, 224, 224))
+        xx[0, :, :] = vgg_inp
+        xx[1, :, :] = vgg_inp
+        xx[2, :, :] = vgg_inp
+        zz = xx[None, :]
+        print("shape of zz: " + str(type(zz)))
+        vgg_b3 = self.vgg(zz)
 
 
         return  output,vgg_b3,self.selectedOut[3]
