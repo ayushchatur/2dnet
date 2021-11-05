@@ -442,14 +442,14 @@ class DD_net(nn.Module):
         # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
         vgg_inp = self.transform(dc7_1)
-        print("shape of vgg_inp: " + str(type(vgg_inp)))
+        print("shape of vgg_inp: " + str(vgg_inp.size()))
 
         xx = torch.zeros((3, 224, 224))
         xx[0, :, :] = vgg_inp
         xx[1, :, :] = vgg_inp
         xx[2, :, :] = vgg_inp
         zz = xx[None, :]
-        print("shape of zz: " + str(type(zz)))
+        print("shape of zz: " + str(zz.size()))
         vgg_b3 = self.vgg(zz)
 
 
