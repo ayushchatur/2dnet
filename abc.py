@@ -788,9 +788,9 @@ def dd_train(gpu, args):
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                print("shape of vgg_b1 DDnet image" + str(vgg_b1.shape))  ## size: ([1, 1, 512, 512])
-                print("shape of vgg_b1 disk image " + str(
-                    hq_vgg_b1_gpu.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
+                # print("shape of vgg_b1 DDnet image" + str(vgg_b1.shape))  ## size: ([1, 1, 512, 512])
+                # print("shape of vgg_b1 disk image " + str(
+                #     hq_vgg_b1_gpu.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
 
                 # print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
                 #     vgg_en_image.shape))  ## ([2, 256, 56, 56])
