@@ -316,17 +316,23 @@ class DD_net(nn.Module):
         self.input = None                       #######CHANGE
         self.nb_filter = 16
         self.transform = new_transform
+        self.selectedOut = OrderedDict()
         ## ~~~~~~~~~~~~~~~~~~~~~~~ VGG model inside our model ~~~~~~~~~~~~~~~~~~~~ ##
         self.vgg = torchmodels.vgg16(pretrained=True)
         for param in self.vgg.features.parameters():  # disable grad for trained layers
             param.requires_grad = False
-        first_conv_layer = {
-            str(0): nn.Conv2d(in_channels=1, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1,
-                              bias=True)} ## a conv. layer for converting bnw image with 1 channel to 3 channel for vgg
+        # first_conv_layer = {
+        #     str(0): nn.Conv2d(in_channels=1, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1,
+        #                       bias=True)} ## a conv. layer for converting bnw image with 1 channel to 3 channel for vgg
         # first_conv_layer.extend(list(model.features))
+        # modules = list(list(self.vgg.children())[0])[:16]
         modules = list(list(self.vgg.children())[0])[:16]
+        for i in range(len(list(self.submodule._modules['features']))):
+            if i == 3:
+                self.submodule._modules['features'][i].register_forward_hook(self.forward_hook(i))
         # first_conv_layer.fromkeys(modules: modules)
-        module_dict = {**first_conv_layer, **{str(i + 1): modules[i] for i in range(len(modules))}}
+        # module_dict = {**first_conv_layer, **{str(i + 1): modules[i] for i in range(len(modules))}}
+        module_dict = {**{str(i + 1): modules[i] for i in range(len(modules))}}
         module_ordict = collections.OrderedDict(module_dict)
         # first_conv_layer.extend(modules)
         self.vgg = nn.Sequential(module_ordict)
@@ -370,7 +376,10 @@ class DD_net(nn.Module):
         self.batch12 = nn.BatchNorm2d(self.convT6.out_channels+self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
 
-
+    def forward_hook(self,layer):
+        def hook(module,input,output):
+            self.selectedOut[layer] = output
+        return hook
     #def Forward(self, inputs):
     def forward(self, inputs):
 
@@ -430,13 +439,13 @@ class DD_net(nn.Module):
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
         output = dc7_1
-
+        print('shape of dc7_1', output.size())
         vgg_inp = self.transform(dc7_1)
         # print("type of dc7_1: " + str(type(dc7_1)))
-        vgg_en = self.vgg(vgg_inp)
+        vgg_b3 = self.vgg(vgg_inp)
 
 
-        return  output,vgg_en
+        return  output,vgg_b3,self.selectedOut[3]
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -565,19 +574,26 @@ new_transform =   transforms.Compose([
 ])
 
 class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l,root_hq_vgg, length, transform=new_transform):
+    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length, transform=new_transform):
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
-        self.data_root_h_vgg = root_hq_vgg + "/"
+        self.data_root_h_vgg_3 = root_hq_vgg3 + "/"
+        self.data_root_h_vgg_1 = root_hq_vgg1 + "/"
+
         self.img_list_l = os.listdir(self.data_root_l)
         self.img_list_h = os.listdir(self.data_root_h)
-        self.vgg_hq_img = os.listdir(self.data_root_h_vgg)
+        self.vgg_hq_img3 = os.listdir(self.data_root_h_vgg_3)
+        self.vgg_hq_img1 = os.listdir(self.data_root_h_vgg_1)
+
         self.img_list_l.sort()
         self.img_list_h.sort()
-        self.vgg_hq_img.sort()
+        self.vgg_hq_img3.sort()
+        self.vgg_hq_img1.sort()
+
         self.img_list_l = self.img_list_l[0:length]
         self.img_list_h = self.img_list_h[0:length]
-        self.vgg_hq_img_list = self.vgg_hq_img[0:length]
+        self.vgg_hq_img_list3 = self.vgg_hq_img3[0:length]
+        self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
 
         self.transform = transform
     def __len__(self):
@@ -603,7 +619,8 @@ class CTDataset(Dataset):
         # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
         # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        vgg_hq_img = torch.load(self.data_root_h_vgg + self.vgg_hq_img_list[idx]) ## shape : 1,244,244,64
+        vgg_hq_img3 = torch.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
+        vgg_hq_img1 = torch.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
 
         input_file = self.img_list_l[idx] ## low quality image
         assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
@@ -629,14 +646,16 @@ class CTDataset(Dataset):
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
 
-        vgg_hq_img_tsr =  vgg_hq_img.type(torch.FloatTensor)
+        vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
+        vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
 
 
 
         sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_hq_img_tsr, ## 1,256,56,56
+                  'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
+                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return sample
@@ -665,14 +684,18 @@ def dd_train(gpu, args):
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-    root_hq_vgg_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
-    root_hq_vgg_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
-    root_hq_vgg_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
+    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
+    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
+    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
+
+    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b1/HQ/"
+    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b1/HQ/"
+    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b1/HQ/"
 
     #root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l,root_hq_vgg=root_hq_vgg_tr, length=5120)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l,root_hq_vgg=root_hq_vgg_te, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l,root_hq_vgg=root_hq_vgg_va, length=784)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
+    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
+    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
     #trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
     #testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
     #valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
@@ -745,26 +768,27 @@ def dd_train(gpu, args):
                   train_MSSSIM_loss[k])
             train_sampler.set_epoch(epochs)
             for batch_index, batch_samples in enumerate(train_loader):
-                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
+                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 #inputs = LQ_img.cuda(non_blocking=True)
                 # print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([1, 1, 512,512])
 
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_op = HQ_vgg.to(gpu)
+                hq_vgg_b1_gpu = hq_vgg_b1.to(gpu)
                 # print("shape of vgg_hq pre computed HQ image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
                 #targets = HQ_img.cuda(non_blocking=True)
                 #outputs = model(inputs).to(rank)
-                enhanced_image,vgg_en_image  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                # print("shape of DDnet HQ image" + str(enhanced_image.shape))  ## size: ([1, 1, 512, 512])
-                # print("shape of DDnet target HQ image " + str(
-                #     hq_image.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
+                enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+                print("shape of vgg_b1 DDnet image" + str(vgg_b1.shape))  ## size: ([1, 1, 512, 512])
+                print("shape of vgg_b1 disk image " + str(
+                    hq_vgg_b1_gpu.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
 
                 # print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
                 #     vgg_en_image.shape))  ## ([2, 256, 56, 56])
                 #
                 # assert (lq_image.size() == enhanced_image.size())
-                # assert (HQ_vgg_op[0].size() == vgg_en_image.size())
+                assert (hq_vgg_b1_gpu[0].size() == vgg_b1.size())
 
                 # print(vgg_en_image[0])
                 # print("")
@@ -783,8 +807,9 @@ def dd_train(gpu, args):
                 # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op[0]) # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = nn.MSELoss()(hq_vgg_b1_gpu,vgg_b1)
                 #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-                loss = MSE_loss + 0.5*(MSSSIM_loss)
+                loss = MSE_loss + 0.5*(MSSSIM_loss + MSSSIM_loss2)
 
                 # loss = MSE_loss
 
@@ -802,20 +827,23 @@ def dd_train(gpu, args):
             scheduler.step() #
             #print("Validation")
             for batch_index, batch_samples in enumerate(val_loader):
-                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
+                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, HQ_vgg_b1   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
                 HQ_vgg_gpu = HQ_vgg.to(gpu)
-                enhanced_image, vgg_en_image1 = model(lq_image)
+                HQ_vgg_b1_gpu1 = HQ_vgg_b1.to(gpu)
+                enhanced_image, vgg_b3,vgg_b1_ = model(lq_image)
 
                 #outputs = model(inputs)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 # loss = MSE_loss + 0.5*(MSSSIM_loss)
 
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-                MSSSIM_loss = nn.MSELoss()(vgg_en_image1, HQ_vgg_gpu[0])  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = nn.MSELoss()(vgg_b3, HQ_vgg_gpu[0])  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = nn.MSELoss()(HQ_vgg_b1_gpu1[0], vgg_b1_)  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+
                 # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-                loss = MSE_loss + 0.5 * (MSSSIM_loss)
+                loss = MSE_loss + 0.5 * (MSSSIM_loss + MSSSIM_loss2)
                 #loss = MSE_loss
                 #print("MSE_loss", MSE_loss.item())
                 #print("MSSSIM_loss", MSSSIM_loss.item())
@@ -868,21 +896,25 @@ def dd_train(gpu, args):
         model.load_state_dict(torch.load(model_file, map_location=map_location))
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins,HQ_vgg = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op']
+        file_name, HQ_img, LQ_img, maxs, mins,HQ_vgg, HQ_vgg_b1 = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
         HQ_vgg_op = HQ_vgg.to(gpu)
+        HQ_vgg_b1_gpu = HQ_vgg_b1.to(gpu)
 
-        enhanced_image, vgg_en_image1 = model(lq_image)
+        enhanced_image, vgg_b3,vgg_b1 = model(lq_image)
 
         # outputs = model(inputs)
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = nn.MSELoss()(HQ_vgg_op[0], vgg_en_image1)
+        MSSSIM_loss = nn.MSELoss()(HQ_vgg_op[0], vgg_b3)
+        MSSSIM_loss2 = nn.MSELoss()(HQ_vgg_b1_gpu[0], vgg_b1)
+
         # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-        loss = MSE_loss + 0.5 * (MSSSIM_loss)
+        loss = MSE_loss + 0.5 * (MSSSIM_loss + MSSSIM_loss2)
         #loss = MSE_loss
         print("MSE_loss", MSE_loss.item())
         print("MSSSIM_loss", MSSSIM_loss.item())
+        print("MSSSIM_loss2", MSSSIM_loss2.item())
         print("Total_loss", loss.item())
         print("====================================")
         test_MSE_loss.append(MSE_loss.item())
