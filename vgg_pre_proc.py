@@ -125,7 +125,14 @@ new_transform =   transforms.Compose([
 # features_b3 = extractor_b3(zz)
 # print()
 
-
+print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
+data1 = np.loadtxt('./visualize/test/msssim_loss_target_in')
+print("size of in target: " + str(data1.shape))
+data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
+print("size of out target: " + str(data2.shape))
+data3 = np.append(data1, data2)
+print("size of append target: " + str(data3.shape))
+print("Final avergae MSSSIM LOSS: " + str(100 - (100 * np.average(data3))))
 for entry in r.iterdir():
     img = read_correct_image(entry) # 512x512
     tra = new_transform(img)  # 1,224,224 tensor
