@@ -327,6 +327,10 @@ class DD_net(nn.Module):
         # first_conv_layer.extend(list(model.features))
         # modules = list(list(self.vgg.children())[0])[:16]
         modules = list(list(self.vgg.children())[0])[:16]
+        w = modules[0].weight
+        modules[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        modules[0].weight = nn.Parameter(torch.mean(w, dim=1, keepdim=True))
+
         for i in range(len(list(self.vgg._modules['features']))):
             if i == 3:
                 self.vgg._modules['features'][i].register_forward_hook(self.forward_hook(i))
@@ -443,14 +447,10 @@ class DD_net(nn.Module):
         # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
         vgg_inp = self.transform(dc7_1)
-        print("shape of vgg_inp: " + str(vgg_inp.size()))
-
-        self.xx[0, :, :] = vgg_inp
-        self.xx[1, :, :] = vgg_inp
-        self.xx[2, :, :] = vgg_inp
-        print("shape of zz: " + str(self.zz.size()))
+        # print("shape of vgg_inp: " + str(vgg_inp.size()))
+        # print("shape of zz: " + str(self.zz.size()))
         # zz.to(gpu)
-        vgg_b3 = self.vgg(self.zz)
+        vgg_b3 = self.vgg(vgg_inp)
 
 
         return  output,vgg_b3,self.selectedOut[3]
