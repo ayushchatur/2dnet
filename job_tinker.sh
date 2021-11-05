@@ -1,5 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ddnet
+export batch_size=1
+export epochs=3
+#SBATCH --job-name=ddnet_$epoch_$batch_size
 #SBATCH --partition=a100_normal_q
 #SBATCH --time=16:00:00
 #SBATCH -A HPCBIGDATA2
@@ -47,6 +49,12 @@ mkdir -p ./visualize/test/input/
 mkdir -p ./visualize/test/target/
 
 
+echo "SLURM_JOBID="$SLURM_JOBID
+echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
+echo "SLURM_NNODES"=$SLURM_NNODES
+echo "SLURMTMPDIR="$SLURMTMPDIR
+
+echo "working directory = "$SLURM_SUBMIT_DIR
 
 # module load  apps  site/infer/easybuild/setup
 # module load PyTorch/1.7.1-fosscuda-2020b
@@ -54,8 +62,7 @@ module reset
 module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
 nvidia-smi
-export batch_size=1
-export epochs=3
+
 
 # cd ~
 source activate test
