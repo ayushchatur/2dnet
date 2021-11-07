@@ -573,9 +573,10 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
 new_transform =   transforms.Compose([
         # transforms.ToTensor(),
+        # transforms.ToTensor(),
         # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
         # transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
-        transforms.CenterCrop((224, 224))
+        transforms.Resize((224, 224))
         # transforms.ToPILImage(),
         # transforms.ToTensor()
         # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
