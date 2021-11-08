@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
+from matplotlib import pyplot as plt
 from skimage import io, transform
 from skimage import img_as_float
 import os
@@ -753,10 +754,13 @@ def dd_train(gpu, args):
     #max_test_img = 784;
 
     train_MSE_loss = [0]
-    train_MSSSIM_loss = [0]
+    train_MSSSIM_loss_b1 = [0]
+    train_MSSSIM_loss_b3 = [0]
     train_total_loss = [0]
     val_MSE_loss = [0]
-    val_MSSSIM_loss = [0]
+    val_MSSI_loss_b1 = [0]
+    val_MSSI_loss_b3 = [0]
+
     val_total_loss = [0]
     test_MSE_loss = [0]
     test_MSSSIM_loss = [0]
@@ -768,78 +772,42 @@ def dd_train(gpu, args):
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
-    ## ~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~")
     if (not(path.exists(model_file))):
         for k in range(epochs):
-
+            total_train_loss = None
             # print("Epoch: ", k)
-            print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
-                  train_MSSSIM_loss[k])
+            print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi b1: ',
+                  train_MSSSIM_loss_b1[k], ' mssi b3: ', train_MSSSIM_loss_b3[k])
             train_sampler.set_epoch(epochs)
             for batch_index, batch_samples in enumerate(train_loader):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu) ## low quality image
-                #inputs = LQ_img.cuda(non_blocking=True)
-                # print("shape of DDnet LQ image: " + str(lq_image.shape)) # size current : ([1, 1, 512,512])
+                hq_image = HQ_img.to(gpu) ## high quality target image
+                HQ_vgg_op = HQ_vgg.to(gpu) ## high quality vgg b3 target
+                hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
-                hq_image = HQ_img.to(gpu)
-                HQ_vgg_op = HQ_vgg.to(gpu)
-                hq_vgg_b1_gpu = hq_vgg_b1.to(gpu)
-                # print("shape of vgg_hq pre computed HQ image: " + str(HQ_vgg_op.shape)) # size current : ([2, 1, 256, 56, 56])
-                #targets = HQ_img.cuda(non_blocking=True)
-                #outputs = model(inputs).to(rank)
                 enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                # print("shape of vgg_b1 DDnet image" + str(vgg_b1.shape))  ## size: ([1, 1, 512, 512])
-                # print("shape of vgg_b1 disk image " + str(
-                #     hq_vgg_b1_gpu.shape))  ## should be equal to LQ image.size() ; size: ([2, 1, 512, 512])
 
-                # print("shape of vgg output of enhanced image(ddnet->vgg): before reshape" + str(
-                #     vgg_en_image.shape))  ## ([2, 256, 56, 56])
-                #
-                # assert (lq_image.size() == enhanced_image.size())
-                # assert (hq_vgg_b1_gpu[0].size() == vgg_b1.size())
-
-                # print(vgg_en_image[0])
-                # print("")
-                # print(vgg_en_image[0])
-                # print("HQ pre compute")
-                # print(torch.std(HQ_vgg_op[0]))
-                # print(torch.min(HQ_vgg_op[0]))
-                # print(torch.max(HQ_vgg_op[0]))
-                #
-                # print("vgg output")
-                # print(torch.std(vgg_en_image[0]))
-                # print(torch.min(vgg_en_image[0]))
-                # print(torch.max(vgg_en_image[0]))
-
-                # reshape = enhanced_image.squeeze(HQ_vgg_op) # HQ_vgg_op should be 1,256,56,56
-                # print("shape of vgg output of enhanced image(ddnet): after reshape" + str(reshape.shape))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_en_image,HQ_vgg_op)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
-
-                # MSSSIM_loss = nn.MSELoss()(vgg_en_image , HQ_vgg_op[0]) # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                # MSSSIM_loss2 = nn.MSELoss()(hq_vgg_b1_gpu[0],vgg_b1)
-                #loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-                loss = MSE_loss + 0.5*(MSSSIM_loss + MSSSIM_loss2)
-
-                # loss = MSE_loss
-
-
+                total_train_loss = MSE_loss + (0.5*(MSSSIM_loss + MSSSIM_loss2))
                 train_MSE_loss.append(MSE_loss.item())
-                train_MSSSIM_loss.append(MSSSIM_loss.item())
-                train_total_loss.append(loss.item())
+                train_MSSSIM_loss_b1.append(MSSSIM_loss.item())
+                train_MSSSIM_loss_b3.append(MSSSIM_loss2.item())
+                train_total_loss.append(total_train_loss.item())
 
                 model.zero_grad() # zero the gradients
-                loss.backward() # back propogation
+                total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
 
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
             scheduler.step() #
-            #print("Validation")
+            print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
+            val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, HQ_vgg_b1   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu)
@@ -848,25 +816,16 @@ def dd_train(gpu, args):
                 HQ_vgg_b1_gpu1 = HQ_vgg_b1.to(gpu)
                 enhanced_image, vgg_b3,vgg_b1_ = model(lq_image)
 
-                #outputs = model(inputs)
-                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                # loss = MSE_loss + 0.5*(MSSSIM_loss)
-
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3, HQ_vgg_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-
-                # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-                loss = MSE_loss + 0.5 * (MSSSIM_loss + MSSSIM_loss2)
-                #loss = MSE_loss
-                #print("MSE_loss", MSE_loss.item())
-                #print("MSSSIM_loss", MSSSIM_loss.item())
-                #print("Total_loss", loss.item())
-                #print("====================================")
+                val_loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
 
                 val_MSE_loss.append(MSE_loss.item())
-                val_MSSSIM_loss.append(MSSSIM_loss.item())
-                val_total_loss.append(loss.item())
+                val_MSSI_loss_b1.append(MSSSIM_loss.item())
+                val_MSSI_loss_b3.append(MSSSIM_loss2.item())
+
+                val_total_loss.append(val_loss.item())
 
                 if(k==epochs-1):
                     if (rank == 0):
@@ -880,17 +839,44 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
-            print('total loss:' , loss)
+            print('total validation loss:' , val_loss)
         print("train end")
         if(rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
+            x_axis = range(epochs)
+            plt.figure(num=1)
+            plt.plot(x_axis,train_MSSSIM_loss_b1,label="loss_b1")
+            plt.plot(x_axis,train_MSSSIM_loss_b3,label="loss_b1")
+            plt.plot(x_axis, train_total_loss,label="total_loss")
+            plt.xlabel("epochs")
+            plt.ylabel("values (fp)")
+            plt.legend()
+            plt.title('Training loss vs epoch')
+            plt.savefig('train_loss.png',format='png')
+            plt.figure(num=2)
+            plt.plot(x_axis, val_MSSI_loss_b1, label="loss_b1")
+            plt.plot(x_axis, val_MSSI_loss_b3, label="loss_b1")
+            plt.plot(x_axis, val_total_loss, label="total_loss")
+            plt.xlabel("epochs")
+            plt.ylabel("values (fp)")
+            plt.legend()
+            plt.title('Validation loss vs epoch')
+            plt.savefig('val_loss.png', format='png')
+            plt.figure(num=3)
+            plt.plot(x_axis,train_total_loss,label="train loss")
+            plt.plot(x_axis,val_total_loss,label="validate loss")
+            plt.xlabel("epochs")
+            plt.ylabel("values (fp)")
+            plt.legend()
+            plt.title('loss vs epoch')
+            plt.savefig('both_loss.png', format='png')
 
         with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
             for item in train_MSE_loss:
                 f.write("%f " % item)
         with open('loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in train_MSSSIM_loss:
+            for item in train_MSSSIM_loss_b1:
                 f.write("%f " % item)
         with open('loss/train_total_loss_' + str(rank), 'w') as f:
             for item in train_total_loss:
@@ -899,7 +885,7 @@ def dd_train(gpu, args):
             for item in val_MSE_loss:
                 f.write("%f " % item)
         with open('loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in val_MSSSIM_loss:
+            for item in val_MSSI_loss_b1:
                 f.write("%f " % item)
         with open('loss/val_total_loss_' + str(rank), 'w') as f:
             for item in val_total_loss:
@@ -918,14 +904,12 @@ def dd_train(gpu, args):
 
         enhanced_image, vgg_b3,vgg_b1 = model(lq_image)
 
-        # outputs = model(inputs)
+
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
         MSSSIM_loss = torch.mean(torch.abs(torch.sub(HQ_vgg_op, vgg_b3)))
         MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu, vgg_b1)))
 
-        # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-        loss = MSE_loss + 0.5 * (MSSSIM_loss + MSSSIM_loss2)
-        #loss = MSE_loss
+        loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
         print("MSE_loss", MSE_loss.item())
         print("MSSSIM_loss", MSSSIM_loss.item())
         print("MSSSIM_loss2", MSSSIM_loss2.item())
@@ -946,7 +930,14 @@ def dd_train(gpu, args):
         #inputs_test[l_map:l_map+batch, :, :, :].cpu()
         #gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
-
+    x_axis = range(len(test_total_loss))
+    plt.figure(num=3)
+    plt.plot(x_axis, test_total_loss, label="test loss")
+    plt.xlabel("range")
+    plt.ylabel("values (fp)")
+    plt.legend()
+    plt.title('test loss vs batch')
+    plt.savefig('test_loss.png', format='png')
     print("testing end")
     with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
         for item in test_MSE_loss:
