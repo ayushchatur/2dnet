@@ -766,6 +766,17 @@ def dd_train(gpu, args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
 
+    loss_b1_list = [0]
+    loss_b3_list = [0]
+    loss_total_list = [0]
+    train_mse_list = [0]
+    val_loss_b1_list = [0]
+    val_loss_b3_list = [0]
+    val_loss_total_list = [0]
+    val_mse_list = [0]
+
+
+
     start = datetime.now()
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
@@ -777,9 +788,11 @@ def dd_train(gpu, args):
         for k in range(epochs):
             total_train_loss = None
             # print("Epoch: ", k)
-            print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi b1: ',
-                  train_MSSSIM_loss_b1[k], ' mssi b3: ', train_MSSSIM_loss_b3[k])
+            print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
+                  loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
+
+
             for batch_index, batch_samples in enumerate(train_loader):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu) ## low quality image
@@ -806,6 +819,11 @@ def dd_train(gpu, args):
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
             scheduler.step() #
+            loss_b1_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
+            loss_b3_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
+            loss_total_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
+            train_mse_list.append((sum(train_MSE_loss)/len(train_MSE_loss)))
+
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
             val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
@@ -840,32 +858,38 @@ def dd_train(gpu, args):
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
             print('total validation loss:' , val_loss)
+            val_loss_b1_list.append((sum(val_MSSI_loss_b1) / len(val_MSSI_loss_b1)))
+            val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
+            val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
+            val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
         print("train end")
         if(rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
             x_axis = range(epochs)
             plt.figure(num=1)
-            plt.plot(x_axis,train_MSSSIM_loss_b1,label="loss_b1")
-            plt.plot(x_axis,train_MSSSIM_loss_b3,label="loss_b1")
-            plt.plot(x_axis, train_total_loss,label="total_loss")
+            plt.plot(x_axis,train_mse_list,label="mse loss")
+            plt.plot(x_axis, loss_b1_list, label="loss_b1")
+            plt.plot(x_axis,loss_b3_list,label="loss_b3")
+            plt.plot(x_axis, loss_total_list,label="total_loss")
             plt.xlabel("epochs")
             plt.ylabel("values (fp)")
             plt.legend()
             plt.title('Training loss vs epoch')
             plt.savefig('train_loss.png',format='png')
             plt.figure(num=2)
-            plt.plot(x_axis, val_MSSI_loss_b1, label="loss_b1")
-            plt.plot(x_axis, val_MSSI_loss_b3, label="loss_b1")
-            plt.plot(x_axis, val_total_loss, label="total_loss")
+            plt.plot(x_axis,val_mse_list,label="val loss")
+            plt.plot(x_axis, val_loss_b1_list, label="val loss_b1")
+            plt.plot(x_axis, val_loss_b3_list, label="val loss_b1")
+            plt.plot(x_axis, val_loss_total_list, label="val total_loss")
             plt.xlabel("epochs")
             plt.ylabel("values (fp)")
             plt.legend()
             plt.title('Validation loss vs epoch')
             plt.savefig('val_loss.png', format='png')
             plt.figure(num=3)
-            plt.plot(x_axis,train_total_loss,label="train loss")
-            plt.plot(x_axis,val_total_loss,label="validate loss")
+            plt.plot(x_axis,loss_total_list,label="train loss")
+            plt.plot(x_axis,val_loss_total_list,label="validate loss")
             plt.xlabel("epochs")
             plt.ylabel("values (fp)")
             plt.legend()
@@ -932,7 +956,7 @@ def dd_train(gpu, args):
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
     x_axis = range(len(test_total_loss))
     plt.figure(num=3)
-    plt.plot(x_axis, test_total_loss, label="test loss")
+    plt.scatter(x_axis, test_total_loss, label="test loss")
     plt.xlabel("range")
     plt.ylabel("values (fp)")
     plt.legend()
