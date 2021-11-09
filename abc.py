@@ -866,7 +866,7 @@ def dd_train(gpu, args):
         if(rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
-            x_axis = range(epochs)
+            x_axis = range(epochs+1)
             plt.figure(num=1)
             plt.plot(x_axis,train_mse_list,label="mse loss")
             plt.plot(x_axis, loss_b1_list, label="loss_b1")
