@@ -32,6 +32,7 @@ import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
+from collections import defaultdict
 from torchvision import models as torchmodels
 
 # vizualize_folder = "./visualize"
@@ -680,6 +681,52 @@ def setup(rank, world_size):
 
 def cleanup():
     dist.destroy_process_group()
+def generate_plots(epochs):
+    try:
+        rank = 0
+        train_mse_list = np.load('loss/train_MSE_loss_' + str(rank)).mean(axis=1).tolist()
+        loss_b1_list = np.load('loss/train_loss_b1' + str(rank)).mean(axis=1).tolist()
+        loss_b3_list = np.load('loss/train_loss_b3' + str(rank)).mean(axis=1).tolist()
+        loss_total_list = np.load('loss/train_total_loss' + str(rank)).mean(axis=1).tolist()
+
+        val_mse_list = np.load('loss/val_MSE_loss' + str(rank)).mean(axis=1).tolist()
+        val_loss_b1_list = np.load('loss/val_loss_b1' + str(rank)).mean(axis=1).tolist()
+        val_loss_b3_list = np.load('loss/val_loss_b3' + str(rank)).mean(axis=1).tolist()
+        val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)).mean(axis=1).tolist()
+
+    except Exception as e:
+        np.load()
+        x_axis = range(epochs)
+        plt.figure(num=1)
+        plt.plot(x_axis,train_mse_list,label="mse loss", marker='o')
+        plt.plot(x_axis, loss_b1_list, label="loss_b1",marker='o')
+        plt.plot(x_axis,loss_b3_list,label="loss_b3", marker='o')
+        plt.plot(x_axis, loss_total_list,label="total_loss",marker='*')
+        plt.xlabel("epochs")
+        plt.ylabel("values (fp)")
+        plt.legend()
+        plt.title('Training loss vs epoch')
+        plt.savefig('train_loss.png',format='png',dpi = 300)
+        plt.figure(num=2)
+        plt.plot(x_axis, val_mse_list,label="val loss",marker='o')
+        plt.plot(x_axis, val_loss_b1_list, label="val loss_b1",marker='o')
+        plt.plot(x_axis, val_loss_b3_list, label="val loss_b1",marker='o')
+        plt.plot(x_axis, val_loss_total_list, label="val total_loss",marker='*')
+        plt.xlabel("epochs")
+        plt.ylabel("values (fp)")
+        plt.legend()
+        plt.title('Validation loss vs epoch')
+        plt.savefig('val_loss.png', format='png' , dpi = 300)
+        plt.figure(num=3)
+        plt.plot(x_axis,loss_total_list,label="train loss")
+        plt.plot(x_axis,val_loss_total_list,label="validate loss")
+        plt.xlabel("epochs")
+        plt.ylabel("values (fp)")
+        plt.legend()
+        plt.title('loss vs epoch')
+        plt.savefig('both_loss.png', format='png')
+    except Exception as e:
+        print('exception occurred saving graphs :', type(e), e)
 
 def dd_train(gpu, args):
 
@@ -753,27 +800,28 @@ def dd_train(gpu, args):
     #max_val_img_init = 16;
     #max_test_img = 784;
 
-    train_MSE_loss = [0]
-    train_MSSSIM_loss_b1 = [0]
-    train_MSSSIM_loss_b3 = [0]
-    train_total_loss = [0]
-    val_MSE_loss = [0]
-    val_MSSI_loss_b1 = [0]
-    val_MSSI_loss_b3 = [0]
+    train_epoch_loss = defaultdict(list)
+    train_MSE_loss = defaultdict(list)
+    train_loss_b1 = defaultdict(list)
+    train_loss_b3 =defaultdict(list)
+    train_total_loss = defaultdict(list)
+    val_MSE_loss = defaultdict(list)
+    val_MSSI_loss_b1 = defaultdict(list)
+    val_MSSI_loss_b3 = defaultdict(list)
 
-    val_total_loss = [0]
-    test_MSE_loss = [0]
-    test_MSSSIM_loss = [0]
-    test_total_loss = [0]
+    val_total_loss = defaultdict(list)
+    test_MSE_loss = defaultdict(list)
+    test_MSSSIM_loss =defaultdict(list)
+    test_total_loss =defaultdict(list)
 
-    loss_b1_list = [0]
-    loss_b3_list = [0]
-    loss_total_list = [0]
-    train_mse_list = [0]
-    val_loss_b1_list = [0]
-    val_loss_b3_list = [0]
-    val_loss_total_list = [0]
-    val_mse_list = [0]
+    loss_b1_list =defaultdict(list)
+    loss_b3_list = defaultdict(list)
+    loss_total_list = defaultdict(list)
+    train_mse_list = defaultdict(list)
+    val_loss_b1_list = defaultdict(list)
+    val_loss_b3_list = defaultdict(list)
+    val_loss_total_list = defaultdict(list)
+    val_mse_list = defaultdict(list)
 
 
 
@@ -807,10 +855,10 @@ def dd_train(gpu, args):
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
                 total_train_loss = MSE_loss + (0.5*(MSSSIM_loss + MSSSIM_loss2))
-                train_MSE_loss.append(MSE_loss.item())
-                train_MSSSIM_loss_b1.append(MSSSIM_loss.item())
-                train_MSSSIM_loss_b3.append(MSSSIM_loss2.item())
-                train_total_loss.append(total_train_loss.item())
+                train_MSE_loss[k].append(MSE_loss.item())
+                train_loss_b1[k].append(MSSSIM_loss.item())
+                train_loss_b3[k].append(MSSSIM_loss2.item())
+                train_total_loss[k].append(total_train_loss.item())
 
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
@@ -819,10 +867,10 @@ def dd_train(gpu, args):
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
             scheduler.step() #
-            loss_b1_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
-            loss_b3_list.append((sum(train_MSSSIM_loss_b3)/len(train_MSSSIM_loss_b3)))
-            loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
-            train_mse_list.append((sum(train_MSE_loss)/len(train_MSE_loss)))
+            # loss_b1_list.append((sum(train_loss_b1[k])/len(train_loss_b1)))
+            # loss_b3_list.append((sum(train_loss_b3)/len(train_loss_b3)))
+            # loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
+            # train_mse_list.append((sum(train_MSE_loss)/len(train_MSE_loss)))
 
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
             val_loss = None
@@ -839,11 +887,11 @@ def dd_train(gpu, args):
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 val_loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
 
-                val_MSE_loss.append(MSE_loss.item())
-                val_MSSI_loss_b1.append(MSSSIM_loss.item())
-                val_MSSI_loss_b3.append(MSSSIM_loss2.item())
+                val_MSE_loss[k].append(MSE_loss.item())
+                val_MSSI_loss_b1[k].append(MSSSIM_loss.item())
+                val_MSSI_loss_b3[k].append(MSSSIM_loss2.item())
 
-                val_total_loss.append(val_loss.item())
+                val_total_loss[k].append(val_loss.item())
 
                 if(k==epochs-1):
                     if (rank == 0):
@@ -858,63 +906,27 @@ def dd_train(gpu, args):
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
             print('total validation loss:' , val_loss)
-            val_loss_b1_list.append((sum(val_MSSI_loss_b1) / len(val_MSSI_loss_b1)))
-            val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
-            val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
-            val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
+            # val_loss_b1_list.append((sum(val_MSSI_loss_b1) / len(val_MSSI_loss_b1)))
+            # val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
+            # val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
+            # val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
         print("train end")
         if(rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
-            x_axis = range(epochs+1)
-            plt.figure(num=1)
-            plt.plot(x_axis,train_mse_list,label="mse loss", marker='o')
-            plt.plot(x_axis, loss_b1_list, label="loss_b1",marker='o')
-            plt.plot(x_axis,loss_b3_list,label="loss_b3", marker='0')
-            plt.plot(x_axis, loss_total_list,label="total_loss",marker='*')
-            plt.xlabel("epochs")
-            plt.ylabel("values (fp)")
-            plt.legend()
-            plt.title('Training loss vs epoch')
-            plt.savefig('train_loss.png',format='png',dpi = 300)
-            plt.figure(num=2)
-            plt.plot(x_axis, val_mse_list,label="val loss",marker='o')
-            plt.plot(x_axis, val_loss_b1_list, label="val loss_b1",marker='o')
-            plt.plot(x_axis, val_loss_b3_list, label="val loss_b1",marker='o')
-            plt.plot(x_axis, val_loss_total_list, label="val total_loss",marker='*')
-            plt.xlabel("epochs")
-            plt.ylabel("values (fp)")
-            plt.legend()
-            plt.title('Validation loss vs epoch')
-            plt.savefig('val_loss.png', format='png' , dpi = 300)
-            plt.figure(num=3)
-            plt.plot(x_axis,loss_total_list,label="train loss")
-            plt.plot(x_axis,val_loss_total_list,label="validate loss")
-            plt.xlabel("epochs")
-            plt.ylabel("values (fp)")
-            plt.legend()
-            plt.title('loss vs epoch')
-            plt.savefig('both_loss.png', format='png')
+            try:
+                print('serializing losses')
+                np.save('loss/train_MSE_loss_'  + str(rank) ,np.array([ v for k,v in train_MSE_loss.items()]))
+                np.save('loss/train_loss_b1'  + str(rank),np.array([ v for k,v in train_loss_b1.items()]))
+                np.save('loss/train_loss_b3'  + str(rank),np.array([ v for k,v in train_loss_b3.items()]))
+                np.save('loss/train_total_loss'  + str(rank),np.array([ v for k,v in train_total_loss.items()]))
 
-        with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
-            for item in train_MSE_loss:
-                f.write("%f " % item)
-        with open('loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in train_MSSSIM_loss_b1:
-                f.write("%f " % item)
-        with open('loss/train_total_loss_' + str(rank), 'w') as f:
-            for item in train_total_loss:
-                f.write("%f " % item)
-        with open('loss/val_MSE_loss_' + str(rank), 'w') as f:
-            for item in val_MSE_loss:
-                f.write("%f " % item)
-        with open('loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in val_MSSI_loss_b1:
-                f.write("%f " % item)
-        with open('loss/val_total_loss_' + str(rank), 'w') as f:
-            for item in val_total_loss:
-                f.write("%f " % item)
-
+                np.save('loss/val_MSE_loss'  + str(rank),np.array([ v for k,v in val_MSE_loss.items()]))
+                np.save('loss/val_loss_b1'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b1.items()]))
+                np.save('loss/val_loss_b3'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b3.items()]))
+                np.save('loss/val_total_loss_'  + str(rank),np.array([ v for k,v in val_total_loss.items()]))
+            except Exception as e:
+                print('error serializing: ', e)
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
@@ -981,6 +993,7 @@ def dd_train(gpu, args):
     data3 = np.append(data1,data2)
     print("size of append target: " + str(data3.shape))
     print("Final avergae MSSSIM LOSS: " + str(100-(100*np.average(data3))))
+    generate_plots(epochs)
 
 def main():
 
