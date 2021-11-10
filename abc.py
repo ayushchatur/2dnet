@@ -820,8 +820,8 @@ def dd_train(gpu, args):
 
             scheduler.step() #
             loss_b1_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
-            loss_b3_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
-            loss_total_list.append((sum(train_MSSSIM_loss_b1)/len(train_MSSSIM_loss_b1)))
+            loss_b3_list.append((sum(train_MSSSIM_loss_b3)/len(train_MSSSIM_loss_b3)))
+            loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
             train_mse_list.append((sum(train_MSE_loss)/len(train_MSE_loss)))
 
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
