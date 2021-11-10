@@ -810,9 +810,10 @@ def dd_train(gpu, args):
     val_MSSI_loss_b3 = defaultdict(list)
 
     val_total_loss = defaultdict(list)
-    test_MSE_loss = defaultdict(list)
-    test_MSSSIM_loss =defaultdict(list)
-    test_total_loss =defaultdict(list)
+    test_MSE_loss = [0]
+    test_loss_b1 =[0]
+    test_loss_b3 =[0]
+    test_total_loss =[0]
 
     loss_b1_list =defaultdict(list)
     loss_b3_list = defaultdict(list)
@@ -952,7 +953,8 @@ def dd_train(gpu, args):
         print("Total_loss", loss.item())
         print("====================================")
         test_MSE_loss.append(MSE_loss.item())
-        test_MSSSIM_loss.append(MSSSIM_loss.item())
+        test_loss_b1.append(MSSSIM_loss.item())
+        test_loss_b3.append(MSSSIM_loss2.item())
         test_total_loss.append(loss.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
@@ -979,7 +981,7 @@ def dd_train(gpu, args):
         for item in test_MSE_loss:
             f.write("%f " % item)
     with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in test_MSSSIM_loss:
+        for item in test_loss_b1:
             f.write("%f " % item)
     with open('loss/test_total_loss_' + str(rank), 'w') as f:
         for item in test_total_loss:
