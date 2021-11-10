@@ -970,7 +970,7 @@ def dd_train(gpu, args):
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
     x_axis = range(len(test_total_loss))
     plt.figure(num=3)
-    plt.scatter(x_axis, test_total_loss, 'o:r' ,label="test loss")
+    plt.scatter(x_axis, test_total_loss,label="test loss")
     plt.xlabel("range")
     plt.ylabel("values (fp)")
     plt.legend()
