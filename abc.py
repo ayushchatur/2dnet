@@ -683,16 +683,20 @@ def cleanup():
     dist.destroy_process_group()
 def generate_plots(epochs):
     try:
+        files = ['./train_loss.png','./val_loss.png','./both_loss.png']
+        for f in files:
+            if os.path.isfile(f):
+                os.remove(f)  # Opt.: os.system("rm "+strFile)
         rank = 0
-        train_mse_list = np.load('loss/train_MSE_loss_' + str(rank)).mean(axis=1).tolist()
-        loss_b1_list = np.load('loss/train_loss_b1_' + str(rank)).mean(axis=1).tolist()
-        loss_b3_list = np.load('loss/train_loss_b3_' + str(rank)).mean(axis=1).tolist()
-        loss_total_list = np.load('loss/train_total_loss_' + str(rank)).mean(axis=1).tolist()
+        train_mse_list = np.load('loss/train_MSE_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
+        loss_b1_list = np.load('loss/train_loss_b1_' + str(rank)+ ".npy").mean(axis=1).tolist()
+        loss_b3_list = np.load('loss/train_loss_b3_' + str(rank) + ".npy").mean(axis=1).tolist()
+        loss_total_list = np.load('loss/train_total_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
 
-        val_mse_list = np.load('loss/val_MSE_loss_' + str(rank)).mean(axis=1).tolist()
-        val_loss_b1_list = np.load('loss/val_loss_b1_' + str(rank)).mean(axis=1).tolist()
-        val_loss_b3_list = np.load('loss/val_loss_b3' + str(rank)).mean(axis=1).tolist()
-        val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)).mean(axis=1).tolist()
+        val_mse_list = np.load('loss/val_MSE_loss_' + str(rank)+".npy").mean(axis=1).tolist()
+        val_loss_b1_list = np.load('loss/val_loss_b1_' + str(rank)+".npy").mean(axis=1).tolist()
+        val_loss_b3_list = np.load('loss/val_loss_b3_' + str(rank)+".npy").mean(axis=1).tolist()
+        val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)+".npy").mean(axis=1).tolist()
 
         np.load()
         x_axis = range(epochs)
@@ -717,14 +721,17 @@ def generate_plots(epochs):
         plt.title('Validation loss vs epoch')
         plt.savefig('val_loss.png', format='png' , dpi = 300)
         plt.figure(num=3)
-        plt.plot(x_axis,loss_total_list,label="train loss")
-        plt.plot(x_axis,val_loss_total_list,label="validate loss")
+        plt.plot(x_axis,loss_total_list,label="train loss",marker='o')
+        plt.plot(x_axis,val_loss_total_list,label="validate loss",marker='*')
         plt.xlabel("epochs")
         plt.ylabel("values (fp)")
         plt.legend()
         plt.title('loss vs epoch')
-        plt.savefig('both_loss.png', format='png')
+        plt.savefig('both_loss.png', format='png',dpi = 300)
     except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        print(exc_type, fname, exc_tb.tb_lineno)
         print('exception occurred saving graphs :', type(e), e)
 
 def dd_train(gpu, args):
