@@ -330,7 +330,7 @@ class DD_net(nn.Module):
         # modules = list(list(self.vgg.children())[0])[:16]
         modules = list(list(self.vgg.children())[0])[:16]
         w = modules[0].weight
-        modules[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        modules[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False) # [3,224,224] -> [1,224,224] , [1,512,512] -> 224,224
         modules[0].weight = nn.Parameter(torch.mean(w, dim=1, keepdim=True))
 
         for i in range(len(list(self.vgg._modules['features']))):
@@ -448,7 +448,7 @@ class DD_net(nn.Module):
         output = dc7_1
         # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
-        vgg_inp = self.transform(dc7_1)
+        vgg_inp = self.transform(dc7_1) ## [1,512,512] -> [1,224,224]
         # print("shape of vgg_inp: " + str(vgg_inp.size()))
         # print("shape of zz: " + str(self.zz.size()))
         # zz.to(gpu)
@@ -685,16 +685,15 @@ def generate_plots(epochs):
     try:
         rank = 0
         train_mse_list = np.load('loss/train_MSE_loss_' + str(rank)).mean(axis=1).tolist()
-        loss_b1_list = np.load('loss/train_loss_b1' + str(rank)).mean(axis=1).tolist()
-        loss_b3_list = np.load('loss/train_loss_b3' + str(rank)).mean(axis=1).tolist()
-        loss_total_list = np.load('loss/train_total_loss' + str(rank)).mean(axis=1).tolist()
+        loss_b1_list = np.load('loss/train_loss_b1_' + str(rank)).mean(axis=1).tolist()
+        loss_b3_list = np.load('loss/train_loss_b3_' + str(rank)).mean(axis=1).tolist()
+        loss_total_list = np.load('loss/train_total_loss_' + str(rank)).mean(axis=1).tolist()
 
-        val_mse_list = np.load('loss/val_MSE_loss' + str(rank)).mean(axis=1).tolist()
-        val_loss_b1_list = np.load('loss/val_loss_b1' + str(rank)).mean(axis=1).tolist()
+        val_mse_list = np.load('loss/val_MSE_loss_' + str(rank)).mean(axis=1).tolist()
+        val_loss_b1_list = np.load('loss/val_loss_b1_' + str(rank)).mean(axis=1).tolist()
         val_loss_b3_list = np.load('loss/val_loss_b3' + str(rank)).mean(axis=1).tolist()
         val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)).mean(axis=1).tolist()
 
-    except Exception as e:
         np.load()
         x_axis = range(epochs)
         plt.figure(num=1)
@@ -918,13 +917,13 @@ def dd_train(gpu, args):
             try:
                 print('serializing losses')
                 np.save('loss/train_MSE_loss_'  + str(rank) ,np.array([ v for k,v in train_MSE_loss.items()]))
-                np.save('loss/train_loss_b1'  + str(rank),np.array([ v for k,v in train_loss_b1.items()]))
-                np.save('loss/train_loss_b3'  + str(rank),np.array([ v for k,v in train_loss_b3.items()]))
-                np.save('loss/train_total_loss'  + str(rank),np.array([ v for k,v in train_total_loss.items()]))
+                np.save('loss/train_loss_b1_'  + str(rank),np.array([ v for k,v in train_loss_b1.items()]))
+                np.save('loss/train_loss_b3_'  + str(rank),np.array([ v for k,v in train_loss_b3.items()]))
+                np.save('loss/train_total_loss_'  + str(rank),np.array([ v for k,v in train_total_loss.items()]))
 
-                np.save('loss/val_MSE_loss'  + str(rank),np.array([ v for k,v in val_MSE_loss.items()]))
-                np.save('loss/val_loss_b1'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b1.items()]))
-                np.save('loss/val_loss_b3'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b3.items()]))
+                np.save('loss/val_MSE_loss_'  + str(rank),np.array([ v for k,v in val_MSE_loss.items()]))
+                np.save('loss/val_loss_b1_'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b1.items()]))
+                np.save('loss/val_loss_b3_'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b3.items()]))
                 np.save('loss/val_total_loss_'  + str(rank),np.array([ v for k,v in val_total_loss.items()]))
             except Exception as e:
                 print('error serializing: ', e)
