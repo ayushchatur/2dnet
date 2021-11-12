@@ -698,7 +698,7 @@ def generate_plots(epochs):
         val_loss_b3_list = np.load('loss/val_loss_b3_' + str(rank)+".npy").mean(axis=1).tolist()
         val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)+".npy").mean(axis=1).tolist()
 
-        np.load()
+
         x_axis = range(epochs)
         plt.figure(num=1)
         plt.plot(x_axis,train_mse_list,label="mse loss", marker='o')
