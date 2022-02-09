@@ -892,6 +892,10 @@ def dd_train(gpu, args):
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3, HQ_vgg_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                print(str(batch_index) + " : ")
+                print("en->vggb3: max" +  str(torch.max(vgg_b3)) +"min: "+ str(torch.min(vgg_b3)) + "avg: " + str(torch.mean(vgg_b3)) )
+                print("en->vggb1: max" + str(torch.max(vgg_b1_)) + "min: " + str(torch.min(vgg_b1_)) + "avg: " + str(
+                    torch.mean(vgg_b1_)))
                 val_loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
 
                 val_MSE_loss[k].append(MSE_loss.item())
