@@ -982,6 +982,18 @@ def dd_train(gpu, args):
         #inputs_test[l_map:l_map+batch, :, :, :].cpu()
         #gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
+
+    if (rank == 0):
+        print("Saving model parameters")
+        # torch.save(model.state_dict(), model_file)
+        try:
+            print('serializing test losses')
+            np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
+            np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
+            np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
+            np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
+        except Exception as e:
+            print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
     plt.figure(num=3)
     plt.scatter(x_axis, test_total_loss,label="test loss")
