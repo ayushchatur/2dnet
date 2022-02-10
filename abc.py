@@ -747,13 +747,13 @@ def dd_train(gpu, args):
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
-    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
-    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
+    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat2/train/vgg_output_b3/HQ/"
+    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat2/test/vgg_output_b3/HQ/"
+    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat2/val/vgg_output_b3/HQ/"
 
-    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b1/HQ/"
-    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b1/HQ/"
-    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b1/HQ/"
+    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat2/train/vgg_output_b1/HQ/"
+    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat2/test/vgg_output_b1/HQ/"
+    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat2/val/vgg_output_b1/HQ/"
 
     #root = add
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
@@ -856,12 +856,12 @@ def dd_train(gpu, args):
                 hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
                 enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                print(str(batch_index) + " : ")
-                print("en : max" + str(torch.max(enhanced_image)) + "min: " + str(torch.min(enhanced_image)) + "avg: " + str( torch.mean(enhanced_image)))
-                print("en->vggb3: max" + str(torch.max(vgg_en_image)) + "min: " + str(torch.min(vgg_en_image)) + "avg: " + str(
-                    torch.mean(vgg_en_image)))
-                print("en->vggb1: max" + str(torch.max(vgg_b1)) + "min: " + str(torch.min(vgg_b1)) + "avg: " + str(
-                    torch.mean(vgg_b1)))
+                # print(str(batch_index) + " : ")
+                # print("en : max" + str(torch.max(enhanced_image)) + "min: " + str(torch.min(enhanced_image)) + "avg: " + str( torch.mean(enhanced_image)))
+                # print("en->vggb3: max" + str(torch.max(vgg_en_image)) + "min: " + str(torch.min(vgg_en_image)) + "avg: " + str(
+                #     torch.mean(vgg_en_image)))
+                # print("en->vggb1: max" + str(torch.max(vgg_b1)) + "min: " + str(torch.min(vgg_b1)) + "avg: " + str(
+                #     torch.mean(vgg_b1)))
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_en_image,HQ_vgg_op)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
