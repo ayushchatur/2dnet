@@ -673,7 +673,6 @@ class CTDataset(Dataset):
             return sample
         except Exception as e:
             print("error occured in data loader get item type {} , {}".format(type(e),e))
-        return {}
 
 #jy
 def setup(rank, world_size):
