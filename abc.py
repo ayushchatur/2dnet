@@ -874,7 +874,7 @@ def dd_train(gpu, args):
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3,HQ_vgg_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
-                total_train_loss = MSE_loss + (0.5*(MSSSIM_loss + MSSSIM_loss2))
+                total_train_loss = MSE_loss + (0.1*(MSSSIM_loss + MSSSIM_loss2))
                 train_MSE_loss[k].append(MSE_loss.item())
                 train_loss_b1[k].append(MSSSIM_loss.item())
                 train_loss_b3[k].append(MSSSIM_loss2.item())
@@ -909,7 +909,7 @@ def dd_train(gpu, args):
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3, HQ_vgg_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                val_loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
+                val_loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
 
                 val_MSE_loss[k].append(MSE_loss.item())
                 val_MSSI_loss_b1[k].append(MSSSIM_loss.item())
@@ -972,7 +972,7 @@ def dd_train(gpu, args):
         MSSSIM_loss = torch.mean(torch.abs(torch.sub(HQ_vgg_b3, vgg_b3)))
         MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu, vgg_b1)))
 
-        loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
+        loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
         print("MSE_loss", MSE_loss.item())
         print("MSSSIM_loss", MSSSIM_loss.item())
         print("MSSSIM_loss2", MSSSIM_loss2.item())
