@@ -610,69 +610,66 @@ class CTDataset(Dataset):
     def __len__(self):
         return len(self.img_list_l)
     def __getitem__(self, idx):
-        try:
-            #print("Dataloader idx: ", idx)
-            if torch.is_tensor(idx):
-                idx = idx.tolist()
 
-            inputs_np = None
-            targets_np = None
-            rmin = 0
-            rmax = 1
+        #print("Dataloader idx: ", idx)
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
 
-            #print("HQ", self.data_root_h + self.img_list_h[idx])
-            #print("LQ", self.data_root_l + self.img_list_l[idx])
-            #image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-            #print("test")
-            #exit()
-            image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-            # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
-            # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
-            # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
-            image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-            print('loading pt files')
-            vgg_hq_img3 = torch.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
-            vgg_hq_img1 = torch.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
+        inputs_np = None
+        targets_np = None
+        rmin = 0
+        rmax = 1
 
-            input_file = self.img_list_l[idx] ## low quality image
-            assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
-            assert(image_target.shape[0] == 512 and image_target.shape[1] == 512)
-            cmax1 = np.amax(image_target)
-            cmin1 = np.amin(image_target)
-            image_target = rmin + ((image_target - cmin1)/(cmax1 - cmin1)*(rmax - rmin))
-            assert((np.amin(image_target)>=0) and (np.amax(image_target)<=1))
-            cmax2 = np.amax(image_input)
-            cmin2 = np.amin(image_input)
-            image_input = rmin + ((image_input - cmin2)/(cmax2 - cmin2)*(rmax - rmin))
-            assert((np.amin(image_input)>=0) and (np.amax(image_input)<=1))
-            mins = ((cmin1+cmin2)/2)
-            maxs = ((cmax1+cmax2)/2)
-            image_target = image_target.reshape((1, 512, 512))
-            image_input = image_input.reshape((1, 512, 512))
-            inputs_np = image_input
-            targets_np = image_target
+        #print("HQ", self.data_root_h + self.img_list_h[idx])
+        #print("LQ", self.data_root_l + self.img_list_l[idx])
+        #image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
+        #print("test")
+        #exit()
+        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
+        # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
+        # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
+        # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
+        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
+        vgg_hq_img3 = torch.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
+        vgg_hq_img1 = torch.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
 
-            inputs = torch.from_numpy(inputs_np)
-            targets = torch.from_numpy(targets_np)
+        input_file = self.img_list_l[idx] ## low quality image
+        assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
+        assert(image_target.shape[0] == 512 and image_target.shape[1] == 512)
+        cmax1 = np.amax(image_target)
+        cmin1 = np.amin(image_target)
+        image_target = rmin + ((image_target - cmin1)/(cmax1 - cmin1)*(rmax - rmin))
+        assert((np.amin(image_target)>=0) and (np.amax(image_target)<=1))
+        cmax2 = np.amax(image_input)
+        cmin2 = np.amin(image_input)
+        image_input = rmin + ((image_input - cmin2)/(cmax2 - cmin2)*(rmax - rmin))
+        assert((np.amin(image_input)>=0) and (np.amax(image_input)<=1))
+        mins = ((cmin1+cmin2)/2)
+        maxs = ((cmax1+cmax2)/2)
+        image_target = image_target.reshape((1, 512, 512))
+        image_input = image_input.reshape((1, 512, 512))
+        inputs_np = image_input
+        targets_np = image_target
 
-            inputs = inputs.type(torch.FloatTensor)
-            targets = targets.type(torch.FloatTensor)
+        inputs = torch.from_numpy(inputs_np)
+        targets = torch.from_numpy(targets_np)
 
-            vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
-            vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
+        inputs = inputs.type(torch.FloatTensor)
+        targets = targets.type(torch.FloatTensor)
 
-            print('returning batch index')
+        vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
+        vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
 
-            sample = {'vol': input_file,
-                      'HQ': targets,
-                      'LQ': inputs,
-                      'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
-                      'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
-                      'max': maxs,
-                      'min': mins}
-            return sample
-        except Exception as e:
-            print("error occured in data loader get item type {} , {}".format(type(e),e))
+
+
+        sample = {'vol': input_file,
+                  'HQ': targets,
+                  'LQ': inputs,
+                  'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
+                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
+                  'max': maxs,
+                  'min': mins}
+        return sample
 
 #jy
 def setup(rank, world_size):
@@ -859,12 +856,7 @@ def dd_train(gpu, args):
                 hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
                 enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-                # print(str(batch_index) + " : ")
-                # print("en : max" + str(torch.max(enhanced_image)) + "min: " + str(torch.min(enhanced_image)) + "avg: " + str( torch.mean(enhanced_image)))
-                # print("en->vggb3: max" + str(torch.max(vgg_en_image)) + "min: " + str(torch.min(vgg_en_image)) + "avg: " + str(
-                #     torch.mean(vgg_en_image)))
-                # print("en->vggb1: max" + str(torch.max(vgg_b1)) + "min: " + str(torch.min(vgg_b1)) + "avg: " + str(
-                #     torch.mean(vgg_b1)))
+
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_en_image,HQ_vgg_op)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
@@ -900,12 +892,6 @@ def dd_train(gpu, args):
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
                 MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3, HQ_vgg_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                # print(str(batch_index) + " : ")
-                # print("en : max" + str(torch.max(enhanced_image)) + "min: " + str(torch.min(enhanced_image)) + "avg: " + str(
-                #     torch.mean(enhanced_image)))
-                # print("en->vggb3: max" +  str(torch.max(vgg_b3)) +"min: "+ str(torch.min(vgg_b3)) + "avg: " + str(torch.mean(vgg_b3)) )
-                # print("en->vggb1: max" + str(torch.max(vgg_b1_)) + "min: " + str(torch.min(vgg_b1_)) + "avg: " + str(
-                #     torch.mean(vgg_b1_)))
                 val_loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
 
                 val_MSE_loss[k].append(MSE_loss.item())
@@ -989,17 +975,17 @@ def dd_train(gpu, args):
         #gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
 
-    if (rank == 0):
-        print("Saving model parameters")
-        # torch.save(model.state_dict(), model_file)
-        try:
-            print('serializing test losses')
-            np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
-            np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
-            np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
-            np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
-        except Exception as e:
-            print('error serializing: ', e)
+    # if (rank == 0):
+    #     print("Saving model parameters")
+    #     # torch.save(model.state_dict(), model_file)
+    #     try:
+    #         print('serializing test losses')
+    #         np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
+    #         np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
+    #         np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
+    #         np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
+    #     except Exception as e:
+    #         print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
     plt.figure(num=3)
     plt.scatter(x_axis, test_total_loss,label="test loss")
