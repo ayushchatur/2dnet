@@ -254,7 +254,7 @@ class denseblock(nn.Module):
         self.batch_norm2 = [self.batch_norm2_0, self.batch_norm2_1, self.batch_norm2_2, self.batch_norm2_3]
 
 
-    #def Forward(self, inputs):
+    #def `Forward`(self, inputs):
     def forward(self, inputs):                      ######CHANGE
         #x = self.input
         x = inputs
@@ -453,9 +453,16 @@ class DD_net(nn.Module):
         # print("shape of zz: " + str(self.zz.size()))
         # zz.to(gpu)
         vgg_b3 = self.vgg(vgg_inp)
+        vgg_b1 = self.selectedOut[3]
+        b1_max = torch.max(vgg_b1)
+        b3_max = torch.max(vgg_b3)
+        b1_min = torch.min(vgg_b1)
+        b3_min = torch.min(vgg_b3)
+        vgg_b3 = 0 + ((vgg_b3 - float(b3_min))/(float(b3_max) - float(b3_min))*(1 - 0))
+        vgg_b1 = 0 + ((vgg_b1 - float(b1_min))/(float(b1_max) - float(b1_min))*(1 - 0))
 
 
-        return  output,vgg_b3,self.selectedOut[3]
+        return  output,vgg_b3,vgg_b1
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -660,13 +667,19 @@ class CTDataset(Dataset):
         vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
         vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
 
+        b1_max = torch.max(vgg_hq_img_1)
+        b3_max = torch.max(vgg_hq_img_3)
+        b1_min = torch.min(vgg_hq_img_1)
+        b3_min = torch.min(vgg_hq_img_3)
+        vgg_b3 = rmin + ((vgg_hq_img_3 - float(b3_min)) / (float(b3_max) - float(b3_min)) * (rmax - rmin))
+        vgg_b1 = rmin + ((vgg_hq_img_1 - float(b1_min)) / (float(b1_max) - float(b1_min)) * (rmax - rmin))
 
 
         sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
-                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
+                  'HQ_vgg_op':vgg_b3, ## 1,256,56,56
+                  'HQ_vgg_b1': vgg_b1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return sample
@@ -852,13 +865,13 @@ def dd_train(gpu, args):
                 file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
-                HQ_vgg_op = HQ_vgg.to(gpu) ## high quality vgg b3 target
+                HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
                 hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
-                enhanced_image,vgg_en_image,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+                enhanced_image,vgg_b3,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
 
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_en_image,HQ_vgg_op)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3,HQ_vgg_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
                 total_train_loss = MSE_loss + (0.5*(MSSSIM_loss + MSSSIM_loss2))
@@ -942,14 +955,14 @@ def dd_train(gpu, args):
         file_name, HQ_img, LQ_img, maxs, mins,HQ_vgg, HQ_vgg_b1 = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
-        HQ_vgg_op = HQ_vgg.to(gpu)
+        HQ_vgg_b3 = HQ_vgg.to(gpu)
         HQ_vgg_b1_gpu = HQ_vgg_b1.to(gpu)
 
         enhanced_image, vgg_b3,vgg_b1 = model(lq_image)
 
 
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = torch.mean(torch.abs(torch.sub(HQ_vgg_op, vgg_b3)))
+        MSSSIM_loss = torch.mean(torch.abs(torch.sub(HQ_vgg_b3, vgg_b3)))
         MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu, vgg_b1)))
 
         loss = MSE_loss + (0.5 * (MSSSIM_loss + MSSSIM_loss2))
