@@ -883,6 +883,10 @@ def dd_train(gpu, args):
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
+            print('total training loss:', sum(train_total_loss[k])/len(train_total_loss))
+            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
+            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1[k]))
+            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3[k]))
 
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
@@ -925,7 +929,10 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
-            print('total validation loss:' , val_loss)
+            print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss))
+            print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
+            print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
+            print('validation b3:', sum(val_MSSI_loss_b3[k]) / len(val_MSSI_loss_b3[k]))
             # val_loss_b1_list.append((sum(val_MSSI_loss_b1) / len(val_MSSI_loss_b1)))
             # val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
             # val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
@@ -988,17 +995,17 @@ def dd_train(gpu, args):
         #gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
 
-    # if (rank == 0):
-    #     print("Saving model parameters")
-    #     # torch.save(model.state_dict(), model_file)
-    #     try:
-    #         print('serializing test losses')
-    #         np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
-    #         np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
-    #         np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
-    #         np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
-    #     except Exception as e:
-    #         print('error serializing: ', e)
+    if (rank == 0):
+        print("Saving model parameters")
+        # torch.save(model.state_dict(), model_file)
+        try:
+            print('serializing test losses')
+            np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
+            np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
+            np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
+            np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
+        except Exception as e:
+            print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
     plt.figure(num=3)
     plt.scatter(x_axis, test_total_loss,label="test loss")
