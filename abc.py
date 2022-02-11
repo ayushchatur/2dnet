@@ -661,7 +661,7 @@ class CTDataset(Dataset):
             vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
             vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
 
-
+            print('returning batch index')
 
             sample = {'vol': input_file,
                       'HQ': targets,
