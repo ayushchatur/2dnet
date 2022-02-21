@@ -373,7 +373,7 @@ class DD_net(nn.Module):
         self.batch12 = nn.BatchNorm2d(self.convT6.out_channels+self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
     #def Forward(self, inputs):
-    def forward(self, inputs):
+    def forward(self, inputs,target):
 
         self.input = inputs
         #print("Size of input: ", inputs.size())
@@ -439,20 +439,24 @@ class DD_net(nn.Module):
         # zz.to(gpu)
         if output.shape[1] != 3:
             output = output.repeat(1, 3, 1, 1)
-            # target = target.repeat(1, 3, 1, 1)
+            target = target.repeat(1, 3, 1, 1)
         output = (output - self.mean) / self.std
-        # target = (target - self.mean) / self.std
+        target = (target - self.mean) / self.std
         if self.resize:
             output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
-            # target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
+            target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
         # y = target
         # b1,b3
-        b1 = self.blocks[0](output)
-        b2 = self.blocks[1](b1)
-        b3 = self.blocks[2](b2)
+        out_b1 = self.blocks[0](output)
+        out_b2 = self.blocks[1](out_b1)
+        out_b3 = self.blocks[2](out_b2)
+
+        tar_b1 = self.blocks[0](target)
+        tar_b2 = self.blocks[1](tar_b1)
+        tar_b3 = self.blocks[2](tar_b2)
 
 
-        return  dc7_1,b3,b1
+        return  dc7_1,out_b3,out_b1,tar_b1,tar_b3
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -592,8 +596,6 @@ class CTDataset(Dataset):
         self.img_list_h = self.img_list_h[0:length]
         self.vgg_hq_img_list3 = self.vgg_hq_img3[0:length]
         self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
-
-        self.transform = transform
         self.sample = dict()
     def __len__(self):
         return len(self.img_list_l)
@@ -618,8 +620,8 @@ class CTDataset(Dataset):
         # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
         # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        vgg_hq_img3 = np.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
-        vgg_hq_img1 = np.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
+        # vgg_hq_img3 = np.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
+        # vgg_hq_img1 = np.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
 
         input_file = self.img_list_l[idx] ## low quality image
         assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
@@ -645,18 +647,18 @@ class CTDataset(Dataset):
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
 
-        vgg_hq_b3 =  torch.from_numpy(vgg_hq_img3)
-        vgg_hq_b1 =  torch.from_numpy(vgg_hq_img1)
+        # vgg_hq_b3 =  torch.from_numpy(vgg_hq_img3)
+        # vgg_hq_b1 =  torch.from_numpy(vgg_hq_img1)
+        #
+        # vgg_hq_b3 = vgg_hq_b3.type(torch.FloatTensor)
+        # vgg_hq_b1 = vgg_hq_b1.type(torch.FloatTensor)
 
-        vgg_hq_b3 = vgg_hq_b3.type(torch.FloatTensor)
-        vgg_hq_b1 = vgg_hq_b1.type(torch.FloatTensor)
-
-        print("hq vgg b3 {} b1 {}".format(vgg_hq_b3.shape , vgg_hq_b1.shape))
+        # print("hq vgg b3 {} b1 {}".format(vgg_hq_b3.shape , vgg_hq_b1.shape))
         self.sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
-                  'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
+                  # 'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
+                  # 'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return self.sample
@@ -848,17 +850,17 @@ def dd_train(gpu, args):
 
 
             for batch_index, batch_samples in enumerate(train_loader):
-                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
+                file_name, HQ_img, LQ_img, maxs, mins,   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
-                HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
-                hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
+                # HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
+                # hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
-                enhanced_image,vgg_b3,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+                enhanced_image,out_vgg_b3,out_vgg_b1,tar_b3,tar_b1  = model(lq_image,hq_image)  # vgg_en_image should be 1,256,56,56
 
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3,HQ_vgg_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1,tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
                 total_train_loss = MSE_loss + (0.1*(MSSSIM_loss + MSSSIM_loss2))
                 train_MSE_loss[k].append(MSE_loss.item())
