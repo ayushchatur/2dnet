@@ -6,6 +6,7 @@
 # @Site :
 # @File : train_main.py
 # @Software: PyCharm
+import torchvision
 from torchvision import transforms
 import collections
 from collections import OrderedDict
@@ -315,33 +316,23 @@ class denseblock(nn.Module):
 class DD_net(nn.Module):
     def __init__(self):
         super(DD_net, self).__init__()
+        resize = True
         self.input = None                       #######CHANGE
         self.nb_filter = 16
-        self.transform = new_transform
-        self.selectedOut = OrderedDict()
-        ## ~~~~~~~~~~~~~~~~~~~~~~~ VGG model inside our model ~~~~~~~~~~~~~~~~~~~~ ##
-        self.vgg = torchmodels.vgg16(pretrained=True)
-        for param in self.vgg.features.parameters():  # disable grad for trained layers
-            param.requires_grad = False
-        # first_conv_layer = {
-        #     str(0): nn.Conv2d(in_channels=1, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1,
-        #                       bias=True)} ## a conv. layer for converting bnw image with 1 channel to 3 channel for vgg
-        # first_conv_layer.extend(list(model.features))
-        # modules = list(list(self.vgg.children())[0])[:16]
-        modules = list(list(self.vgg.children())[0])[:16]
-        w = modules[0].weight
-        modules[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False) # [3,224,224] -> [1,224,224] , [1,512,512] -> 224,224
-        modules[0].weight = nn.Parameter(torch.mean(w, dim=1, keepdim=True))
+        blocks = []
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[:4].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[4:9].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[9:16].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[16:23].eval())
+        for bl in blocks:
+            for p in bl.parameters():
+                p.requires_grad = False
 
-        for i in range(len(list(self.vgg._modules['features']))):
-            if i == 3:
-                self.vgg._modules['features'][i].register_forward_hook(self.forward_hook(i))
-        # first_conv_layer.fromkeys(modules: modules)
-        # module_dict = {**first_conv_layer, **{str(i + 1): modules[i] for i in range(len(modules))}}
-        module_dict = {**{str(i + 1): modules[i] for i in range(len(modules))}}
-        module_ordict = collections.OrderedDict(module_dict)
-        # first_conv_layer.extend(modules)
-        self.vgg = nn.Sequential(module_ordict)
+        self.blocks = torch.nn.ModuleList(blocks)
+        self.transform = torch.nn.functional.interpolate
+        self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406], device='cuda').view(1, 3, 1, 1))
+        self.std = torch.nn.Parameter(torch.tensor([0.229, 0.224, 0.225], device='cuda').view(1, 3, 1, 1))
+        self.resize = resize
 
         ##################CHANGE###############
         self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7), padding = (3,3))
@@ -381,12 +372,6 @@ class DD_net(nn.Module):
         self.batch11 = nn.BatchNorm2d(self.convT5.out_channels)
         self.batch12 = nn.BatchNorm2d(self.convT6.out_channels+self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
-        self.xx = torch.zeros((3, 224, 224))
-        self.zz = self.xx[None, :]
-    def forward_hook(self,layer):
-        def hook(module,input,output):
-            self.selectedOut[layer] = output
-        return hook
     #def Forward(self, inputs):
     def forward(self, inputs):
 
@@ -448,21 +433,26 @@ class DD_net(nn.Module):
         output = dc7_1
         # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
-        vgg_inp = self.transform(dc7_1) ## [1,512,512] -> [1,224,224]
+
         # print("shape of vgg_inp: " + str(vgg_inp.size()))
         # print("shape of zz: " + str(self.zz.size()))
         # zz.to(gpu)
-        vgg_b3 = self.vgg(vgg_inp)
-        vgg_b1 = self.selectedOut[3]
-        b1_max = torch.max(vgg_b1)
-        b3_max = torch.max(vgg_b3)
-        b1_min = torch.min(vgg_b1)
-        b3_min = torch.min(vgg_b3)
-        vgg_b3 = 0 + ((vgg_b3 - float(b3_min))/(float(b3_max) - float(b3_min))*(1 - 0))
-        vgg_b1 = 0 + ((vgg_b1 - float(b1_min))/(float(b1_max) - float(b1_min))*(1 - 0))
+        if output.shape[1] != 3:
+            output = output.repeat(1, 3, 1, 1)
+            # target = target.repeat(1, 3, 1, 1)
+        output = (output - self.mean) / self.std
+        # target = (target - self.mean) / self.std
+        if self.resize:
+            output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
+            # target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
+        # y = target
+        # b1,b3
+        b1 = self.blocks[0](output)
+        b2 = self.blocks[1](b1)
+        b3 = self.blocks[2](b2)
 
 
-        return  output,vgg_b3,vgg_b1
+        return  dc7_1,b3,b1
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -762,13 +752,13 @@ def dd_train(gpu, args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
-    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
-    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
+    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat5/train/vgg_output_b3/HQ/"
+    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat5/test/vgg_output_b3/HQ/"
+    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat5/val/vgg_output_b3/HQ/"
 
-    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b1/HQ/"
-    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b1/HQ/"
-    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b1/HQ/"
+    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat5/train/vgg_output_b1/HQ/"
+    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat5/test/vgg_output_b1/HQ/"
+    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat5/val/vgg_output_b1/HQ/"
 
     #root = add
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
