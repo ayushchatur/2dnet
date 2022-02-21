@@ -864,18 +864,23 @@ def dd_train(gpu, args):
                 enhanced_image,out_vgg_b3,out_vgg_b1,tar_b3,tar_b1  = model(lq_image,hq_image)  # vgg_en_image should be 1,256,56,56
 
                 MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                b3_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                b1_loss = torch.mean(torch.abs(torch.sub(out_vgg_b1,tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1,tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
-                total_train_loss = MSE_loss + (0.1*(b3_loss + b1_loss))
+                total_train_loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2) )
+
                 train_MSE_loss[k].append(MSE_loss.item())
-                train_loss_b1[k].append(b1_loss.item())
-                train_loss_b3[k].append(b3_loss.item())
+                train_loss_b3[k].append(MSSSIM_loss.item())
+                train_loss_b1[k].append(MSSSIM_loss2.item())
                 train_total_loss[k].append(total_train_loss.item())
-                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,b3_loss,b1_loss,total_train_loss))
+
+
+                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,MSSSIM_loss,MSSSIM_loss2,total_train_loss))
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
+            print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss),k))
+
             print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss)))
             print('training  mse:', sum(train_total_loss[k])/len(train_total_loss))
             print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1))
@@ -970,10 +975,10 @@ def dd_train(gpu, args):
         print("Total_loss", loss.item())
         print("====================================")
         # test_MSE_loss
-        test_MSE_loss[0].append(MSE_loss.item())
-        test_loss_b1[0].append(MSSSIM_loss2.item())
-        test_loss_b3[0].append(MSSSIM_loss.item())
-        test_total_loss[0].append(loss.item())
+        test_MSE_loss.append(MSE_loss.item())
+        test_loss_b1.append(MSSSIM_loss2.item())
+        test_loss_b3.append(MSSSIM_loss.item())
+        test_total_loss.append(loss.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
         for m in range(batch_size):
