@@ -455,8 +455,8 @@ class DD_net(nn.Module):
         tar_b2 = self.blocks[1](tar_b1)
         tar_b3 = self.blocks[2](tar_b2)
 
-        print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
-        print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
+        # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
+        # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
 
         return  dc7_1,out_b3,out_b1,tar_b3,tar_b1
 
