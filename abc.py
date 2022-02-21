@@ -645,16 +645,18 @@ class CTDataset(Dataset):
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
 
-        vgg_hq_img_3 =  torch.from_numpy(vgg_hq_img3)
-        vgg_hq_img_1 =  torch.from_numpy(vgg_hq_img1)
-        vgg_hq_img_3 = vgg_hq_img_3.type(torch.FloatTensor)
-        vgg_hq_img_1 = vgg_hq_img_1.type(torch.FloatTensor)
-        print("hq vgg b3 {} b1 {}".format(vgg_hq_img_3.shape , vgg_hq_img_1.shape))
+        vgg_hq_b3 =  torch.from_numpy(vgg_hq_img3)
+        vgg_hq_b1 =  torch.from_numpy(vgg_hq_img1)
+
+        vgg_hq_b3 = vgg_hq_b3.type(torch.FloatTensor)
+        vgg_hq_b1 = vgg_hq_b1.type(torch.FloatTensor)
+
+        print("hq vgg b3 {} b1 {}".format(vgg_hq_b3.shape , vgg_hq_b1.shape))
         self.sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
-                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
+                  'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
+                  'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return self.sample
