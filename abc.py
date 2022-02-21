@@ -572,7 +572,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
 
 class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length, transform=new_transform):
+    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length):
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
         self.data_root_h_vgg_3 = root_hq_vgg3 + "/"
