@@ -752,12 +752,12 @@ def dd_train(gpu, args):
     root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b1/HQ/"
 
     #root = add
-    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
-    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
-    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=32)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=16)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=16)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
+    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
+    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
+    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=32)
+    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=16)
+    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=16)
     #trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
     #testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
     #valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
