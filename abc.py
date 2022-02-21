@@ -752,9 +752,12 @@ def dd_train(gpu, args):
     root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b1/HQ/"
 
     #root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
+    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
+    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
+    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=32)
+    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=16)
+    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=16)
     #trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
     #testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
     #valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
@@ -869,14 +872,14 @@ def dd_train(gpu, args):
                 train_loss_b1[k].append(b1_loss.item())
                 train_loss_b3[k].append(b3_loss.item())
                 train_total_loss[k].append(total_train_loss.item())
-
+                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,b3_loss,b1_loss,total_train_loss))
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
-            print('total training loss:', (sum(train_total_loss[k])/epochs))
-            print('training  mse:', sum(train_total_loss[k])/epochs)
-            print('training b1:', sum(train_loss_b1[k])/epochs)
-            print('training b3:', sum(train_loss_b3[k])/epochs)
+            print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss)))
+            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss))
+            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1))
+            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3))
 
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
@@ -948,29 +951,28 @@ def dd_train(gpu, args):
         model.load_state_dict(torch.load(model_file, map_location=map_location))
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins,HQ_vgg, HQ_vgg_b1 = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
+        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
-        HQ_vgg_b3 = HQ_vgg.to(gpu)
-        HQ_vgg_b1_gpu = HQ_vgg_b1.to(gpu)
 
-        enhanced_image, vgg_b3,vgg_b1 = model(lq_image)
+
+        enhanced_image, out_vgg_b3,out_vgg_b1,tar_b3,tar_b1 = model(lq_image,hq_image)
 
 
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = torch.mean(torch.abs(torch.sub(HQ_vgg_b3, vgg_b3)))
-        MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu, vgg_b1)))
+        MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))
+        MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))
 
         loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
         print("MSE_loss", MSE_loss.item())
-        print("MSSSIM_loss", MSSSIM_loss.item())
-        print("MSSSIM_loss2", MSSSIM_loss2.item())
+        print("MSSSIM_loss b1", MSSSIM_loss2.item())
+        print("MSSSIM_loss2 b3", MSSSIM_loss.item())
         print("Total_loss", loss.item())
         print("====================================")
         # test_MSE_loss
         test_MSE_loss[0].append(MSE_loss.item())
-        test_loss_b1[0].append(MSSSIM_loss.item())
-        test_loss_b3[0].append(MSSSIM_loss2.item())
+        test_loss_b1[0].append(MSSSIM_loss2.item())
+        test_loss_b3[0].append(MSSSIM_loss.item())
         test_total_loss[0].append(loss.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
