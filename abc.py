@@ -879,12 +879,12 @@ def dd_train(gpu, args):
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
-            print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss),k))
+            print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
 
-            print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss)))
-            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss))
-            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1))
-            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3))
+            print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss[k])))
+            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
+            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1[k]))
+            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3[k]))
 
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
@@ -926,7 +926,7 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
-            print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss))
+            print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss[k]))
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
             print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
             print('validation b3:', sum(val_MSSI_loss_b3[k]) / len(val_MSSI_loss_b3[k]))
