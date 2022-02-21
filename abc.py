@@ -657,19 +657,11 @@ class CTDataset(Dataset):
         vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
         vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
 
-        b1_max = torch.max(vgg_hq_img_1)
-        b3_max = torch.max(vgg_hq_img_3)
-        b1_min = torch.min(vgg_hq_img_1)
-        b3_min = torch.min(vgg_hq_img_3)
-        vgg_b3 = rmin + ((vgg_hq_img_3 - float(b3_min)) / (float(b3_max) - float(b3_min)) * (rmax - rmin))
-        vgg_b1 = rmin + ((vgg_hq_img_1 - float(b1_min)) / (float(b1_max) - float(b1_min)) * (rmax - rmin))
-
-
         sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op':vgg_b3, ## 1,256,56,56
-                  'HQ_vgg_b1': vgg_b1,  ## 1,256,56,56
+                  'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
+                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return sample
@@ -860,36 +852,36 @@ def dd_train(gpu, args):
             train_sampler.set_epoch(epochs)
 
 
-            for batch_index, batch_samples in enumerate(train_loader):
-                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
-                lq_image = LQ_img.to(gpu) ## low quality image
-                hq_image = HQ_img.to(gpu) ## high quality target image
-                HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
-                hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
-
-                enhanced_image,vgg_b3,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
-
-                MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3,HQ_vgg_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-
-                total_train_loss = MSE_loss + (0.1*(MSSSIM_loss + MSSSIM_loss2))
-                train_MSE_loss[k].append(MSE_loss.item())
-                train_loss_b1[k].append(MSSSIM_loss.item())
-                train_loss_b3[k].append(MSSSIM_loss2.item())
-                train_total_loss[k].append(total_train_loss.item())
-
-                model.zero_grad() # zero the gradients
-                total_train_loss.backward() # back propogation
-                optimizer.step() # update the parameters
-            print('total training loss:', sum(train_total_loss[k])/len(train_total_loss))
-            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
-            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1[k]))
-            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3[k]))
-
-            # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
-
-            scheduler.step() #
+            # for batch_index, batch_samples in enumerate(train_loader):
+            #     file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, hq_vgg_b1  = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'] , batch_samples['HQ_vgg_b1']
+            #     lq_image = LQ_img.to(gpu) ## low quality image
+            #     hq_image = HQ_img.to(gpu) ## high quality target image
+            #     HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
+            #     hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
+            #
+            #     enhanced_image,vgg_b3,vgg_b1  = model(lq_image)  # vgg_en_image should be 1,256,56,56
+            #
+            #     MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
+            #     MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3,HQ_vgg_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+            #     MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(vgg_b1,hq_vgg_b1_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+            #
+            #     total_train_loss = MSE_loss + (0.1*(MSSSIM_loss + MSSSIM_loss2))
+            #     train_MSE_loss[k].append(MSE_loss.item())
+            #     train_loss_b1[k].append(MSSSIM_loss.item())
+            #     train_loss_b3[k].append(MSSSIM_loss2.item())
+            #     train_total_loss[k].append(total_train_loss.item())
+            #
+            #     model.zero_grad() # zero the gradients
+            #     total_train_loss.backward() # back propogation
+            #     optimizer.step() # update the parameters
+            # print('total training loss:', sum(train_total_loss[k])/len(train_total_loss))
+            # print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
+            # print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1[k]))
+            # print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3[k]))
+            #
+            # # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
+            #
+            # scheduler.step() #
             # loss_b1_list.append((sum(train_loss_b1[k])/len(train_loss_b1)))
             # loss_b3_list.append((sum(train_loss_b3)/len(train_loss_b3)))
             # loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
