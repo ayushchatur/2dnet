@@ -848,8 +848,8 @@ def dd_train(gpu, args):
         for k in range(epochs):
             total_train_loss = None
             # print("Epoch: ", k)
-            print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
-                  loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
+            # print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
+            #       loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
 
 
@@ -874,11 +874,11 @@ def dd_train(gpu, args):
                 train_total_loss[k].append(total_train_loss.item())
 
 
-                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,MSSSIM_loss,MSSSIM_loss2,total_train_loss))
+                # print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,MSSSIM_loss,MSSSIM_loss2,total_train_loss))
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
-            print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
+            # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
 
             print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss[k])))
             print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
