@@ -594,6 +594,7 @@ class CTDataset(Dataset):
         self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
 
         self.transform = transform
+        self.sample = dict()
     def __len__(self):
         return len(self.img_list_l)
     def __getitem__(self, idx):
@@ -648,15 +649,15 @@ class CTDataset(Dataset):
         vgg_hq_img_1 =  torch.from_numpy(vgg_hq_img1)
         vgg_hq_img_3 = vgg_hq_img_3.type(torch.FloatTensor)
         vgg_hq_img_1 = vgg_hq_img_1.type(torch.FloatTensor)
-
-        sample = {'vol': input_file,
+        print("hq vgg b3 {} b1 {}".format(vgg_hq_img_3.shape , vgg_hq_img_1.shape))
+        self.sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
                   'HQ_vgg_op':vgg_hq_img_3, ## 1,256,56,56
                   'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
-        return sample
+        return self.sample
 
 #jy
 def setup(rank, world_size):
