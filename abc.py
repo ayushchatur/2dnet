@@ -458,7 +458,7 @@ class DD_net(nn.Module):
         print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
         print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
 
-        return  dc7_1,out_b3,out_b1,tar_b1,tar_b3
+        return  dc7_1,out_b3,out_b1,tar_b3,tar_b1
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
