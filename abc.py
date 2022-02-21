@@ -758,8 +758,10 @@ def dd_train(gpu, args):
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
+
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
+
     root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat1/train/vgg_output_b3/HQ/"
     root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat1/test/vgg_output_b3/HQ/"
     root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat1/val/vgg_output_b3/HQ/"
@@ -824,15 +826,22 @@ def dd_train(gpu, args):
     train_loss_b1 = defaultdict(list)
     train_loss_b3 =defaultdict(list)
     train_total_loss = defaultdict(list)
+
     val_MSE_loss = defaultdict(list)
     val_MSSI_loss_b1 = defaultdict(list)
     val_MSSI_loss_b3 = defaultdict(list)
-
     val_total_loss = defaultdict(list)
-    test_MSE_loss = [0]
-    test_loss_b1 =[0]
-    test_loss_b3 =[0]
-    test_total_loss =[0]
+
+
+    test_MSE_loss = []
+    test_loss_b1 = []
+    test_loss_b3 = []
+    test_total_loss = []
+
+    # test_MSE_loss = [0]
+    # test_loss_b1 =[0]
+    # test_loss_b3 =[0]
+    # test_total_loss =[0]
 
     loss_b1_list =defaultdict(list)
     loss_b3_list = defaultdict(list)
@@ -978,10 +987,11 @@ def dd_train(gpu, args):
         print("MSSSIM_loss2", MSSSIM_loss2.item())
         print("Total_loss", loss.item())
         print("====================================")
-        test_MSE_loss.append(MSE_loss.item())
-        test_loss_b1.append(MSSSIM_loss.item())
-        test_loss_b3.append(MSSSIM_loss2.item())
-        test_total_loss.append(loss.item())
+        # test_MSE_loss
+        test_MSE_loss[0].append(MSE_loss.item())
+        test_loss_b1[0].append(MSSSIM_loss.item())
+        test_loss_b3[0].append(MSSSIM_loss2.item())
+        test_total_loss[0].append(loss.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
         for m in range(batch_size):
@@ -1000,30 +1010,30 @@ def dd_train(gpu, args):
         # torch.save(model.state_dict(), model_file)
         try:
             print('serializing test losses')
-            np.save('loss/test_MSE_loss_' + str(rank), np.array([v for k, v in test_MSE_loss.items()]))
-            np.save('loss/test_loss_b1_' + str(rank), np.array([v for k, v in test_loss_b1.items()]))
-            np.save('loss/test_loss_b3_' + str(rank), np.array([v for k, v in test_loss_b3.items()]))
-            np.save('loss/test_total_loss_' + str(rank), np.array([v for k, v in test_total_loss.items()]))
+            np.save('loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
+            np.save('loss/test_loss_b1_' + str(rank), np.array( test_loss_b1))
+            np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
+            np.save('loss/test_total_loss_' + str(rank), np.array(test_total_loss))
         except Exception as e:
             print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
-    plt.figure(num=3)
-    plt.scatter(x_axis, test_total_loss,label="test loss")
-    plt.xlabel("range")
-    plt.ylabel("values (fp)")
-    plt.legend()
-    plt.title('test loss vs batch')
-    plt.savefig('test_loss.png', format='png',dpi=350)
+    # plt.figure(num=3)
+    # plt.scatter(x_axis, test_total_loss,label="test loss")
+    # plt.xlabel("range")
+    # plt.ylabel("values (fp)")
+    # plt.legend()
+    # plt.title('test loss vs batch')
+    # plt.savefig('test_loss.png', format='png',dpi=350)
     print("testing end")
-    with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-        for item in test_MSE_loss:
-            f.write("%f " % item)
-    with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in test_loss_b1:
-            f.write("%f " % item)
-    with open('loss/test_total_loss_' + str(rank), 'w') as f:
-        for item in test_total_loss:
-            f.write("%f " % item)
+    # with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
+    #     for item in test_MSE_loss:
+    #         f.write("%f " % item)
+    # with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
+    #     for item in test_loss_b1:
+    #         f.write("%f " % item)
+    # with open('loss/test_total_loss_' + str(rank), 'w') as f:
+    #     for item in test_total_loss:
+    #         f.write("%f " % item)
 
     print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
     data1 = np.loadtxt('./visualize/test/msssim_loss_target_in')
