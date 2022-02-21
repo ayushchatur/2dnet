@@ -644,8 +644,8 @@ class CTDataset(Dataset):
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
 
-        vgg_hq_img_3 =  vgg_hq_img3.from_numpy(vgg_hq_img3)
-        vgg_hq_img_1 =  vgg_hq_img1.from_numpy(vgg_hq_img1)
+        vgg_hq_img_3 =  torch.from_numpy(vgg_hq_img3)
+        vgg_hq_img_1 =  torch.from_numpy(vgg_hq_img1)
         vgg_hq_img_3 = vgg_hq_img_3.type(torch.FloatTensor)
         vgg_hq_img_1 = vgg_hq_img_1.type(torch.FloatTensor)
 
