@@ -889,16 +889,15 @@ def dd_train(gpu, args):
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
             val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
-                file_name, HQ_img, LQ_img, maxs, mins, HQ_vgg, HQ_vgg_b1   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min'], batch_samples['HQ_vgg_op'], batch_samples['HQ_vgg_b1']
+                file_name, HQ_img, LQ_img, maxs, mins   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
-                HQ_vgg_gpu = HQ_vgg.to(gpu)
-                HQ_vgg_b1_gpu1 = HQ_vgg_b1.to(gpu)
-                enhanced_image, vgg_b3,vgg_b1_ = model(lq_image)
+
+                enhanced_image, out_vgg_b3,out_vgg_b1,tar_b3,tar_b1   = model(lq_image,hq_image)
 
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(vgg_b3, HQ_vgg_gpu)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(HQ_vgg_b1_gpu1, vgg_b1_)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
                 val_loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
 
                 val_MSE_loss[k].append(MSE_loss.item())
