@@ -570,16 +570,6 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         for item in MSE_loss_in_target:
             f.write("%f\n" % item)
 
-new_transform =   transforms.Compose([
-        # transforms.ToTensor(),
-        # transforms.ToTensor(),
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
-        # transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
-        transforms.Resize((224, 224))
-        # transforms.ToPILImage(),
-        # transforms.ToTensor()
-        # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-])
 
 class CTDataset(Dataset):
     def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length, transform=new_transform):
@@ -627,8 +617,8 @@ class CTDataset(Dataset):
         # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
         # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        vgg_hq_img3 = torch.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
-        vgg_hq_img1 = torch.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
+        vgg_hq_img3 = np.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
+        vgg_hq_img1 = np.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
 
         input_file = self.img_list_l[idx] ## low quality image
         assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
@@ -654,8 +644,10 @@ class CTDataset(Dataset):
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
 
-        vgg_hq_img_3 =  vgg_hq_img3.type(torch.FloatTensor)
-        vgg_hq_img_1 =  vgg_hq_img1.type(torch.FloatTensor)
+        vgg_hq_img_3 =  vgg_hq_img3.from_numpy(vgg_hq_img3)
+        vgg_hq_img_1 =  vgg_hq_img1.from_numpy(vgg_hq_img1)
+        vgg_hq_img_3 = vgg_hq_img_3.type(torch.FloatTensor)
+        vgg_hq_img_1 = vgg_hq_img_1.type(torch.FloatTensor)
 
         sample = {'vol': input_file,
                   'HQ': targets,
@@ -744,13 +736,13 @@ def dd_train(gpu, args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat5/train/vgg_output_b3/HQ/"
-    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat5/test/vgg_output_b3/HQ/"
-    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat5/val/vgg_output_b3/HQ/"
+    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b3/HQ/"
+    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b3/HQ/"
+    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b3/HQ/"
 
-    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat5/train/vgg_output_b1/HQ/"
-    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat5/test/vgg_output_b1/HQ/"
-    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat5/val/vgg_output_b1/HQ/"
+    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b1/HQ/"
+    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b1/HQ/"
+    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b1/HQ/"
 
     #root = add
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
