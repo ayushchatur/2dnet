@@ -18,6 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
+import tqdm
 from matplotlib import pyplot as plt
 from skimage import io, transform
 from skimage import img_as_float
@@ -852,8 +853,9 @@ def dd_train(gpu, args):
             #       loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
 
-
+            outer= tqdm.tqdm(total = epochs,desc="Epoch", position = 0)
             for batch_index, batch_samples in enumerate(train_loader):
+                training = tqdm.tqdm(total = batch,desc="Training Batch", position = 1)
                 file_name, HQ_img, LQ_img, maxs, mins,   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
@@ -878,6 +880,7 @@ def dd_train(gpu, args):
                 model.zero_grad() # zero the gradients
                 total_train_loss.backward() # back propogation
                 optimizer.step() # update the parameters
+                training.update(1)
             # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
 
             print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss[k])))
@@ -897,6 +900,7 @@ def dd_train(gpu, args):
             val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
                 file_name, HQ_img, LQ_img, maxs, mins   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
+                vali = tqdm.tqdm(total=batch, desc="Training Batch", position=2)
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
 
@@ -925,6 +929,7 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
+                vali.update(1)
             print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss[k]))
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
             print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
@@ -933,6 +938,7 @@ def dd_train(gpu, args):
             # val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
             # val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
             # val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
+            outer.update(1)
         print("train end")
         if(rank == 0):
             print("Saving model parameters")
