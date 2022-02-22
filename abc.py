@@ -846,6 +846,7 @@ def dd_train(gpu, args):
 
     print("~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~")
     if (not(path.exists(model_file))):
+        outer = tqdm.tqdm(total=epochs, desc="Epoch", position=0)
         for k in range(epochs):
             total_train_loss = None
             # print("Epoch: ", k)
@@ -853,9 +854,9 @@ def dd_train(gpu, args):
             #       loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
 
-            outer= tqdm.tqdm(total = epochs,desc="Epoch", position = 0)
+            training = tqdm.tqdm(total=batch, desc="Training Batch", position=1)
             for batch_index, batch_samples in enumerate(train_loader):
-                training = tqdm.tqdm(total = batch,desc="Training Batch", position = 1)
+
                 file_name, HQ_img, LQ_img, maxs, mins,   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
