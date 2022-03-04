@@ -62,8 +62,8 @@ def init_env_variable():
     reconstructed_images = reconstructed_images + jobid
 
 def gaussian(window_size, sigma):
-    gauss = torch.Tensor([exp(-(x - window_size//2)**2/float(2*sigma**2)) for x in range(window_size)])
-    return gauss/gauss.sum()
+    gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
+    return gauss / gauss.sum()
 
 
 def create_window(window_size, channel=1):
@@ -173,17 +173,15 @@ def msssim(img1, img2, window_size=11, size_average=True, val_range=None, normal
     pow1 = mcs ** weights
     pow2 = ssims ** weights
 
-
     # From Matlab implementation https://ece.uwaterloo.ca/~z70wang/research/iwssim/
     output = torch.prod(pow1[:-1] * pow2[-1])
-    if(torch.isnan(output)):
+    if (torch.isnan(output)):
         print("NAN")
         print(pow1)
         print(pow2)
         print(ssims)
         print(mcs)
         exit()
-
 
     return output
 
@@ -212,6 +210,7 @@ class SSIM(torch.nn.Module):
 
         return ssim(img1, img2, window=window, window_size=self.window_size, size_average=self.size_average)
 
+
 class MSSSIM(torch.nn.Module):
     def __init__(self, window_size=11, size_average=True, channel=3):
         super(MSSSIM, self).__init__()
@@ -222,13 +221,13 @@ class MSSSIM(torch.nn.Module):
     def forward(self, img1, img2):
         # TODO: store window between calls if possible
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize="simple")
-        #return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
+        # return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
 
 
 class denseblock(nn.Module):
-    def __init__(self,nb_filter=16,filter_wh = 5):
+    def __init__(self, nb_filter=16, filter_wh=5):
         super(denseblock, self).__init__()
-        self.input = None                           ######CHANGE
+        self.input = None  ######CHANGE
         self.nb_filter = nb_filter
         self.nb_filter_wh = filter_wh
         ##################CHANGE###############
@@ -260,14 +259,13 @@ class denseblock(nn.Module):
     def forward(self, inputs):                      ######CHANGE
         #x = self.input
         x = inputs
-        #for i in range(4):
+        # for i in range(4):
         #    #conv = nn.BatchNorm2d(x.size()[1])(x)
         #    conv = self.batch_norm1[i](x)
         #    #if(self.conv1[i].weight.grad != None ):
         #    #    print("weight_grad_" + str(i) + "_1", self.conv1[i].weight.grad.max())
         #    conv = self.conv1[i](conv)      ######CHANGE
         #    conv = F.leaky_relu(conv)
-
 
         #    #conv = nn.BatchNorm2d(conv.size()[1])(conv)
         #    conv = self.batch_norm2[i](conv)
@@ -277,7 +275,6 @@ class denseblock(nn.Module):
         #    conv = F.leaky_relu(conv)
         #    x = torch.cat((x, conv),dim=1)
 
-
         conv_1 = self.batch_norm1_0(x)
         conv_1 = self.conv1_0(conv_1)
         conv_1 = F.leaky_relu(conv_1)
@@ -285,7 +282,7 @@ class denseblock(nn.Module):
         conv_2 = self.conv2_0(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
-        x = torch.cat((x, conv_2),dim=1)
+        x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_1(x)
         conv_1 = self.conv1_1(conv_1)
         conv_1 = F.leaky_relu(conv_1)
@@ -293,7 +290,7 @@ class denseblock(nn.Module):
         conv_2 = self.conv2_1(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
-        x = torch.cat((x, conv_2),dim=1)
+        x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_2(x)
         conv_1 = self.conv1_2(conv_1)
         conv_1 = F.leaky_relu(conv_1)
@@ -301,16 +298,17 @@ class denseblock(nn.Module):
         conv_2 = self.conv2_2(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
-        x = torch.cat((x, conv_2),dim=1)
+        x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_3(x)
         conv_1 = self.conv1_3(conv_1)
         conv_1 = F.leaky_relu(conv_1)
         conv_2 = self.batch_norm2_3(conv_1)
         conv_2 = self.conv2_3(conv_2)
         conv_2 = F.leaky_relu(conv_2)
-        x = torch.cat((x, conv_2),dim=1)
+        x = torch.cat((x, conv_2), dim=1)
 
         return x
+
 
 # class vgg16(nn.Module):
 
@@ -318,7 +316,7 @@ class DD_net(nn.Module):
     def __init__(self):
         super(DD_net, self).__init__()
         resize = True
-        self.input = None                       #######CHANGE
+        self.input = None  #######CHANGE
         self.nb_filter = 16
         blocks = []
         blocks.append(torchvision.models.vgg19(pretrained=True).features[:4].eval())
@@ -364,23 +362,24 @@ class DD_net(nn.Module):
         self.max4 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1,1))
         self.batch5 = nn.BatchNorm2d(self.nb_filter*5)
 
-        self.batch6 = nn.BatchNorm2d(self.conv5.out_channels+self.conv4.out_channels)
+        self.batch6 = nn.BatchNorm2d(self.conv5.out_channels + self.conv4.out_channels)
         self.batch7 = nn.BatchNorm2d(self.convT1.out_channels)
-        self.batch8 = nn.BatchNorm2d(self.convT2.out_channels+self.conv3.out_channels)
+        self.batch8 = nn.BatchNorm2d(self.convT2.out_channels + self.conv3.out_channels)
         self.batch9 = nn.BatchNorm2d(self.convT3.out_channels)
-        self.batch10 = nn.BatchNorm2d(self.convT4.out_channels+self.conv2.out_channels)
+        self.batch10 = nn.BatchNorm2d(self.convT4.out_channels + self.conv2.out_channels)
         self.batch11 = nn.BatchNorm2d(self.convT5.out_channels)
-        self.batch12 = nn.BatchNorm2d(self.convT6.out_channels+self.conv1.out_channels)
+        self.batch12 = nn.BatchNorm2d(self.convT6.out_channels + self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
-    #def Forward(self, inputs):
-    def forward(self, inputs,target):
+
+    # def Forward(self, inputs):
+    def forward(self, inputs, target):
 
         self.input = inputs
-        #print("Size of input: ", inputs.size())
-        #conv = nn.BatchNorm2d(self.input)
-        conv = self.batch1(self.input)        #######CHANGE
-        #conv = nn.Conv2d(in_channels=conv.get_shape().as_list()[1], out_channels=self.nb_filter, kernel_size=(7, 7))(conv)
-        conv = self.conv1(conv)         #####CHANGE
+        # print("Size of input: ", inputs.size())
+        # conv = nn.BatchNorm2d(self.input)
+        conv = self.batch1(self.input)  #######CHANGE
+        # conv = nn.Conv2d(in_channels=conv.get_shape().as_list()[1], out_channels=self.nb_filter, kernel_size=(7, 7))(conv)
+        conv = self.conv1(conv)  #####CHANGE
         c0 = F.leaky_relu(conv)
 
         p0 = self.max1(c0)
@@ -405,10 +404,10 @@ class DD_net(nn.Module):
 
         conv = self.batch4(D3)
         conv = self.conv4(conv)
-        c3 = F.leaky_relu(conv) ## c3.out_channel = 16
+        c3 = F.leaky_relu(conv)  ## c3.out_channel = 16
 
-        #p3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=0)(c3)
-        p3 = self.max4(c3)        ######CHANGE
+        # p3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=0)(c3)
+        p3 = self.max4(c3)  ######CHANGE
         D4 = self.dnet4(p3)
 
         conv = self.batch5(D4)
@@ -432,7 +431,6 @@ class DD_net(nn.Module):
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
         output = dc7_1
         # print('shape of dc7_1', output.size()) ## 1,1,512,512
-
 
         # print("shape of vgg_inp: " + str(vgg_inp.size()))
         # print("shape of zz: " + str(self.zz.size()))
@@ -458,7 +456,8 @@ class DD_net(nn.Module):
         # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
         # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
 
-        return  dc7_1,out_b3,out_b1,tar_b3,tar_b1
+        return dc7_1, out_b3, out_b1, tar_b3, tar_b1
+
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -471,17 +470,17 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
     # if not os.path.exists("./visualize"):
     #     os.makedirs("./visualize")
-    #if not os.path.exists(out_root):
+    # if not os.path.exists(out_root):
     #    os.makedirs(out_root)
-    #if not os.path.exists(mapped_root):
+    # if not os.path.exists(mapped_root):
     #    os.makedirs(mapped_root)
-    #if not os.path.exists(diff_target_in_root):
+    # if not os.path.exists(diff_target_in_root):
     #    os.makedirs(diff_target_in_root)
-    #if not os.path.exists(diff_target_out_root):
+    # if not os.path.exists(diff_target_out_root):
     #    os.makedirs(diff_target_out_root)
-    #if not os.path.exists(in_img_root):
+    # if not os.path.exists(in_img_root):
     #    os.makedirs(in_img_root)
-    #if not os.path.exists(out_img_root):
+    # if not os.path.exists(out_img_root):
     #    os.makedirs(out_img_root)
 
     MSE_loss_out_target = []
@@ -489,12 +488,11 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
     MSSSIM_loss_out_target = []
     MSSSIM_loss_in_target = []
 
-
     outputs_size = list(outputs.size())
-    #num_img = outputs_size[0]
+    # num_img = outputs_size[0]
     (num_img, channel, height, width) = outputs.size()
     for i in range(num_img):
-        #output_img = outputs[i, 0, :, :].cpu().detach().numpy()
+        # output_img = outputs[i, 0, :, :].cpu().detach().numpy()
         output_img = outputs[i, 0, :, :].cpu().detach().numpy()
         target_img = targets[i, 0, :, :].cpu().numpy()
         input_img = inputs[i, 0, :, :].cpu().numpy()
@@ -515,22 +513,22 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(input_img_mapped)
         im.save(in_img_root + file_name)
-        #jy
-        #im.save(folder_ori_HU+'/'+file_name)
+        # jy
+        # im.save(folder_ori_HU+'/'+file_name)
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(output_img_mapped)
         im.save(mapped_root + file_name)
-        #jy
-        #im.save(folder_enh_HU+'/'+file_name)
+        # jy
+        # im.save(folder_enh_HU+'/'+file_name)
 
         difference_target_out = (target_img - output_img)
         difference_target_out = np.absolute(difference_target_out)
         fig = plt.figure()
         plt.imshow(difference_target_out)
         plt.colorbar()
-        plt.clim(0,0.2)
+        plt.clim(0, 0.2)
         plt.axis('off')
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
@@ -543,7 +541,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         fig = plt.figure()
         plt.imshow(difference_target_in)
         plt.colorbar()
-        plt.clim(0,0.2)
+        plt.clim(0, 0.2)
         plt.axis('off')
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
@@ -599,11 +597,12 @@ class CTDataset(Dataset):
         self.vgg_hq_img_list3 = self.vgg_hq_img3[0:length]
         self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
         self.sample = dict()
+
     def __len__(self):
         return len(self.img_list_l)
-    def __getitem__(self, idx):
 
-        #print("Dataloader idx: ", idx)
+    def __getitem__(self, idx):
+        # print("Dataloader idx: ", idx)
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
@@ -612,11 +611,11 @@ class CTDataset(Dataset):
         rmin = 0
         rmax = 1
 
-        #print("HQ", self.data_root_h + self.img_list_h[idx])
-        #print("LQ", self.data_root_l + self.img_list_l[idx])
-        #image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-        #print("test")
-        #exit()
+        # print("HQ", self.data_root_h + self.img_list_h[idx])
+        # print("LQ", self.data_root_l + self.img_list_l[idx])
+        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
+        # print("test")
+        # exit()
         image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
         # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
         # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
@@ -625,19 +624,19 @@ class CTDataset(Dataset):
         # vgg_hq_img3 = np.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
         # vgg_hq_img1 = np.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
 
-        input_file = self.img_list_l[idx] ## low quality image
-        assert(image_input.shape[0] == 512 and image_input.shape[1] == 512)
-        assert(image_target.shape[0] == 512 and image_target.shape[1] == 512)
+        input_file = self.img_list_l[idx]  ## low quality image
+        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
+        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
         cmax1 = np.amax(image_target)
         cmin1 = np.amin(image_target)
-        image_target = rmin + ((image_target - cmin1)/(cmax1 - cmin1)*(rmax - rmin))
-        assert((np.amin(image_target)>=0) and (np.amax(image_target)<=1))
+        image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
+        assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
         cmax2 = np.amax(image_input)
         cmin2 = np.amin(image_input)
-        image_input = rmin + ((image_input - cmin2)/(cmax2 - cmin2)*(rmax - rmin))
-        assert((np.amin(image_input)>=0) and (np.amax(image_input)<=1))
-        mins = ((cmin1+cmin2)/2)
-        maxs = ((cmax1+cmax2)/2)
+        image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
+        assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
+        mins = ((cmin1 + cmin2) / 2)
+        maxs = ((cmax1 + cmax2) / 2)
         image_target = image_target.reshape((1, 512, 512))
         image_input = image_input.reshape((1, 512, 512))
         inputs_np = image_input
@@ -665,7 +664,8 @@ class CTDataset(Dataset):
                   'min': mins}
         return self.sample
 
-#jy
+
+# jy
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
@@ -673,63 +673,65 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
+
 def cleanup():
     dist.destroy_process_group()
+
+
 def generate_plots(epochs):
     try:
-        files = ['./train_loss.png','./val_loss.png','./both_loss.png']
+        files = ['./train_loss.png', './val_loss.png', './both_loss.png']
         for f in files:
             if os.path.isfile(f):
                 os.remove(f)  # Opt.: os.system("rm "+strFile)
         rank = 0
         train_mse_list = np.load('loss/train_MSE_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
-        loss_b1_list = np.load('loss/train_loss_b1_' + str(rank)+ ".npy").mean(axis=1).tolist()
+        loss_b1_list = np.load('loss/train_loss_b1_' + str(rank) + ".npy").mean(axis=1).tolist()
         loss_b3_list = np.load('loss/train_loss_b3_' + str(rank) + ".npy").mean(axis=1).tolist()
         loss_total_list = np.load('loss/train_total_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
 
-        val_mse_list = np.load('loss/val_MSE_loss_' + str(rank)+".npy").mean(axis=1).tolist()
-        val_loss_b1_list = np.load('loss/val_loss_b1_' + str(rank)+".npy").mean(axis=1).tolist()
-        val_loss_b3_list = np.load('loss/val_loss_b3_' + str(rank)+".npy").mean(axis=1).tolist()
-        val_loss_total_list = np.load('loss/val_total_loss_' + str(rank)+".npy").mean(axis=1).tolist()
-
+        val_mse_list = np.load('loss/val_MSE_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
+        val_loss_b1_list = np.load('loss/val_loss_b1_' + str(rank) + ".npy").mean(axis=1).tolist()
+        val_loss_b3_list = np.load('loss/val_loss_b3_' + str(rank) + ".npy").mean(axis=1).tolist()
+        val_loss_total_list = np.load('loss/val_total_loss_' + str(rank) + ".npy").mean(axis=1).tolist()
 
         x_axis = range(epochs)
         plt.figure(num=1)
-        plt.plot(x_axis,train_mse_list,label="mse loss", marker='o')
-        plt.plot(x_axis, loss_b1_list, label="loss_b1",marker='o')
-        plt.plot(x_axis,loss_b3_list,label="loss_b3", marker='o')
-        plt.plot(x_axis, loss_total_list,label="total_loss",marker='*')
+        plt.plot(x_axis, train_mse_list, label="mse loss", marker='o')
+        plt.plot(x_axis, loss_b1_list, label="loss_b1", marker='o')
+        plt.plot(x_axis, loss_b3_list, label="loss_b3", marker='o')
+        plt.plot(x_axis, loss_total_list, label="total_loss", marker='*')
         plt.xlabel("epochs")
         plt.ylabel("values (fp)")
         plt.legend()
         plt.title('Training loss vs epoch')
-        plt.savefig('train_loss.png',format='png',dpi = 300)
+        plt.savefig('train_loss.png', format='png', dpi=300)
         plt.figure(num=2)
-        plt.plot(x_axis, val_mse_list,label="val loss",marker='o')
-        plt.plot(x_axis, val_loss_b1_list, label="val loss_b1",marker='o')
-        plt.plot(x_axis, val_loss_b3_list, label="val loss_b1",marker='o')
-        plt.plot(x_axis, val_loss_total_list, label="val total_loss",marker='*')
+        plt.plot(x_axis, val_mse_list, label="val loss", marker='o')
+        plt.plot(x_axis, val_loss_b1_list, label="val loss_b1", marker='o')
+        plt.plot(x_axis, val_loss_b3_list, label="val loss_b1", marker='o')
+        plt.plot(x_axis, val_loss_total_list, label="val total_loss", marker='*')
         plt.xlabel("epochs")
         plt.ylabel("values (fp)")
         plt.legend()
         plt.title('Validation loss vs epoch')
-        plt.savefig('val_loss.png', format='png' , dpi = 300)
+        plt.savefig('val_loss.png', format='png', dpi=300)
         plt.figure(num=3)
-        plt.plot(x_axis,loss_total_list,label="train loss",marker='o')
-        plt.plot(x_axis,val_loss_total_list,label="validate loss",marker='*')
+        plt.plot(x_axis, loss_total_list, label="train loss", marker='o')
+        plt.plot(x_axis, val_loss_total_list, label="validate loss", marker='*')
         plt.xlabel("epochs")
         plt.ylabel("values (fp)")
         plt.legend()
         plt.title('loss vs epoch')
-        plt.savefig('both_loss.png', format='png',dpi = 300)
+        plt.savefig('both_loss.png', format='png', dpi=300)
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
         print('exception occurred saving graphs :', type(e), e)
 
-def dd_train(gpu, args):
 
+def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
 
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
@@ -774,48 +776,46 @@ def dd_train(gpu, args):
     #test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     #val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
-
     model = DD_net()
 
-    #torch.cuda.set_device(rank)
-    #model.cuda(rank)
+    # torch.cuda.set_device(rank)
+    # model.cuda(rank)
     model.to(gpu)
     model = DDP(model, device_ids=[gpu])
     learn_rate = 0.0001;
     epsilon = 1e-8
 
-    #criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)      #######ADAM CHANGE
-    #optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    #optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    #optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    #optimizer4 = torch.optim.Adam(model.dnet4.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
+    # criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
+    # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
+    # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
+    # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
+    # optimizer4 = torch.optim.Adam(model.dnet4.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     decayRate = 0.95
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
-    #scheduler1 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer1, gamma=decayRate)
-    #scheduler2 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer2, gamma=decayRate)
-    #scheduler3 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer3, gamma=decayRate)
-    #scheduler4 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer4, gamma=decayRate)
+    # scheduler1 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer1, gamma=decayRate)
+    # scheduler2 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer2, gamma=decayRate)
+    # scheduler3 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer3, gamma=decayRate)
+    # scheduler4 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer4, gamma=decayRate)
 
-    #outputs = ddp_model(torch.randn(20, 10).to(rank))
+    # outputs = ddp_model(torch.randn(20, 10).to(rank))
 
-    #max_train_img_init = 5120;
-    #max_train_img_init = 32;
-    #max_val_img_init = 784;
-    #max_val_img_init = 16;
-    #max_test_img = 784;
+    # max_train_img_init = 5120;
+    # max_train_img_init = 32;
+    # max_val_img_init = 784;
+    # max_val_img_init = 16;
+    # max_test_img = 784;
 
     train_epoch_loss = defaultdict(list)
     train_MSE_loss = defaultdict(list)
     train_loss_b1 = defaultdict(list)
-    train_loss_b3 =defaultdict(list)
+    train_loss_b3 = defaultdict(list)
     train_total_loss = defaultdict(list)
 
     val_MSE_loss = defaultdict(list)
     val_MSSI_loss_b1 = defaultdict(list)
     val_MSSI_loss_b3 = defaultdict(list)
     val_total_loss = defaultdict(list)
-
 
     test_MSE_loss = []
     test_loss_b1 = []
@@ -827,7 +827,7 @@ def dd_train(gpu, args):
     # test_loss_b3 =[0]
     # test_total_loss =[0]
 
-    loss_b1_list =defaultdict(list)
+    loss_b1_list = defaultdict(list)
     loss_b3_list = defaultdict(list)
     loss_total_list = defaultdict(list)
     train_mse_list = defaultdict(list)
@@ -836,8 +836,6 @@ def dd_train(gpu, args):
     val_loss_total_list = defaultdict(list)
     val_mse_list = defaultdict(list)
 
-
-
     start = datetime.now()
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
@@ -845,7 +843,7 @@ def dd_train(gpu, args):
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
     print("~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~")
-    if (not(path.exists(model_file))):
+    if (not (path.exists(model_file))):
         outer = tqdm.tqdm(total=epochs, desc="Epoch", position=0)
         for k in range(epochs):
             total_train_loss = None
@@ -883,14 +881,14 @@ def dd_train(gpu, args):
                 optimizer.step() # update the parameters
             # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
 
-            print('total training loss:', (sum(train_total_loss[k])/len(train_total_loss[k])))
-            print('training  mse:', sum(train_total_loss[k])/len(train_total_loss[k]))
-            print('training b1:', sum(train_loss_b1[k])/len(train_loss_b1[k]))
-            print('training b3:', sum(train_loss_b3[k])/len(train_loss_b3[k]))
+            print('total training loss:', (sum(train_total_loss[k]) / len(train_total_loss[k])))
+            print('training  mse:', sum(train_total_loss[k]) / len(train_total_loss[k]))
+            print('training b1:', sum(train_loss_b1[k]) / len(train_loss_b1[k]))
+            print('training b3:', sum(train_loss_b3[k]) / len(train_loss_b3[k]))
 
             # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
 
-            scheduler.step() #
+            scheduler.step()  #
             # loss_b1_list.append((sum(train_loss_b1[k])/len(train_loss_b1)))
             # loss_b3_list.append((sum(train_loss_b3)/len(train_loss_b3)))
             # loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
@@ -917,7 +915,7 @@ def dd_train(gpu, args):
 
                 val_total_loss[k].append(val_loss.item())
 
-                if(k==epochs-1):
+                if (k == epochs - 1):
                     if (rank == 0):
                         print("Training complete in: " + str(datetime.now() - start))
                     outputs_np = enhanced_image.cpu().detach().numpy()
@@ -927,9 +925,9 @@ def dd_train(gpu, args):
                         file_name1 = file_name1.replace(".IMA", ".tif")
                         im = Image.fromarray(outputs_np[m, 0, :, :])
                         im.save('reconstructed_images/val/' + file_name1)
-                    #gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+                    # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
-
+                vali.update(1)
             print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss[k]))
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
             print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
@@ -940,50 +938,52 @@ def dd_train(gpu, args):
             # val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
             outer.update(1)
         print("train end")
-        if(rank == 0):
+        if (rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
             try:
                 print('serializing losses')
-                np.save('loss/train_MSE_loss_'  + str(rank) ,np.array([ v for k,v in train_MSE_loss.items()]))
-                np.save('loss/train_loss_b1_'  + str(rank),np.array([ v for k,v in train_loss_b1.items()]))
-                np.save('loss/train_loss_b3_'  + str(rank),np.array([ v for k,v in train_loss_b3.items()]))
-                np.save('loss/train_total_loss_'  + str(rank),np.array([ v for k,v in train_total_loss.items()]))
+                np.save('loss/train_MSE_loss_' + str(rank), np.array([v for k, v in train_MSE_loss.items()]))
+                np.save('loss/train_loss_b1_' + str(rank), np.array([v for k, v in train_loss_b1.items()]))
+                np.save('loss/train_loss_b3_' + str(rank), np.array([v for k, v in train_loss_b3.items()]))
+                np.save('loss/train_total_loss_' + str(rank), np.array([v for k, v in train_total_loss.items()]))
 
-                np.save('loss/val_MSE_loss_'  + str(rank),np.array([ v for k,v in val_MSE_loss.items()]))
-                np.save('loss/val_loss_b1_'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b1.items()]))
-                np.save('loss/val_loss_b3_'  + str(rank),np.array([ v for k,v in val_MSSI_loss_b3.items()]))
-                np.save('loss/val_total_loss_'  + str(rank),np.array([ v for k,v in val_total_loss.items()]))
+                np.save('loss/val_MSE_loss_' + str(rank), np.array([v for k, v in val_MSE_loss.items()]))
+                np.save('loss/val_loss_b1_' + str(rank), np.array([v for k, v in val_MSSI_loss_b1.items()]))
+                np.save('loss/val_loss_b3_' + str(rank), np.array([v for k, v in val_MSSI_loss_b3.items()]))
+                np.save('loss/val_total_loss_' + str(rank), np.array([v for k, v in val_total_loss.items()]))
             except Exception as e:
                 print('error serializing: ', e)
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
+    test_MSSSIM_loss = []
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
+        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                batch_samples['max'], batch_samples['min']
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
 
-
-        enhanced_image, out_vgg_b3,out_vgg_b1,tar_b3,tar_b1 = model(lq_image,hq_image)
-
+        enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
 
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
         MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))
         MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))
-
+        ssim_1 = 1 - MSSSIM()(enhanced_image, hq_image)
         loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
         print("MSE_loss", MSE_loss.item())
         print("MSSSIM_loss b1", MSSSIM_loss2.item())
         print("MSSSIM_loss2 b3", MSSSIM_loss.item())
         print("Total_loss", loss.item())
+        print("MSSSIM loss", ssim_1.item())
         print("====================================")
         # test_MSE_loss
         test_MSE_loss.append(MSE_loss.item())
         test_loss_b1.append(MSSSIM_loss2.item())
         test_loss_b3.append(MSSSIM_loss.item())
         test_total_loss.append(loss.item())
+        test_MSSSIM_loss.append(ssim_1.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
         for m in range(batch_size):
@@ -991,10 +991,10 @@ def dd_train(gpu, args):
             file_name1 = file_name1.replace(".IMA", ".tif")
             im = Image.fromarray(outputs_np[m, 0, :, :])
             im.save('reconstructed_images/test/' + file_name1)
-        #outputs.cpu()
-        #targets_test[l_map:l_map+batch, :, :, :].cpu()
-        #inputs_test[l_map:l_map+batch, :, :, :].cpu()
-        #gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
+        # outputs.cpu()
+        # targets_test[l_map:l_map+batch, :, :, :].cpu()
+        # inputs_test[l_map:l_map+batch, :, :, :].cpu()
+        # gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "test", maxs, mins)
 
     if (rank == 0):
@@ -1003,9 +1003,10 @@ def dd_train(gpu, args):
         try:
             print('serializing test losses')
             np.save('loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
-            np.save('loss/test_loss_b1_' + str(rank), np.array( test_loss_b1))
+            np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
             np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
             np.save('loss/test_total_loss_' + str(rank), np.array(test_total_loss))
+            np.save('loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
         except Exception as e:
             print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
@@ -1032,65 +1033,60 @@ def dd_train(gpu, args):
     print("size of in target: " + str(data1.shape))
     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
     print("size of out target: " + str(data2.shape))
-    data3 = np.append(data1,data2)
+    data3 = np.append(data1, data2)
     print("size of append target: " + str(data3.shape))
-    print("Final avergae MSSSIM LOSS: " + str(100-(100*np.average(data3))))
+    print("Final avergae VGG LOSS: " + str(100 - (100 * np.average(data3))))
+    print("Final avergae MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))))
     generate_plots(epochs)
 
-def main():
 
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
     parser.add_argument('-g', '--gpus', default=1, type=int,
                         help='number of gpus per node')
-    #parser.add_argument('-nr', '--nr', default=0, type=int,
+    # parser.add_argument('-nr', '--nr', default=0, type=int,
     #                    help='ranking within the nodes')
-    parser.add_argument("--local_rank", type=int, default=0) 
+    parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--epochs', default=2, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--batch', default=2, type=int, metavar='N',
                         help='number of batch per gpu')
-    
 
-        
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
     # init_env_variable()
     args.nr = int(os.environ['SLURM_PROCID'])
-    print("SLURM_PROCID: " + str(args.nr)) 
-    #world_size = 4
-    #os.environ['MASTER_ADDR'] = 'localhost'
-    #os.environ['MASTER_ADDR'] = '10.21.10.4'
-    #os.environ['MASTER_PORT'] = '12355'
-    #os.environ['MASTER_PORT'] = '8888'
+    print("SLURM_PROCID: " + str(args.nr))
+    # world_size = 4
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_ADDR'] = '10.21.10.4'
+    # os.environ['MASTER_PORT'] = '12355'
+    # os.environ['MASTER_PORT'] = '8888'
     mp.spawn(dd_train,
-        args=(args,),
-        nprocs=args.gpus,
-        join=True)
-    
+             args=(args,),
+             nprocs=args.gpus,
+             join=True)
 
-      
-    
 
 if __name__ == '__main__':
-#def __main__():
+    # def __main__():
 
     ####################DATA DIRECTORY###################
-    #jy
-    #global root
+    # jy
+    # global root
 
-    #if not os.path.exists("./loss"):
+    # if not os.path.exists("./loss"):
     #    os.makedirs("./loss")
-    #if not os.path.exists("./reconstructed_images/val"):
+    # if not os.path.exists("./reconstructed_images/val"):
     #    os.makedirs("./reconstructed_images/val")
-    #if not os.path.exists("./reconstructed_images/test"):
+    # if not os.path.exists("./reconstructed_images/test"):
     #    os.makedirs("./reconstructed_images/test")
-    #if not os.path.exists("./reconstructed_images"):
+    # if not os.path.exists("./reconstructed_images"):
     #    os.makedirs("./reconstructed_images")
 
     main();
     exit()
-
 
