@@ -12,13 +12,13 @@ import collections
 from collections import OrderedDict
 import sys
 import time
+# if not os.path.exists("./loss"):
 from datetime import datetime
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
-import tqdm
 from matplotlib import pyplot as plt
 from skimage import io, transform
 from skimage import img_as_float
@@ -42,24 +42,22 @@ from torchvision import models as torchmodels
 # reconstructed_images = "reconstructed_images"
 
 
-
 INPUT_CHANNEL_SIZE = 1
 
 
-
-
 def init_env_variable():
-    job_id=""
+    job_id = ""
 
     try:
         job_id = os.environ['SLURM_JOBID']
     except:
-        job_id=""
+        job_id = ""
 
     print("slurm jobid: " + str(job_id))
     vizualize_folder = vizualize_folder + jobid
     loss_folder = loss_folder + jobid
     reconstructed_images = reconstructed_images + jobid
+
 
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
@@ -71,6 +69,7 @@ def create_window(window_size, channel=1):
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     window = _2D_window.expand(channel, 1, window_size, window_size).contiguous()
     return window
+
 
 def read_correct_image(path):
     offset = 0
@@ -223,6 +222,18 @@ class MSSSIM(torch.nn.Module):
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize="simple")
         # return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
 
+class VGGloss(torch.nn.Module):
+    def __init__(self,weight=None, size_average=True):
+        super(VGGloss,self).__init__()
+
+        ## Target block 1, Target block
+    def forward(self, input, target):
+        assert(input.shape[0] == target.shape[0])
+        loss_value = torch.mean(torch.abs(torch.sub(input,
+                                                     target)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+        return loss_value
+
+
 
 class denseblock(nn.Module):
     def __init__(self, nb_filter=16, filter_wh=5):
@@ -231,14 +242,22 @@ class denseblock(nn.Module):
         self.nb_filter = nb_filter
         self.nb_filter_wh = filter_wh
         ##################CHANGE###############
-        self.conv1_0 = nn.Conv2d(in_channels=nb_filter,out_channels=self.nb_filter*4,kernel_size=1)
-        self.conv2_0 = nn.Conv2d(in_channels=self.conv1_0.out_channels, out_channels=self.nb_filter, kernel_size=self.nb_filter_wh, padding=(2, 2))
-        self.conv1_1 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels,out_channels=self.nb_filter*4,kernel_size=1)
-        self.conv2_1 = nn.Conv2d(in_channels=self.conv1_1.out_channels, out_channels=self.nb_filter, kernel_size=self.nb_filter_wh, padding=(2, 2))
-        self.conv1_2 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels,out_channels=self.nb_filter*4,kernel_size=1)
-        self.conv2_2 = nn.Conv2d(in_channels=self.conv1_2.out_channels, out_channels=self.nb_filter, kernel_size=self.nb_filter_wh, padding=(2, 2))
-        self.conv1_3 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels,out_channels=self.nb_filter*4,kernel_size=1)
-        self.conv2_3 = nn.Conv2d(in_channels=self.conv1_3.out_channels, out_channels=self.nb_filter, kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_0 = nn.Conv2d(in_channels=nb_filter, out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_0 = nn.Conv2d(in_channels=self.conv1_0.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_1 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels, out_channels=self.nb_filter * 4,
+                                 kernel_size=1)
+        self.conv2_1 = nn.Conv2d(in_channels=self.conv1_1.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_2 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels,
+                                 out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_2 = nn.Conv2d(in_channels=self.conv1_2.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_3 = nn.Conv2d(
+            in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels,
+            out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_3 = nn.Conv2d(in_channels=self.conv1_3.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
         self.conv1 = [self.conv1_0, self.conv1_1, self.conv1_2, self.conv1_3]
         self.conv2 = [self.conv2_0, self.conv2_1, self.conv2_2, self.conv2_3]
 
@@ -248,16 +267,16 @@ class denseblock(nn.Module):
         self.batch_norm2_1 = nn.BatchNorm2d(self.conv1_1.out_channels)
         self.batch_norm1_2 = nn.BatchNorm2d(nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels)
         self.batch_norm2_2 = nn.BatchNorm2d(self.conv1_2.out_channels)
-        self.batch_norm1_3 = nn.BatchNorm2d(nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels)
+        self.batch_norm1_3 = nn.BatchNorm2d(
+            nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels)
         self.batch_norm2_3 = nn.BatchNorm2d(self.conv1_3.out_channels)
 
         self.batch_norm1 = [self.batch_norm1_0, self.batch_norm1_1, self.batch_norm1_2, self.batch_norm1_3]
         self.batch_norm2 = [self.batch_norm2_0, self.batch_norm2_1, self.batch_norm2_2, self.batch_norm2_3]
 
-
-    #def `Forward`(self, inputs):
-    def forward(self, inputs):                      ######CHANGE
-        #x = self.input
+    # def `Forward`(self, inputs):
+    def forward(self, inputs):  ######CHANGE
+        # x = self.input
         x = inputs
         # for i in range(4):
         #    #conv = nn.BatchNorm2d(x.size()[1])(x)
@@ -319,9 +338,10 @@ class DD_net(nn.Module):
         self.input = None  #######CHANGE
         self.nb_filter = 16
         blocks = []
-        blocks.append(torchvision.models.vgg19(pretrained=True).features[:4].eval())
-        blocks.append(torchvision.models.vgg19(pretrained=True).features[4:9].eval())
-        blocks.append(torchvision.models.vgg19(pretrained=True).features[9:18].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[:4].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[4:9].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[9:16].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[16:23].eval())
         for bl in blocks:
             for p in bl.parameters():
                 p.requires_grad = False
@@ -333,34 +353,42 @@ class DD_net(nn.Module):
         self.resize = resize
 
         ##################CHANGE###############
-        self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7), padding = (3,3))
-        self.dnet1 = denseblock(self.nb_filter,filter_wh=5)
-        self.conv2 = nn.Conv2d(in_channels=self.conv1.out_channels*5, out_channels=self.nb_filter, kernel_size=(1, 1))
-        self.dnet2 = denseblock(self.nb_filter,filter_wh=5)
-        self.conv3 = nn.Conv2d(in_channels=self.conv2.out_channels*5, out_channels=self.nb_filter, kernel_size=(1, 1))
+        self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7),
+                               padding=(3, 3))
+        self.dnet1 = denseblock(self.nb_filter, filter_wh=5)
+        self.conv2 = nn.Conv2d(in_channels=self.conv1.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
+        self.dnet2 = denseblock(self.nb_filter, filter_wh=5)
+        self.conv3 = nn.Conv2d(in_channels=self.conv2.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet3 = denseblock(self.nb_filter, filter_wh=5)
-        self.conv4 = nn.Conv2d(in_channels=self.conv3.out_channels*5, out_channels=self.nb_filter, kernel_size=(1, 1))
+        self.conv4 = nn.Conv2d(in_channels=self.conv3.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet4 = denseblock(self.nb_filter, filter_wh=5)
 
-        self.conv5 = nn.Conv2d(in_channels=self.conv4.out_channels*5, out_channels=self.nb_filter, kernel_size=(1, 1))
+        self.conv5 = nn.Conv2d(in_channels=self.conv4.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
 
-        self.convT1 = nn.ConvTranspose2d(in_channels=self.conv4.out_channels + self.conv4.out_channels,out_channels=2*self.nb_filter,kernel_size=5, padding=(2, 2))
-        self.convT2 = nn.ConvTranspose2d(in_channels=self.convT1.out_channels,out_channels=self.nb_filter,kernel_size=1)
-        self.convT3 = nn.ConvTranspose2d(in_channels=self.convT2.out_channels + self.conv3.out_channels,out_channels=2*self.nb_filter,kernel_size=5, padding=(2, 2))
-        self.convT4 = nn.ConvTranspose2d(in_channels=self.convT3.out_channels,out_channels=self.nb_filter,kernel_size=1)
-        self.convT5 = nn.ConvTranspose2d(in_channels=self.convT4.out_channels + self.conv2.out_channels,out_channels=2*self.nb_filter,kernel_size=5, padding=(2, 2))
-        self.convT6 = nn.ConvTranspose2d(in_channels=self.convT5.out_channels,out_channels=self.nb_filter,kernel_size=1)
-        self.convT7 = nn.ConvTranspose2d(in_channels=self.convT6.out_channels + self.conv1.out_channels,out_channels=2*self.nb_filter,kernel_size=5, padding=(2, 2))
-        self.convT8 = nn.ConvTranspose2d(in_channels=self.convT7.out_channels,out_channels=1 ,kernel_size=1)
+        self.convT1 = nn.ConvTranspose2d(in_channels=self.conv4.out_channels + self.conv4.out_channels,
+                                         out_channels=2 * self.nb_filter, kernel_size=5, padding=(2, 2))
+        self.convT2 = nn.ConvTranspose2d(in_channels=self.convT1.out_channels, out_channels=self.nb_filter,
+                                         kernel_size=1)
+        self.convT3 = nn.ConvTranspose2d(in_channels=self.convT2.out_channels + self.conv3.out_channels,
+                                         out_channels=2 * self.nb_filter, kernel_size=5, padding=(2, 2))
+        self.convT4 = nn.ConvTranspose2d(in_channels=self.convT3.out_channels, out_channels=self.nb_filter,
+                                         kernel_size=1)
+        self.convT5 = nn.ConvTranspose2d(in_channels=self.convT4.out_channels + self.conv2.out_channels,
+                                         out_channels=2 * self.nb_filter, kernel_size=5, padding=(2, 2))
+        self.convT6 = nn.ConvTranspose2d(in_channels=self.convT5.out_channels, out_channels=self.nb_filter,
+                                         kernel_size=1)
+        self.convT7 = nn.ConvTranspose2d(in_channels=self.convT6.out_channels + self.conv1.out_channels,
+                                         out_channels=2 * self.nb_filter, kernel_size=5, padding=(2, 2))
+        self.convT8 = nn.ConvTranspose2d(in_channels=self.convT7.out_channels, out_channels=1, kernel_size=1)
         self.batch1 = nn.BatchNorm2d(1)
-        self.max1 = nn.MaxPool2d(kernel_size=(3,3),stride=(2,2),padding=(1,1))
-        self.batch2 = nn.BatchNorm2d(self.nb_filter*5)
-        self.max2 = nn.MaxPool2d(kernel_size=(3,3),stride=(2,2),padding=(1,1))
-        self.batch3 = nn.BatchNorm2d(self.nb_filter*5)
-        self.max3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1,1))
-        self.batch4 = nn.BatchNorm2d(self.nb_filter*5)
-        self.max4 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1,1))
-        self.batch5 = nn.BatchNorm2d(self.nb_filter*5)
+        self.max1 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        self.batch2 = nn.BatchNorm2d(self.nb_filter * 5)
+        self.max2 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        self.batch3 = nn.BatchNorm2d(self.nb_filter * 5)
+        self.max3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        self.batch4 = nn.BatchNorm2d(self.nb_filter * 5)
+        self.max4 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
+        self.batch5 = nn.BatchNorm2d(self.nb_filter * 5)
 
         self.batch6 = nn.BatchNorm2d(self.conv5.out_channels + self.conv4.out_channels)
         self.batch7 = nn.BatchNorm2d(self.convT1.out_channels)
@@ -412,21 +440,23 @@ class DD_net(nn.Module):
 
         conv = self.batch5(D4)
         conv = self.conv5(conv)
-        c4 = F.leaky_relu(conv) ## c4.out_channel= 16
+        c4 = F.leaky_relu(conv)  ## c4.out_channel= 16
 
-        x = torch.cat((nn.Upsample(scale_factor=2,mode='bilinear', align_corners=True)(c4), c3),dim=1) # c4=16*2, c3=16, => x = 16*3 (channels)
-        dc4 = F.leaky_relu(self.convT1(self.batch6(x)))         ######size() CHANGE ; d4 : in=16*2, out=16*2
-        dc4_1 = F.leaky_relu(self.convT2(self.batch7(dc4))) ; #dc4_1 : in = 16*2 out = 16
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(c4), c3),
+                      dim=1)  # c4=16*2, c3=16, => x = 16*3 (channels)
+        dc4 = F.leaky_relu(self.convT1(self.batch6(x)))  ######size() CHANGE ; d4 : in=16*2, out=16*2
+        dc4_1 = F.leaky_relu(self.convT2(self.batch7(dc4)));  # dc4_1 : in = 16*2 out = 16
 
-        x = torch.cat((nn.Upsample(scale_factor=2,mode='bilinear', align_corners=True)(dc4_1), c2),dim=1) # dc4_1 = 16*2, c2 =16 => x = 16*3
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc4_1), c2),
+                      dim=1)  # dc4_1 = 16*2, c2 =16 => x = 16*3
         dc5 = F.leaky_relu(self.convT3(self.batch8(x)))
         dc5_1 = F.leaky_relu(self.convT4(self.batch9(dc5)))
 
-        x = torch.cat((nn.Upsample(scale_factor=2,mode='bilinear', align_corners=True)(dc5_1), c1),dim=1)
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc5_1), c1), dim=1)
         dc6 = F.leaky_relu(self.convT5(self.batch10(x)))
         dc6_1 = F.leaky_relu(self.convT6(self.batch11(dc6)))
 
-        x = torch.cat((nn.Upsample(scale_factor=2,mode='bilinear', align_corners=True)(dc6_1), c0),dim=1)
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc6_1), c0), dim=1)
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
         output = dc7_1
@@ -487,6 +517,8 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
     MSE_loss_in_target = []
     MSSSIM_loss_out_target = []
     MSSSIM_loss_in_target = []
+    SSIM_loss_in_target = []
+    SSIM_loss_out_target = []
 
     outputs_size = list(outputs.size())
     # num_img = outputs_size[0]
@@ -526,7 +558,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         difference_target_out = (target_img - output_img)
         difference_target_out = np.absolute(difference_target_out)
         fig = plt.figure()
-        plt.imshow(difference_target_out)
+        plt.imshow(difference_target_out, cmap='gray')
         plt.colorbar()
         plt.clim(0, 0.2)
         plt.axis('off')
@@ -539,7 +571,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         difference_target_in = (target_img - input_img)
         difference_target_in = np.absolute(difference_target_in)
         fig = plt.figure()
-        plt.imshow(difference_target_in)
+        plt.imshow(difference_target_in, cmap='gray')
         plt.colorbar()
         plt.clim(0, 0.2)
         plt.axis('off')
@@ -557,6 +589,8 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         MSE_loss_in_target.append(nn.MSELoss()(input_img, target_img))
         MSSSIM_loss_out_target.append(1 - MSSSIM()(output_img, target_img))
         MSSSIM_loss_in_target.append(1 - MSSSIM()(input_img, target_img))
+        SSIM_loss_out_target.append(1 - SSIM()(output_img, target_img))
+        SSIM_loss_in_target.append(1 - SSIM()(input_img, target_img))
 
     with open(out_root + "msssim_loss_target_out", 'a') as f:
         for item in MSSSIM_loss_out_target:
@@ -564,6 +598,14 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
     with open(out_root + "msssim_loss_target_in", 'a') as f:
         for item in MSSSIM_loss_in_target:
+            f.write("%f\n" % item)
+
+    with open(out_root + "ssim_loss_target_out", 'a') as f:
+        for item in SSIM_loss_out_target:
+            f.write("%f\n" % item)
+
+    with open(out_root + "ssim_loss_target_in", 'a') as f:
+        for item in SSIM_loss_in_target:
             f.write("%f\n" % item)
 
     with open(out_root + "mse_loss_target_out", 'a') as f:
@@ -576,7 +618,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
 
 class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length):
+    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3, root_hq_vgg1, length):
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
         self.data_root_h_vgg_3 = root_hq_vgg3 + "/"
@@ -656,12 +698,12 @@ class CTDataset(Dataset):
 
         # print("hq vgg b3 {} b1 {}".format(vgg_hq_b3.shape , vgg_hq_b1.shape))
         self.sample = {'vol': input_file,
-                  'HQ': targets,
-                  'LQ': inputs,
-                  # 'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
-                  # 'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
-                  'max': maxs,
-                  'min': mins}
+                       'HQ': targets,
+                       'LQ': inputs,
+                       # 'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
+                       # 'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
+                       'max': maxs,
+                       'min': mins}
         return self.sample
 
 
@@ -733,10 +775,14 @@ def generate_plots(epochs):
 
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
+    beta = 0.5 
+    beta = args.beta
+    print('beta: ', beta)
 
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
     batch = args.batch
     epochs = args.epochs
+    print('batch: ', batch, 'epochs: ', epochs)
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -745,36 +791,42 @@ def dd_train(gpu, args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat7/train/vgg_output_b3/HQ/"
-    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat7/test/vgg_output_b3/HQ/"
-    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat7/val/vgg_output_b3/HQ/"
+    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b3/HQ/"
+    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b3/HQ/"
+    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b3/HQ/"
 
-    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat7/train/vgg_output_b1/HQ/"
-    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat7/test/vgg_output_b1/HQ/"
-    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat7/val/vgg_output_b1/HQ/"
+    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b1/HQ/"
+    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b1/HQ/"
+    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b1/HQ/"
 
-    #root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
+    # root = add
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,
+                         root_hq_vgg1=root_hq_vgg1_tr, length=5120)
+    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,
+                        root_hq_vgg1=root_hq_vgg1_te, length=784)
+    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,
+                       root_hq_vgg1=root_hq_vgg1_va, length=784)
     # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=32)
     # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=16)
     # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=16)
-    #trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
-    #testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
-    #valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
+    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
+    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
+    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
-    #train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=val_sampler)
-    #train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
-    #test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
-    #val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
+                              pin_memory=False, sampler=train_sampler)
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
+                             pin_memory=False, sampler=test_sampler)
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
+                            pin_memory=False, sampler=val_sampler)
+    # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
+    # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
+    # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
     model = DD_net()
 
@@ -844,42 +896,40 @@ def dd_train(gpu, args):
 
     print("~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~")
     if (not (path.exists(model_file))):
-        outer = tqdm.tqdm(total=epochs, desc="Epoch", position=0)
         for k in range(epochs):
             total_train_loss = None
             # print("Epoch: ", k)
-            # print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
-            #       loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
+            print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
+                  loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
 
-
             for batch_index, batch_samples in enumerate(train_loader):
-
-                file_name, HQ_img, LQ_img, maxs, mins,   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
-                lq_image = LQ_img.to(gpu) ## low quality image
-                hq_image = HQ_img.to(gpu) ## high quality target image
+                file_name, HQ_img, LQ_img, maxs, mins, = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                         batch_samples['max'], batch_samples['min']
+                lq_image = LQ_img.to(gpu)  ## low quality image
+                hq_image = HQ_img.to(gpu)  ## high quality target image
                 # HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
                 # hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
-                enhanced_image,out_vgg_b3,out_vgg_b1,tar_b3,tar_b1  = model(lq_image,hq_image)  # vgg_en_image should be 1,256,56,56
+                enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image,
+                                                                               hq_image)  # vgg_en_image should be 1,256,56,56
 
-                MSE_loss = nn.MSELoss()(enhanced_image , hq_image) # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1,tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-
-                total_train_loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2) )
+                MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
+                Loss_b3= VGGloss()(out_vgg_b3,tar_b3)
+                loss_b1 = VGGloss()(out_vgg_b1,tar_b1)
+                total_train_loss = MSE_loss + (beta * (Loss_b3 + loss_b1))
+                # print('total loss new: ', total_train_loss)
 
                 train_MSE_loss[k].append(MSE_loss.item())
-                train_loss_b3[k].append(MSSSIM_loss.item())
-                train_loss_b1[k].append(MSSSIM_loss2.item())
+                train_loss_b3[k].append(Loss_b3.item())
+                train_loss_b1[k].append(loss_b1.item())
                 train_total_loss[k].append(total_train_loss.item())
 
-
-                # print("mse: {} b1 {} b3 {} total {}".format(MSE_loss,MSSSIM_loss,MSSSIM_loss2,total_train_loss))
-                model.zero_grad() # zero the gradients
-                total_train_loss.backward() # back propogation
-                optimizer.step() # update the parameters
-            # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]),len(train_total_loss[k]),k))
+                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss, MSSSIM_loss, MSSSIM_loss2, total_train_loss))
+                model.zero_grad()  # zero the gradients
+                total_train_loss.backward()  # back propogation
+                optimizer.step()  # update the parameters
+            # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]), len(train_total_loss[k]), k))
 
             print('total training loss:', (sum(train_total_loss[k]) / len(train_total_loss[k])))
             print('training  mse:', sum(train_total_loss[k]) / len(train_total_loss[k]))
@@ -897,21 +947,27 @@ def dd_train(gpu, args):
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
             val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
-                file_name, HQ_img, LQ_img, maxs, mins   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
-
+                file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                        batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
 
-                enhanced_image, out_vgg_b3,out_vgg_b1,tar_b3,tar_b1   = model(lq_image,hq_image)
+                enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
 
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                val_loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
+                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1,
+                                                              tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
+                Loss_b3 = VGGloss()(out_vgg_b3, tar_b3)
+                loss_b1 = VGGloss()(out_vgg_b1, tar_b1)
+
+
+                val_loss = MSE_loss + (beta * (Loss_b3 + loss_b1))
                 val_MSE_loss[k].append(MSE_loss.item())
-                val_MSSI_loss_b1[k].append(MSSSIM_loss.item())
-                val_MSSI_loss_b3[k].append(MSSSIM_loss2.item())
+                val_MSSI_loss_b1[k].append(loss_b1.item())
+                val_MSSI_loss_b3[k].append(Loss_b3.item())
 
                 val_total_loss[k].append(val_loss.item())
 
@@ -927,7 +983,6 @@ def dd_train(gpu, args):
                         im.save('reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
-                vali.update(1)
             print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss[k]))
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
             print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
@@ -936,7 +991,6 @@ def dd_train(gpu, args):
             # val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
             # val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
             # val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
-            outer.update(1)
         print("train end")
         if (rank == 0):
             print("Saving model parameters")
@@ -958,6 +1012,8 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
     test_MSSSIM_loss = []
+    test_SSIM_loss = []
+
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
@@ -970,20 +1026,24 @@ def dd_train(gpu, args):
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
         MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))
         MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))
-        ssim_1 = 1 - MSSSIM()(enhanced_image, hq_image)
-        loss = MSE_loss + (0.1 * (MSSSIM_loss + MSSSIM_loss2))
+        msssim_1 = 1 - MSSSIM()(enhanced_image, hq_image)
+        ssim_1 = 1 - SSIM()(enhanced_image,hq_image)
+        loss = MSE_loss + (beta * (MSSSIM_loss + MSSSIM_loss2))
         print("MSE_loss", MSE_loss.item())
-        print("MSSSIM_loss b1", MSSSIM_loss2.item())
-        print("MSSSIM_loss2 b3", MSSSIM_loss.item())
+        print("loss block b1", MSSSIM_loss2.item())
+        print("loss block b3", MSSSIM_loss.item())
         print("Total_loss", loss.item())
-        print("MSSSIM loss", ssim_1.item())
+        print("MSSSIM loss", msssim_1.item())
+        print("SSIM Loss", ssim_1.item())
+        print("beta: ", beta)
         print("====================================")
         # test_MSE_loss
         test_MSE_loss.append(MSE_loss.item())
         test_loss_b1.append(MSSSIM_loss2.item())
         test_loss_b3.append(MSSSIM_loss.item())
         test_total_loss.append(loss.item())
-        test_MSSSIM_loss.append(ssim_1.item())
+        test_MSSSIM_loss.append(msssim_1.item())
+        test_SSIM_loss.append(ssim_1.item())
         outputs_np = enhanced_image.cpu().detach().numpy()
         (batch_size, channel, height, width) = enhanced_image.size()
         for m in range(batch_size):
@@ -1007,6 +1067,7 @@ def dd_train(gpu, args):
             np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
             np.save('loss/test_total_loss_' + str(rank), np.array(test_total_loss))
             np.save('loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
+            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
         except Exception as e:
             print('error serializing: ', e)
     x_axis = range(len(test_total_loss))
@@ -1034,10 +1095,22 @@ def dd_train(gpu, args):
     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
     print("size of out target: " + str(data2.shape))
     data3 = np.append(data1, data2)
-    print("size of append target: " + str(data3.shape))
-    print("Final avergae VGG LOSS: " + str(100 - (100 * np.average(data3))))
-    print("Final avergae MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))))
+    # print("size of append target: " + str(data3.shape))
+    print("Final avergae MSE: ", 100 - (100 * np.average(data2)), "std dev.: ", np.std(data2))
+    print("Final average VGG LOSS: " + str(100 - (100 * np.average(data3))))
+    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
+    print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
     generate_plots(epochs)
+
+
+def psnr_calc(mse_t):
+    psnr = []
+    for i in range(len(mse_t)):
+        #     x = read_correct_image(pa +"/"+ ll[i])
+        mse_sqrt = pow(mse_t[i], 0.5)
+        psnr_ = 20 * np.log10(1 / mse_sqrt)
+        psnr.insert(i, psnr_)
+    print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
 
 
 def main():
@@ -1047,12 +1120,12 @@ def main():
                         help='number of data loading workers (default: 4)')
     parser.add_argument('-g', '--gpus', default=1, type=int,
                         help='number of gpus per node')
-    # parser.add_argument('-nr', '--nr', default=0, type=int,
-    #                    help='ranking within the nodes')
+    parser.add_argument('--beta', default=0.5, type=float,metavar='b',
+                        help='beta value')
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='N',
+    parser.add_argument('--epochs', default=2, type=int, metavar='e',
                         help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='N',
+    parser.add_argument('--batch', default=2, type=int, metavar='a',
                         help='number of batch per gpu')
 
     args = parser.parse_args()
@@ -1089,4 +1162,3 @@ if __name__ == '__main__':
 
     main();
     exit()
-
