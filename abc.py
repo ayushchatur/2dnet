@@ -282,35 +282,36 @@ class denseblock(nn.Module):
         #    conv = F.leaky_relu(conv)
         #    x = torch.cat((x, conv),dim=1)
 
-        conv_1 = self.batch_norm1_0(x)
-        conv_1 = self.conv1_0(conv_1)
+
+        conv_1 = self.conv1_0(x)
+        conv_1 = self.batch_norm1_0(conv_1)
         conv_1 = F.leaky_relu(conv_1)
-        conv_2 = self.batch_norm2_0(conv_1)
-        conv_2 = self.conv2_0(conv_2)
+        conv_2 = self.conv2_0(conv_1)
+        conv_2 = self.batch_norm2_0(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
         x = torch.cat((x, conv_2), dim=1)
-        conv_1 = self.batch_norm1_1(x)
-        conv_1 = self.conv1_1(conv_1)
+        conv_1 = self.conv1_1(x)
+        conv_1 = self.batch_norm1_1(conv_1)
         conv_1 = F.leaky_relu(conv_1)
-        conv_2 = self.batch_norm2_1(conv_1)
-        conv_2 = self.conv2_1(conv_2)
+        conv_2 = self.conv2_1(conv_1)
+        conv_2 = self.batch_norm2_1(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
         x = torch.cat((x, conv_2), dim=1)
-        conv_1 = self.batch_norm1_2(x)
-        conv_1 = self.conv1_2(conv_1)
+        conv_1 = self.conv1_2(x)
+        conv_1 = self.batch_norm1_2(conv_1)
         conv_1 = F.leaky_relu(conv_1)
-        conv_2 = self.batch_norm2_2(conv_1)
-        conv_2 = self.conv2_2(conv_2)
+        conv_2 = self.conv2_2(conv_1)
+        conv_2 = self.batch_norm2_2(conv_2)
         conv_2 = F.leaky_relu(conv_2)
 
         x = torch.cat((x, conv_2), dim=1)
-        conv_1 = self.batch_norm1_3(x)
-        conv_1 = self.conv1_3(conv_1)
+        conv_1 = self.conv1_3(x)
+        conv_1 = self.batch_norm1_3(conv_1)
         conv_1 = F.leaky_relu(conv_1)
-        conv_2 = self.batch_norm2_3(conv_1)
-        conv_2 = self.conv2_3(conv_2)
+        conv_2 = self.conv2_3(conv_1)
+        conv_2 = self.batch_norm2_3(conv_2)
         conv_2 = F.leaky_relu(conv_2)
         x = torch.cat((x, conv_2), dim=1)
 
@@ -393,41 +394,41 @@ class DD_net(nn.Module):
         self.input = inputs
         # print("Size of input: ", inputs.size())
         # conv = nn.BatchNorm2d(self.input)
-        conv = self.batch1(self.input)  #######CHANGE
         # conv = nn.Conv2d(in_channels=conv.get_shape().as_list()[1], out_channels=self.nb_filter, kernel_size=(7, 7))(conv)
-        conv = self.conv1(conv)  #####CHANGE
+        conv = self.conv1(self.input)  #####CHANGE
+        conv = self.batch1(conv)  #######CHANGE
         c0 = F.leaky_relu(conv)
 
         p0 = self.max1(c0)
         D1 = self.dnet1(p0)
 
         #######################################################################################
-        conv = self.batch2(D1)
-        conv = self.conv2(conv)
+        conv = self.conv2(D1)
+        conv = self.batch2(conv)
         c1 = F.leaky_relu(conv)
 
         p1 = self.max2(c1)
         D2 = self.dnet2(p1)
         #######################################################################################
 
-        conv = self.batch3(D2)
-        conv = self.conv3(conv)
+        conv = self.conv3(D2)
+        conv = self.batch3(conv)
         c2 = F.leaky_relu(conv)
 
         p2 = self.max3(c2)
         D3 = self.dnet3(p2)
         #######################################################################################
 
-        conv = self.batch4(D3)
-        conv = self.conv4(conv)
+        conv = self.conv4(D3)
+        conv = self.batch4(conv)
         c3 = F.leaky_relu(conv)  ## c3.out_channel = 16
 
         # p3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=0)(c3)
         p3 = self.max4(c3)  ######CHANGE
         D4 = self.dnet4(p3)
 
-        conv = self.batch5(D4)
-        conv = self.conv5(conv)
+        conv = self.conv5(D4)
+        conv = self.batch5(conv)
         c4 = F.leaky_relu(conv)  ## c4.out_channel= 16
 
         x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(c4), c3),
@@ -755,7 +756,10 @@ def dd_train(gpu, args):
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
     batch = args.batch
     epochs = args.epochs
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
+    root_train_h = "/projects/synergy_lab/" \
+                   "" \
+                   "" \
+                   "vit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
@@ -893,13 +897,23 @@ def dd_train(gpu, args):
                                                               tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
                 total_train_loss = MSE_loss + (0.05 * (MSSSIM_loss + MSSSIM_loss2))
+                mse_log = 10 * torch.log10(MSE_loss)
+                dnn_mse = 10 * torch.log10(torch.mean(torch.pow(torch.abs(torch.sub(enhanced_image,hq_image)), 2)))
 
+                sigpow = 10 * torch.log10(torch.mean(torch.pow(hq_image, 2)))
+
+
+                # tar_sigpow = 10 * torch.log10(torch.mean(torch.pow(hq_image, 2)))
+                tar_dnn_mse = 10 * torch.log10(mse_log)
+
+                snr_target = sigpow - dnn_mse
+                snr = sigpow - tar_dnn_mse
+                print("mse: {} b1 {} b3 {} total {} snr_precise: {} vs snr_mse {}".format(MSE_loss, MSSSIM_loss, MSSSIM_loss2, total_train_loss,snr,snr_target))
                 train_MSE_loss[k].append(MSE_loss.item())
                 train_loss_b3[k].append(MSSSIM_loss.item())
                 train_loss_b1[k].append(MSSSIM_loss2.item())
                 train_total_loss[k].append(total_train_loss.item())
 
-                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss, MSSSIM_loss, MSSSIM_loss2, total_train_loss))
                 model.zero_grad()  # zero the gradients
                 total_train_loss.backward()  # back propogation
                 optimizer.step()  # update the parameters
