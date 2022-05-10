@@ -676,10 +676,10 @@ def cleanup():
 
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
-
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
     batch = args.batch
     epochs = args.epochs
+    retrain = args.retrain
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -750,98 +750,19 @@ def dd_train(gpu, args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
 
-    start = datetime.now()
+
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
     if (not (path.exists(model_file))):
-        for k in range(epochs):
-            print("Epoch: ", k)
-            print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
-                  train_MSSSIM_loss[k])
-            train_sampler.set_epoch(epochs)
-            for batch_index, batch_samples in enumerate(train_loader):
-                file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                        batch_samples['max'], batch_samples['min']
-                inputs = LQ_img.to(gpu)
-                # inputs = LQ_img.cuda(non_blocking=True)
-                targets = HQ_img.to(gpu)
-                # targets = HQ_img.cuda(non_blocking=True)
-                # outputs = model(inputs).to(rank)
-                outputs = model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-
-                train_MSE_loss.append(MSE_loss.item())
-                train_MSSSIM_loss.append(MSSSIM_loss.item())
-                train_total_loss.append(loss.item())
-                print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
-                model.zero_grad()
-                loss.backward()
-                optimizer.step()
-            # print('loss: ',loss, ' mse: ', mse
-            scheduler.step()
-            # print("Validation")
-            for batch_index, batch_samples in enumerate(val_loader):
-                file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                        batch_samples['max'], batch_samples['min']
-                inputs = LQ_img.to(gpu)
-                targets = HQ_img.to(gpu)
-                outputs = model(inputs)
-                # outputs = model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                # loss = MSE_loss
-                # print("MSE_loss", MSE_loss.item())
-                # print("MSSSIM_loss", MSSSIM_loss.item())
-                # print("Total_loss", loss.item())
-                # print("====================================")
-
-                val_MSE_loss.append(MSE_loss.item())
-                val_MSSSIM_loss.append(MSSSIM_loss.item())
-                val_total_loss.append(loss.item())
-
-                if (k == epochs - 1):
-                    if (rank == 0):
-                        print("Training complete in: " + str(datetime.now() - start))
-                    outputs_np = outputs.cpu().detach().numpy()
-                    (batch_size, channel, height, width) = outputs.size()
-                    for m in range(batch_size):
-                        file_name1 = file_name[m]
-                        file_name1 = file_name1.replace(".IMA", ".tif")
-                        im = Image.fromarray(outputs_np[m, 0, :, :])
-                        im.save('reconstructed_images/val/' + file_name1)
-                    # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                    gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+        test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                        train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                        val_total_loss)
         print("train end")
-        if (rank == 0):
-            print("Saving model parameters")
-            torch.save(model.state_dict(), model_file)
-
-        with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
-            for item in train_MSE_loss:
-                f.write("%f " % item)
-        with open('loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in train_MSSSIM_loss:
-                f.write("%f " % item)
-        with open('loss/train_total_loss_' + str(rank), 'w') as f:
-            for item in train_total_loss:
-                f.write("%f " % item)
-        with open('loss/val_MSE_loss_' + str(rank), 'w') as f:
-            for item in val_MSE_loss:
-                f.write("%f " % item)
-        with open('loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in val_MSSSIM_loss:
-                f.write("%f " % item)
-        with open('loss/val_total_loss_' + str(rank), 'w') as f:
-            for item in val_total_loss:
-                f.write("%f " % item)
+        serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
+                              val_MSSSIM_loss, val_total_loss)
 
     else:
         print("Loading model parameters")
@@ -875,7 +796,125 @@ def dd_train(gpu, args):
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
         calculate_global_sparsity(model)
+        if retrain > 0:
+            print('fine tune retraining for ', retrain , ' epochs...')
+            test_eval_ddnet(5, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                        train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                        val_total_loss)
 
+    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
+
+    print("testing end")
+    with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
+        for item in test_MSE_loss:
+            f.write("%f " % item)
+    with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
+        for item in test_MSSSIM_loss:
+            f.write("%f " % item)
+    with open('loss/test_total_loss_' + str(rank), 'w') as f:
+        for item in test_total_loss:
+            f.write("%f " % item)
+    print("everything complete.......")
+
+    print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
+    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
+    psnr_calc(test_MSE_loss)
+
+
+def test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                    train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                    val_total_loss):
+    start = datetime.now()
+    for k in range(epochs):
+        print("Training for Epocs: ", epochs)
+        # print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
+        #       train_MSSSIM_loss[k])
+        train_sampler.set_epoch(epochs)
+        for batch_index, batch_samples in enumerate(train_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                    batch_samples['max'], batch_samples['min']
+            inputs = LQ_img.to(gpu)
+            # inputs = LQ_img.cuda(non_blocking=True)
+            targets = HQ_img.to(gpu)
+            # targets = HQ_img.cuda(non_blocking=True)
+            # outputs = model(inputs).to(rank)
+            outputs = model(inputs)
+            MSE_loss = nn.MSELoss()(outputs, targets)
+            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+            # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
+            loss = MSE_loss + 0.1 * (MSSSIM_loss)
+
+            train_MSE_loss.append(MSE_loss.item())
+            train_MSSSIM_loss.append(MSSSIM_loss.item())
+            train_total_loss.append(loss.item())
+            # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
+            model.zero_grad()
+            loss.backward()
+            optimizer.step()
+        # print('loss: ',loss, ' mse: ', mse
+        scheduler.step()
+        # print("Validation")
+        for batch_index, batch_samples in enumerate(val_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                    batch_samples['max'], batch_samples['min']
+            inputs = LQ_img.to(gpu)
+            targets = HQ_img.to(gpu)
+            outputs = model(inputs)
+            # outputs = model(inputs)
+            MSE_loss = nn.MSELoss()(outputs, targets)
+            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+            # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+            loss = MSE_loss + 0.1 * (MSSSIM_loss)
+            # loss = MSE_loss
+            # print("MSE_loss", MSE_loss.item())
+            # print("MSSSIM_loss", MSSSIM_loss.item())
+            # print("Total_loss", loss.item())
+            # print("====================================")
+
+            val_MSE_loss.append(MSE_loss.item())
+            val_MSSSIM_loss.append(MSSSIM_loss.item())
+            val_total_loss.append(loss.item())
+
+            if (k == epochs - 1):
+                if (rank == 0):
+                    print("Training complete in: " + str(datetime.now() - start))
+                outputs_np = outputs.cpu().detach().numpy()
+                (batch_size, channel, height, width) = outputs.size()
+                for m in range(batch_size):
+                    file_name1 = file_name[m]
+                    file_name1 = file_name1.replace(".IMA", ".tif")
+                    im = Image.fromarray(outputs_np[m, 0, :, :])
+                    im.save('reconstructed_images/val/' + file_name1)
+                # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+                gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+
+
+def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
+                          val_MSSSIM_loss, val_total_loss):
+    if (rank == 0):
+        print("Saving model parameters")
+        torch.save(model.state_dict(), model_file)
+    with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
+        for item in train_MSE_loss:
+            f.write("%f " % item)
+    with open('loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+        for item in train_MSSSIM_loss:
+            f.write("%f " % item)
+    with open('loss/train_total_loss_' + str(rank), 'w') as f:
+        for item in train_total_loss:
+            f.write("%f " % item)
+    with open('loss/val_MSE_loss_' + str(rank), 'w') as f:
+        for item in val_MSE_loss:
+            f.write("%f " % item)
+    with open('loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+        for item in val_MSSSIM_loss:
+            f.write("%f " % item)
+    with open('loss/val_total_loss_' + str(rank), 'w') as f:
+        for item in val_total_loss:
+            f.write("%f " % item)
+
+
+def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss):
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                 batch_samples['max'], batch_samples['min']
@@ -907,23 +946,6 @@ def dd_train(gpu, args):
         # gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
 
-    print("testing end")
-    with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-        for item in test_MSE_loss:
-            f.write("%f " % item)
-    with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in test_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('loss/test_total_loss_' + str(rank), 'w') as f:
-        for item in test_total_loss:
-            f.write("%f " % item)
-    print("everything complete.......")
-
-    print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
-    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    psnr_calc(test_MSE_loss)
-
-
 
 def psnr_calc(mse_t):
     psnr = []
@@ -948,6 +970,8 @@ def main():
                         help='number of total epochs to run')
     parser.add_argument('--batch', default=2, type=int, metavar='N',
                         help='number of batch per gpu')
+    parser.add_argument('--retrain', default=0, type=int, metavar='N',
+                        help='retrain epochs')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
