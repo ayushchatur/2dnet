@@ -40,16 +40,26 @@ INPUT_CHANNEL_SIZE = 1
 
 
 
-def module_sparsity(module):
+def module_sparsity(module : nn.Module, usemasks = False):
     z  =0.0
     n  = 0
-    for name,p in module.named_parameters():
-        if "weight" in name :
-            z += torch.sum(p==0).item()
-            n += p.nelement()
-        if "bias" in name:
-            z+= torch.sum(p==0).item()
-            n += p.nelement()
+    if usemasks == True:
+        for bname, bu in module.named_buffers():
+            if "weight_mask" in bname:
+                z += torch.sum(bu == 0).item()
+                n += bu.nelement()
+            if "bias_mask" in bname:
+                z += torch.sum(bu == 0).item()
+                n += bu.nelement()
+
+    else:
+        for name,p in module.named_parameters():
+            if "weight" in name :
+                z += torch.sum(p==0).item()
+                n += p.nelement()
+            if "bias" in name:
+                z+= torch.sum(p==0).item()
+                n += p.nelement()
     return  n , z
 
 def calculate_global_sparsity(model: nn.Module):
