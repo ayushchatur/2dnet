@@ -837,8 +837,8 @@ def test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_lo
     start = datetime.now()
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
-        # print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
-        #       train_MSSSIM_loss[k])
+        print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
+              train_MSSSIM_loss[k])
         train_sampler.set_epoch(epochs)
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
