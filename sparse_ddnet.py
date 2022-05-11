@@ -384,32 +384,6 @@ class DD_net(nn.Module):
         super(DD_net, self).__init__()
         self.input = None  #######CHANGE
         self.nb_filter = 16
-        self.transform = new_transform
-        self.selectedOut = OrderedDict()
-        ## ~~~~~~~~~~~~~~~~~~~~~~~ VGG model inside our model ~~~~~~~~~~~~~~~~~~~~ ##
-        self.vgg = torchmodels.vgg16(pretrained=True)
-        for param in self.vgg.features.parameters():  # disable grad for trained layers
-            param.requires_grad = False
-        # first_conv_layer = {
-        #     str(0): nn.Conv2d(in_channels=1, out_channels=3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1,
-        #                       bias=True)} ## a conv. layer for converting bnw image with 1 channel to 3 channel for vgg
-        # first_conv_layer.extend(list(model.features))
-        # modules = list(list(self.vgg.children())[0])[:16]
-        modules = list(list(self.vgg.children())[0])[:16]
-        w = modules[0].weight
-        modules[0] = nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1),
-                               bias=False)  # [3,224,224] -> [1,224,224] , [1,512,512] -> 224,224
-        modules[0].weight = nn.Parameter(torch.mean(w, dim=1, keepdim=True))
-
-        for i in range(len(list(self.vgg._modules['features']))):
-            if i == 3:
-                self.vgg._modules['features'][i].register_forward_hook(self.forward_hook(i))
-        # first_conv_layer.fromkeys(modules: modules)
-        # module_dict = {**first_conv_layer, **{str(i + 1): modules[i] for i in range(len(modules))}}
-        module_dict = {**{str(i + 1): modules[i] for i in range(len(modules))}}
-        module_ordict = collections.OrderedDict(module_dict)
-        # first_conv_layer.extend(modules)
-        self.vgg = nn.Sequential(module_ordict)
 
         ##################CHANGE###############
         self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7),
@@ -457,18 +431,9 @@ class DD_net(nn.Module):
         self.batch11 = nn.BatchNorm2d(self.convT5.out_channels)
         self.batch12 = nn.BatchNorm2d(self.convT6.out_channels + self.conv1.out_channels)
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
-        self.xx = torch.zeros((3, 224, 224))
-        self.zz = self.xx[None, :]
-
-    def forward_hook(self, layer):
-        def hook(module, input, output):
-            self.selectedOut[layer] = output
-
-        return hook
 
     # def Forward(self, inputs):
     def forward(self, inputs):
-
         self.input = inputs
         # print("Size of input: ", inputs.size())
         # conv = nn.BatchNorm2d(self.input)
@@ -499,7 +464,7 @@ class DD_net(nn.Module):
 
         conv = self.batch4(D3)
         conv = self.conv4(conv)
-        c3 = F.leaky_relu(conv)  ## c3.out_channel = 16
+        c3 = F.leaky_relu(conv)
 
         # p3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=0)(c3)
         p3 = self.max4(c3)  ######CHANGE
@@ -507,15 +472,13 @@ class DD_net(nn.Module):
 
         conv = self.batch5(D4)
         conv = self.conv5(conv)
-        c4 = F.leaky_relu(conv)  ## c4.out_channel= 16
+        c4 = F.leaky_relu(conv)
 
-        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(c4), c3),
-                      dim=1)  # c4=16*2, c3=16, => x = 16*3 (channels)
-        dc4 = F.leaky_relu(self.convT1(self.batch6(x)))  ######size() CHANGE ; d4 : in=16*2, out=16*2
-        dc4_1 = F.leaky_relu(self.convT2(self.batch7(dc4)));  # dc4_1 : in = 16*2 out = 16
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(c4), c3), dim=1)
+        dc4 = F.leaky_relu(self.convT1(self.batch6(x)))  ######size() CHANGE
+        dc4_1 = F.leaky_relu(self.convT2(self.batch7(dc4)))
 
-        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc4_1), c2),
-                      dim=1)  # dc4_1 = 16*2, c2 =16 => x = 16*3
+        x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc4_1), c2), dim=1)
         dc5 = F.leaky_relu(self.convT3(self.batch8(x)))
         dc5_1 = F.leaky_relu(self.convT4(self.batch9(dc5)))
 
@@ -526,16 +489,11 @@ class DD_net(nn.Module):
         x = torch.cat((nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)(dc6_1), c0), dim=1)
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
+
         output = dc7_1
-        # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
-        vgg_inp = self.transform(dc7_1)  ## [1,512,512] -> [1,224,224]
-        # print("shape of vgg_inp: " + str(vgg_inp.size()))
-        # print("shape of zz: " + str(self.zz.size()))
-        # zz.to(gpu)
-        vgg_b3 = self.vgg(vgg_inp)
+        return output
 
-        return output, vgg_b3, self.selectedOut[3]
 
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
@@ -654,40 +612,17 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
             f.write("%f\n" % item)
 
 
-new_transform = transforms.Compose([
-    # transforms.ToTensor(),
-    # transforms.ToTensor(),
-    # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.1),
-    # transforms.RandomAffine(degrees=40, translate=None, scale=(1, 2), shear=15, resample=False, fillcolor=0),
-    transforms.Resize((224, 224))
-    # transforms.ToPILImage(),
-    # transforms.ToTensor()
-    # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-])
-
 
 class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3, root_hq_vgg1, length, transform=new_transform):
+    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
-        self.data_root_h_vgg_3 = root_hq_vgg3 + "/"
-        self.data_root_h_vgg_1 = root_hq_vgg1 + "/"
-
         self.img_list_l = os.listdir(self.data_root_l)
         self.img_list_h = os.listdir(self.data_root_h)
-        self.vgg_hq_img3 = os.listdir(self.data_root_h_vgg_3)
-        self.vgg_hq_img1 = os.listdir(self.data_root_h_vgg_1)
-
         self.img_list_l.sort()
         self.img_list_h.sort()
-        self.vgg_hq_img3.sort()
-        self.vgg_hq_img1.sort()
-
         self.img_list_l = self.img_list_l[0:length]
         self.img_list_h = self.img_list_h[0:length]
-        self.vgg_hq_img_list3 = self.vgg_hq_img3[0:length]
-        self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
-
         self.transform = transform
 
     def __len__(self):
@@ -709,14 +644,9 @@ class CTDataset(Dataset):
         # print("test")
         # exit()
         image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
-        # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
-        # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
         image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        vgg_hq_img3 = torch.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx])  ## shape : 1,256,56,56
-        vgg_hq_img1 = torch.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx])  ## shape : 1,64,244,244
 
-        input_file = self.img_list_l[idx]  ## low quality image
+        input_file = self.img_list_l[idx]
         assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
         assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
         cmax1 = np.amax(image_target)
@@ -736,18 +666,12 @@ class CTDataset(Dataset):
 
         inputs = torch.from_numpy(inputs_np)
         targets = torch.from_numpy(targets_np)
-
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
-
-        vgg_hq_img_3 = vgg_hq_img3.type(torch.FloatTensor)
-        vgg_hq_img_1 = vgg_hq_img1.type(torch.FloatTensor)
 
         sample = {'vol': input_file,
                   'HQ': targets,
                   'LQ': inputs,
-                  'HQ_vgg_op': vgg_hq_img_3,  ## 1,256,56,56
-                  'HQ_vgg_b1': vgg_hq_img_1,  ## 1,256,56,56
                   'max': maxs,
                   'min': mins}
         return sample
