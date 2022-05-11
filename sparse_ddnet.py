@@ -685,8 +685,8 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-import nvidia_dlprof_pytorch_nvtx as nvtx
-nvtx.init(enable_function_stack=True)
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
