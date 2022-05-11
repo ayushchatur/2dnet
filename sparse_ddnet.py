@@ -685,7 +685,8 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-
+import nvidia_dlprof_pytorch_nvtx as nvtx
+nvtx.init(enable_function_stack=True)
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
@@ -732,7 +733,7 @@ def dd_train(gpu, args):
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     model = DDP(model)
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -811,7 +812,8 @@ def dd_train(gpu, args):
         calculate_global_sparsity(model)
         if retrain > 0:
             print('fine tune retraining for ', retrain , ' epochs...')
-            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+            with torch.autograd.profiler.emit_nvtx():
+                train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                              val_total_loss)
 
@@ -832,6 +834,7 @@ def dd_train(gpu, args):
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
     psnr_calc(test_MSE_loss)
+
 
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
