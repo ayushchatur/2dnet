@@ -29,7 +29,8 @@ from torch.utils.data import DataLoader
 import re
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
+from apex.parallel import DistributedDataParallel as DDP
+# from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 
 # vizualize_folder = "./visualize"
