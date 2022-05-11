@@ -8,7 +8,6 @@
 # @Software: PyCharm
 import sys
 import time
-from apex import amp
 import torch.cuda.nvtx as nvtx
 import copy
 import torch.nn.utils.prune as prune
@@ -29,8 +28,7 @@ from torch.utils.data import DataLoader
 import re
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from apex.parallel import DistributedDataParallel as DDP
-# from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 
 # vizualize_folder = "./visualize"
@@ -685,6 +683,9 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+from apex.contrib.sparsity import ASP
 
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
@@ -727,13 +728,12 @@ def dd_train(gpu, args):
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
     model.to(gpu)
+    model = DDP(model, device_ids=[gpu])
     learn_rate = 0.0001;
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
-    model = DDP(model, device_ids=[gpu])
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -784,34 +784,36 @@ def dd_train(gpu, args):
         print("sparifying the model....")
         calculate_global_sparsity(model)
         parm = []
-        original_model = copy.deepcopy(model)
-        # model.load_state_dict(torch.load(model_file, map_location=map_location))
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                parm.append((module, "weight"))
-                parm.append((module, "bias"))
+        # original_model = copy.deepcopy(model)
+        # # model.load_state_dict(torch.load(model_file, map_location=map_location))
+        # for name, module in model.named_modules():
+        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+        #         parm.append((module, "weight"))
+        #         parm.append((module, "bias"))
+        #
+        # # layerwise_sparsity(pruned_model,0.3)
+        # prune.global_unstructured(
+        #     parameters=parm,
+        #     pruning_method=prune.L1Unstructured,
+        #     amount=0.5,
+        # )
+        # print('pruning masks applied successfully')
+        # for name, module in model.named_modules():
+        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+        #         try:
+        #             prune.remove(module, "weight")
+        #             prune.remove(module, "bias")
+        #         except  Exception as e:
+        #             print(' error pruing as ', e)
 
-        # layerwise_sparsity(pruned_model,0.3)
-        prune.global_unstructured(
-            parameters=parm,
-            pruning_method=prune.L1Unstructured,
-            amount=0.5,
-        )
-        print('pruning masks applied successfully')
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                try:
-                    prune.remove(module, "weight")
-                    prune.remove(module, "bias")
-                except  Exception as e:
-                    print(' error pruing as ', e)
-
-        print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
+        ASP.prune_trained_model(model, optimizer)
+        print('weights updated and masks removed... Model is sucessfully pruned')
         calculate_global_sparsity(model)
         if retrain > 0:
             print('fine tune retraining for ', retrain , ' epochs...')
-            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+            with torch.autograd.profiler.emit_nvtx():
+                train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                              val_total_loss)
 
@@ -846,7 +848,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            nvtx.range_push("Batch: " + batch_index)
+            nvtx.range_push("Batch: " + str(batch_index))
             nvtx.range_push("copy to device")
             inputs = LQ_img.to(gpu)
             # inputs = LQ_img.cuda(non_blocking=True)
@@ -867,9 +869,9 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             train_total_loss.append(loss.item())
             # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            # loss.backward()
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            loss.backward()
+            # with amp.scale_loss(loss, optimizer) as scaled_loss:
+            #     scaled_loss.backward()
             optimizer.step()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
