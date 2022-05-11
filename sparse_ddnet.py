@@ -28,7 +28,8 @@ from torch.utils.data import DataLoader
 import re
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
+from apex.parallel import DistributedDataParallel as DDP
+# from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 
 # vizualize_folder = "./visualize"
@@ -869,9 +870,9 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             train_total_loss.append(loss.item())
             # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            loss.backward()
-            # with amp.scale_loss(loss, optimizer) as scaled_loss:
-            #     scaled_loss.backward()
+            # loss.backward()
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
             optimizer.step()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
