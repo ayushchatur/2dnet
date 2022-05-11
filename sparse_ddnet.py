@@ -8,6 +8,7 @@
 # @Software: PyCharm
 import sys
 import time
+from apex import amp
 import torch.cuda.nvtx as nvtx
 import copy
 import torch.nn.utils.prune as prune
@@ -732,6 +733,7 @@ def dd_train(gpu, args):
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -768,9 +770,9 @@ def dd_train(gpu, args):
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
     if (not (path.exists(model_file))):
-        test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                        train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                        val_total_loss)
+        train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                         train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                         val_total_loss)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -809,9 +811,9 @@ def dd_train(gpu, args):
         calculate_global_sparsity(model)
         if retrain > 0:
             print('fine tune retraining for ', retrain , ' epochs...')
-            test_eval_ddnet(5, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                        train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                        val_total_loss)
+            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                             val_total_loss)
 
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
@@ -832,9 +834,9 @@ def dd_train(gpu, args):
     psnr_calc(test_MSE_loss)
 
 
-def test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                    train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                    val_total_loss):
+def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                     train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                     val_total_loss):
     start = datetime.now()
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
@@ -865,7 +867,9 @@ def test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_lo
             train_total_loss.append(loss.item())
             # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            loss.backward()
+            # loss.backward()
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
             optimizer.step()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
