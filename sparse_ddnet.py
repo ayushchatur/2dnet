@@ -807,7 +807,7 @@ def dd_train(gpu, args):
         #             prune.remove(module, "bias")
         #         except  Exception as e:
         #             print(' error pruing as ', e)
-        ASP.pruned_trained_model(model,optimizer)
+        ASP.prune_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
         calculate_global_sparsity(model)
