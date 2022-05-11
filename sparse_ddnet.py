@@ -786,7 +786,7 @@ def dd_train(gpu, args):
         print("sparifying the model....")
         calculate_global_sparsity(model)
         parm = []
-        original_model = copy.deepcopy(model)
+        # original_model = copy.deepcopy(model)
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         for name, module in model.named_modules():
             if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
