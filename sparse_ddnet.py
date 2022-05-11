@@ -18,12 +18,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
-from skimage import io, transform
-from skimage import img_as_float
+
 import os
 from os import path
 from PIL import Image
-from csv import reader
+
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
