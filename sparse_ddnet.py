@@ -687,6 +687,7 @@ def cleanup():
 
 import nvidia_dlprof_pytorch_nvtx
 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+from apex.contrib.sparsity import ASP
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
@@ -787,26 +788,26 @@ def dd_train(gpu, args):
         parm = []
         # original_model = copy.deepcopy(model)
         # model.load_state_dict(torch.load(model_file, map_location=map_location))
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                parm.append((module, "weight"))
-                parm.append((module, "bias"))
-
-        # layerwise_sparsity(pruned_model,0.3)
-        prune.global_unstructured(
-            parameters=parm,
-            pruning_method=prune.L1Unstructured,
-            amount=0.5,
-        )
-        print('pruning masks applied successfully')
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                try:
-                    prune.remove(module, "weight")
-                    prune.remove(module, "bias")
-                except  Exception as e:
-                    print(' error pruing as ', e)
-
+        # for name, module in model.named_modules():
+        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+        #         parm.append((module, "weight"))
+        #         parm.append((module, "bias"))
+        #
+        # # layerwise_sparsity(pruned_model,0.3)
+        # prune.global_unstructured(
+        #     parameters=parm,
+        #     pruning_method=prune.L1Unstructured,
+        #     amount=0.5,
+        # )
+        # print('pruning masks applied successfully')
+        # for name, module in model.named_modules():
+        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+        #         try:
+        #             prune.remove(module, "weight")
+        #             prune.remove(module, "bias")
+        #         except  Exception as e:
+        #             print(' error pruing as ', e)
+        ASP.pruned_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
         calculate_global_sparsity(model)
