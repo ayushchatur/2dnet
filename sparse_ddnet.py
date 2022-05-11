@@ -8,6 +8,7 @@
 # @Software: PyCharm
 import sys
 import time
+import torch.cuda.nvtx as nvtx
 import copy
 import torch.nn.utils.prune as prune
 from datetime import datetime
@@ -843,17 +844,22 @@ def test_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_lo
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
+            nvtx.range_push("Batch: " + batch_index)
+            nvtx.range_push("copy to device")
             inputs = LQ_img.to(gpu)
             # inputs = LQ_img.cuda(non_blocking=True)
             targets = HQ_img.to(gpu)
+            nvtx.range_pop()
             # targets = HQ_img.cuda(non_blocking=True)
             # outputs = model(inputs).to(rank)
+            nvtx.range_push("Forward pass")
             outputs = model(inputs)
             MSE_loss = nn.MSELoss()(outputs, targets)
             MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
             # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
             loss = MSE_loss + 0.1 * (MSSSIM_loss)
-
+            nvtx.range_pop()
+            nvtx.range_pop()
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
