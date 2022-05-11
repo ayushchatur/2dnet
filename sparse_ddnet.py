@@ -846,7 +846,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            nvtx.range_push("Batch: " + batch_index)
+            nvtx.range_push("Batch: " + str(batch_index))
             nvtx.range_push("copy to device")
             inputs = LQ_img.to(gpu)
             # inputs = LQ_img.cuda(non_blocking=True)
