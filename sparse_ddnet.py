@@ -727,13 +727,13 @@ def dd_train(gpu, args):
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
     model.to(gpu)
-    model = DDP(model, device_ids=[gpu])
     learn_rate = 0.0001;
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
     model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    model = DDP(model, device_ids=[gpu])
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
