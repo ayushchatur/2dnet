@@ -8,8 +8,8 @@
 # @Software: PyCharm
 import sys
 import time
-from apex import amp
-import torch.cuda.nvtx as nvtx
+# from apex import amp
+# import torch.cuda.nvtx as nvtx
 import copy
 import torch.nn.utils.prune as prune
 from datetime import datetime
@@ -747,11 +747,11 @@ def dd_train(gpu, args):
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
     model = DD_net()
-    model = DDP(model, device_ids=[gpu])
 
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
     model.to(gpu)
+    model = DDP(model, device_ids=[gpu])
     learn_rate = 0.0001;
     epsilon = 1e-8
 
