@@ -29,8 +29,8 @@ from torch.utils.data import DataLoader
 import re
 import torch.multiprocessing as mp
 import torch.distributed as dist
-from apex.parallel import DistributedDataParallel as DDP
-# from torch.nn.parallel import DistributedDataParallel as DDP
+# from apex.parallel import DistributedDataParallel as DDP
+from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 
 # vizualize_folder = "./visualize"
@@ -707,9 +707,9 @@ def setup(rank, world_size):
 def cleanup():
     dist.destroy_process_group()
 
-import nvidia_dlprof_pytorch_nvtx
-nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
-from apex.contrib.sparsity import ASP
+# import nvidia_dlprof_pytorch_nvtx
+# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+# from apex.contrib.sparsity import ASP
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
@@ -747,6 +747,7 @@ def dd_train(gpu, args):
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
     model = DD_net()
+    model = DDP(model, device_ids=[gpu])
 
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
@@ -756,8 +757,8 @@ def dd_train(gpu, args):
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
-    model = DDP(model)
+    # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
+    # model = DDP(model)
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -817,8 +818,8 @@ def dd_train(gpu, args):
         calculate_global_sparsity(model)
         if retrain > 0:
             print('fine tune retraining for ', retrain , ' epochs...')
-            with torch.autograd.profiler.emit_nvtx():
-                train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+            # with torch.autograd.profiler.emit_nvtx():
+            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                              val_total_loss)
 
@@ -854,30 +855,30 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            nvtx.range_push("Batch: " + str(batch_index))
-            nvtx.range_push("copy to device")
+            # nvtx.range_push("Batch: " + str(batch_index))
+            # nvtx.range_push("copy to device")
             inputs = LQ_img.to(gpu)
             # inputs = LQ_img.cuda(non_blocking=True)
             targets = HQ_img.to(gpu)
-            nvtx.range_pop()
+            # nvtx.range_pop()
             # targets = HQ_img.cuda(non_blocking=True)
             # outputs = model(inputs).to(rank)
-            nvtx.range_push("Forward pass")
+            # nvtx.range_push("Forward pass")
             outputs = model(inputs)
             MSE_loss = nn.MSELoss()(outputs, targets)
             MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
             # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
             loss = MSE_loss + 0.1 * (MSSSIM_loss)
-            nvtx.range_pop()
-            nvtx.range_pop()
+            # nvtx.range_pop()
+            # nvtx.range_pop()
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
             # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            # loss.backward()
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            loss.backward()
+            # with amp.scale_loss(loss, optimizer) as scaled_loss:
+            #     scaled_loss.backward()
             optimizer.step()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
