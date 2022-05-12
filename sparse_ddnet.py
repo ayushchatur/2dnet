@@ -40,7 +40,29 @@ import argparse
 
 INPUT_CHANNEL_SIZE = 1
 
+def structured_sparsity(model):
+    parm = []
+    for name, module in model.named_modules():
+        if "conv" in name:
+            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+                parm.append((module, "weight"))
+                # parm.append((module, "bias"))
 
+    # layerwise_sparsity(model,0.3)
+
+    for item in parm:
+        try:
+            prune.random_structured(item[0], amount=0.5, name="weight", dim=0)
+            prune.random_unstructured(item[0], amount=0.5, name="bias")
+
+        except Exception as e:
+            print('Error pruning: ', item[1], "exception: ", e)
+    for module, name in parm:
+        try:
+            prune.remove(module, "weight")
+            prune.remove(module, "bias")
+        except  Exception as e:
+            print('error pruing as ', e)
 
 def module_sparsity(module : nn.Module, usemasks = False):
     z  =0.0
@@ -788,25 +810,7 @@ def dd_train(gpu, args):
         parm = []
         # original_model = copy.deepcopy(model)
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                parm.append((module, "weight"))
-                parm.append((module, "bias"))
-
-        # layerwise_sparsity(pruned_model,0.3)
-        prune.global_unstructured(
-            parameters=parm,
-            pruning_method=prune.L1Unstructured,
-            amount=0.5,
-        )
-        print('pruning masks applied successfully')
-        for name, module in model.named_modules():
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                try:
-                    prune.remove(module, "weight")
-                    prune.remove(module, "bias")
-                except  Exception as e:
-                    print(' error pruing as ', e)
+        structured_sparsity(model)
         # ASP.prune_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
