@@ -18,7 +18,7 @@ Provide all access to all users to python file
   chmod 766 sparse_ddnet.py
  ```
 use the following command in job_tinker.sh file 
-To profile the application we use DL prof which is available in the pytorch containers change the following [line](hhttps://github.com/ayushchatur/2dnet/blob/fa7d3e98de51b2ad32c0b98a2588b412fe180e70/job_tinker.sh#L82) in  job_tinker.sh file
+To profile the application we use DL prof which is available in the pytorch containers change the following [line](https://github.com/ayushchatur/2dnet/blob/fa7d3e98de51b2ad32c0b98a2588b412fe180e70/job_tinker.sh#L82) line 82 singularity command in  job_tinker.sh file
 
 ``` sh 
 singularity exec --nv --writable-tmpfs --bind=${TMPDIR},/cm/shared:/cm/shared,/projects:/projects $imagefile dlprof --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn" -f true --reports=summary,detail,iteration,kernel,tensor --delay 60 --duration 60 python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
