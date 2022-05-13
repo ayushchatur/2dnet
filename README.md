@@ -13,7 +13,11 @@ the follow:
 - output will be generated in slurm-<jobid>.out
 ### instrcutions on profiling 
 
-
+Provide all access to all users to python file 
+``` sh 
+  chmod 766 sparse_ddnet.py
+ ```
+  
 use the following command in job_tinker.sh file 
 To profile the application we use DL prof which is available in the pytorch containers change the following [line](https://github.com/ayushchatur/2dnet/blob/7b9f3989dfa16faed1f7ef7f5f417abdee4866f9/sparse_ddnet.py#L737) in  job_tinker.sh file
 
