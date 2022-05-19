@@ -4,14 +4,14 @@
 #SBATCH --partition=a100_normal_q
 #SBATCH --time=16:00:00
 #SBATCH -A HPCBIGDATA2
-#SBATCH --gres=gpu:1
 #SBATCH --nodes=1
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=48
 #SBATCH --propagate=STACK
 #SBATCH --dependency=259619
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-export MASTER_PORT=8888
+export MASTER_PORT=8889
 #export WORLD_SIZE=4
 ### get the first node name as master address - customized for vgg slurm
 ### e.g. master(gnodee[2-5],gnoded1) == gnodee2
@@ -58,18 +58,21 @@ echo "working directory = "$SLURM_SUBMIT_DIR
 # module load  apps  site/infer/easybuild/setup
 # module load PyTorch/1.7.1-fosscuda-2020b
 module reset
-module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
+module load Anaconda3 cuda-latest cuda-latest/nsight
 module list
 nvidia-smi
 export batch_size=1
-export epochs=3
-
+export epochs=50
+export beta=0.05
 # cd ~
 source activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
+module load containers/singularity
+imagefile=/projects/arcsingularity/AMD/ood-jupyter-pytorch_21.12.sif
+module load containers/singularity
 
 ### the command to run
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
-time python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs
+singularity exec --nv --writable-tmpfs --bind=${TMPDIR},/cm/shared:/cm/shared,/projects:/projects $imagefile python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs --beta $beta
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh
