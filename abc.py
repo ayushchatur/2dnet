@@ -871,22 +871,14 @@ def dd_train(gpu, args):
 
     print("~~~~~~~~~~~~~~~~~~~~~~~~~ training ~~~~~~~~~~~~~~~~~~~~~~")
     if (not (path.exists(model_file))):
-        # outer = tqdm.tqdm(total=epochs, desc="Epoch", position=0)
+
         for k in range(epochs):
-            total_train_loss = None
-            # print("Epoch: ", k)
-            print('epoch: ', k, ' train loss: ', loss_total_list[k], ' mse: ', train_mse_list[k], ' mssi b1: ',
-                  loss_b1_list[k], ' mssi b3: ', loss_b3_list[k])
             train_sampler.set_epoch(epochs)
-
-
             for batch_index, batch_samples in enumerate(train_loader):
 
                 file_name, HQ_img, LQ_img, maxs, mins,   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
-                # HQ_vgg_b3 = HQ_vgg.to(gpu) ## high quality vgg b3 target
-                # hq_vgg_b1_gpu = hq_vgg_b1.to(gpu) ## high quality vgg b1 target
 
                 enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image,
                                                                                hq_image)  # vgg_en_image should be 1,256,56,56
@@ -895,34 +887,25 @@ def dd_train(gpu, args):
                 Loss_b3= VGGloss()(out_vgg_b3,tar_b3)
                 loss_b1 = VGGloss()(out_vgg_b1,tar_b1)
                 total_train_loss = MSE_loss + (beta * (Loss_b3 + loss_b1))
-                # print('total loss new: ', total_train_loss)
+
 
                 train_MSE_loss[k].append(MSE_loss.item())
                 train_loss_b3[k].append(Loss_b3.item())
                 train_loss_b1[k].append(loss_b1.item())
                 train_total_loss[k].append(total_train_loss.item())
 
-                print("mse: {} b1 {} b3 {} total {}".format(MSE_loss, MSSSIM_loss, MSSSIM_loss2, total_train_loss))
                 model.zero_grad()  # zero the gradients
                 total_train_loss.backward()  # back propogation
                 optimizer.step()  # update the parameters
-            # print('sum: {} len: {} K: {}'.format(sum(train_total_loss[k]), len(train_total_loss[k]), k))
+
 
             print('total training loss:', (sum(train_total_loss[k]) / len(train_total_loss[k])))
-            print('training  mse:', sum(train_total_loss[k]) / len(train_total_loss[k]))
+            print('training  mse:', sum(train_MSE_loss[k]) / len(train_MSE_loss[k]))
             print('training b1:', sum(train_loss_b1[k]) / len(train_loss_b1[k]))
             print('training b3:', sum(train_loss_b3[k]) / len(train_loss_b3[k]))
-
-            # print('epoch: ', k, ' test loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ', train_MSSSIM_loss[k])
-
             scheduler.step()  #
-            # loss_b1_list.append((sum(train_loss_b1[k])/len(train_loss_b1)))
-            # loss_b3_list.append((sum(train_loss_b3)/len(train_loss_b3)))
-            # loss_total_list.append((sum(train_total_loss)/len(train_total_loss)))
-            # train_mse_list.append((sum(train_MSE_loss)/len(train_MSE_loss)))
 
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
-            val_loss = None
             for batch_index, batch_samples in enumerate(val_loader):
                 file_name, HQ_img, LQ_img, maxs, mins   = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
 
@@ -932,10 +915,6 @@ def dd_train(gpu, args):
                 enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
 
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-                MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3,
-                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1,
-                                                              tar_b1)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
 
                 Loss_b3 = VGGloss()(out_vgg_b3, tar_b3)
                 loss_b1 = VGGloss()(out_vgg_b1, tar_b1)
@@ -965,12 +944,8 @@ def dd_train(gpu, args):
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
             print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
             print('validation b3:', sum(val_MSSI_loss_b3[k]) / len(val_MSSI_loss_b3[k]))
-            # val_loss_b1_list.append((sum(val_MSSI_loss_b1) / len(val_MSSI_loss_b1)))
-            # val_loss_b1_list.append((sum(val_MSSI_loss_b3) / len(val_MSSI_loss_b3)))
-            # val_loss_b1_list.append((sum(val_total_loss) / len(val_total_loss)))
-            # val_mse_list.append((sum(val_MSE_loss) / len(val_MSE_loss)))
-            # outer.update(1)
-        print("train end")
+
+        print("train and val end.............")
         if (rank == 0):
             print("Saving model parameters")
             torch.save(model.state_dict(), model_file)
@@ -990,6 +965,7 @@ def dd_train(gpu, args):
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
+
     test_MSSSIM_loss = []
     test_SSIM_loss = []
 
@@ -1049,47 +1025,34 @@ def dd_train(gpu, args):
             np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
         except Exception as e:
             print('error serializing: ', e)
-    x_axis = range(len(test_total_loss))
-    # plt.figure(num=3)
-    # plt.scatter(x_axis, test_total_loss,label="test loss")
-    # plt.xlabel("range")
-    # plt.ylabel("values (fp)")
-    # plt.legend()
-    # plt.title('test loss vs batch')
-    # plt.savefig('test_loss.png', format='png',dpi=350)
+
     print("testing end")
-    # with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-    #     for item in test_MSE_loss:
-    #         f.write("%f " % item)
-    # with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-    #     for item in test_loss_b1:
-    #         f.write("%f " % item)
-    # with open('loss/test_total_loss_' + str(rank), 'w') as f:
-    #     for item in test_total_loss:
-    #         f.write("%f " % item)
+
 
     print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
-    data1 = np.loadtxt('./visualize/test/msssim_loss_target_in')
-    print("size of in target: " + str(data1.shape))
+
     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
     print("size of out target: " + str(data2.shape))
-    data3 = np.append(data1, data2)
+
     # print("size of append target: " + str(data3.shape))
-    print("Final avergae MSE: ", 100 - (100 * np.average(data2)), "std dev.: ", np.std(data2))
-    print("Final average VGG LOSS: " + str(100 - (100 * np.average(data3))))
+    print("Final avergae MSE: ", np.average(data2), "std dev.: ", np.std(data2))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
     print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
     generate_plots(epochs)
+    psnr_calc(data2)
 
 
 def psnr_calc(mse_t):
-    psnr = []
-    for i in range(len(mse_t)):
-        #     x = read_correct_image(pa +"/"+ ll[i])
-        mse_sqrt = pow(mse_t[i], 0.5)
-        psnr_ = 20 * np.log10(1 / mse_sqrt)
-        psnr.insert(i, psnr_)
-    print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
+    try:
+        psnr = []
+        for i in range(len(mse_t)):
+            #     x = read_correct_image(pa +"/"+ ll[i])
+            mse_sqrt = pow(mse_t[i], 0.5)
+            psnr_ = 20 * np.log10(1 / mse_sqrt)
+            psnr.insert(i, psnr_)
+        print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
+    except Exception as e:
+        print("error psrn calc" , e)
 
 
 def main():
