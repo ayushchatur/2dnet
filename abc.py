@@ -109,7 +109,7 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False,
     if window is None:
         real_size = min(window_size, height, width)
         window = create_window(real_size, channel=channel).to(img1.device)
-
+    window = window.to(img1.device)
     mu1 = F.conv2d(img1, window, padding=padd, groups=channel)
     mu2 = F.conv2d(img2, window, padding=padd, groups=channel)
 
