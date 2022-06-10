@@ -782,24 +782,24 @@ def dd_train(gpu, args):
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        print("Loading model parameters")
+        print("Loading model parameters complete")
         print("sparifying the model....")
         calculate_global_sparsity(model)
         parm = []
-        # original_model = copy.deepcopy(model)
+        original_model = copy.deepcopy(model)
         # model.load_state_dict(torch.load(model_file, map_location=map_location))
-        # for name, module in model.named_modules():
-        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-        #         parm.append((module, "weight"))
-        #         parm.append((module, "bias"))
+        for name, module in model.named_modules():
+            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+                parm.append((module, "weight"))
+                parm.append((module, "bias"))
         #
         # # layerwise_sparsity(pruned_model,0.3)
-        # prune.global_unstructured(
-        #     parameters=parm,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.5,
-        # )
-        # print('pruning masks applied successfully')
+        prune.global_unstructured(
+            parameters=parm,
+            pruning_method=prune.L1Unstructured,
+            amount=0.5,
+        )
+        print('pruning masks applied successfully')
         # for name, module in model.named_modules():
         #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
         #         try:
@@ -834,7 +834,7 @@ def dd_train(gpu, args):
 
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    psnr_calc(test_MSE_loss)
+    # psnr_calc(test_MSE_loss)
 
 
 
