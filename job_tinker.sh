@@ -63,14 +63,14 @@ module list
 nvidia-smi
 export batch_size=1
 export epochs=50
-export retrain=1
+export retrain=3
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
 
 echo "epochs : $epochs"
 # cd ~
-source activate test
+conda activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
 imagefile=/projects/arcsingularity/AMD/ood-jupyter-pytorch_21.12.sif
