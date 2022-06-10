@@ -783,7 +783,7 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         print("Loading model parameters complete")
-        print("sparifying the model....")
+        print("sparifying the model using global L1 unstructured....")
         calculate_global_sparsity(model)
         parm = []
         original_model = copy.deepcopy(model)
@@ -794,6 +794,7 @@ def dd_train(gpu, args):
                 parm.append((module, "bias"))
         #
         # # layerwise_sparsity(pruned_model,0.3)
+
         prune.global_unstructured(
             parameters=parm,
             pruning_method=prune.L1Unstructured,
