@@ -686,7 +686,7 @@ def cleanup():
     dist.destroy_process_group()
 
 import nvidia_dlprof_pytorch_nvtx
-nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 from apex.contrib.sparsity import ASP
 def dd_train(gpu, args):
     rank = args.nr * args.gpus + gpu
@@ -782,18 +782,16 @@ def dd_train(gpu, args):
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        print("Loading model parameters")
-        print("sparifying the model....")
+        print("Loading model parameters complete")
+        print("sparifying the model using global L1 unstructured....")
         calculate_global_sparsity(model)
         parm = []
-        # original_model = copy.deepcopy(model)
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
+
         for name, module in model.named_modules():
             if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
                 parm.append((module, "weight"))
                 parm.append((module, "bias"))
 
-        # layerwise_sparsity(pruned_model,0.3)
         prune.global_unstructured(
             parameters=parm,
             pruning_method=prune.L1Unstructured,
@@ -834,7 +832,7 @@ def dd_train(gpu, args):
 
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    psnr_calc(test_MSE_loss)
+    # psnr_calc(test_MSE_loss)
 
 
 

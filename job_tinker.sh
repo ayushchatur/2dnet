@@ -63,7 +63,7 @@ module list
 nvidia-smi
 export batch_size=1
 export epochs=50
-export retrain=1
+export retrain=3
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
