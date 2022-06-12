@@ -786,14 +786,11 @@ def dd_train(gpu, args):
         print("sparifying the model using global L1 unstructured....")
         calculate_global_sparsity(model)
         parm = []
-        #original_model = copy.deepcopy(model)
-        # model.load_state_dict(torch.load(model_file, map_location=map_location))
+
         for name, module in model.named_modules():
             if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
                 parm.append((module, "weight"))
                 parm.append((module, "bias"))
-        #
-        # # layerwise_sparsity(pruned_model,0.3)
 
         prune.global_unstructured(
             parameters=parm,
