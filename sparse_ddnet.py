@@ -801,13 +801,13 @@ def dd_train(gpu, args):
             amount=0.5,
         )
         print('pruning masks applied successfully')
-        # for name, module in model.named_modules():
-        #     if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-        #         try:
-        #             prune.remove(module, "weight")
-        #             prune.remove(module, "bias")
-        #         except  Exception as e:
-        #             print(' error pruing as ', e)
+        for name, module in model.named_modules():
+            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+                try:
+                    prune.remove(module, "weight")
+                    prune.remove(module, "bias")
+                except  Exception as e:
+                    print(' error pruing as ', e)
         # ASP.prune_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
