@@ -40,6 +40,23 @@ import argparse
 
 INPUT_CHANNEL_SIZE = 1
 
+def ln_struc_spar(model):
+    parm = []
+    for name, module in model.named_modules():
+        if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+                parm.append((module, "weight"))
+                # parm.append((module, "bias"))
+    for item in parm:
+        try:
+            prune.ln_structured(item[0], amount=0.5, name="weight", n=1, dim=0)
+        except Exception as e:
+            print('Error pruning: ', item[1], "exception: ", e)
+    for module, name in parm:
+        try:
+            prune.remove(module, "weight")
+            prune.remove(module, "bias")
+        except  Exception as e:
+            print('error pruning weight/bias for ',name,  e)
 def structured_sparsity(model):
     parm = []
     for name, module in model.named_modules():
@@ -811,7 +828,7 @@ def dd_train(gpu, args):
         parm = []
         # original_model = copy.deepcopy(model)
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        structured_sparsity(model)
+        ln_struc_spar(model)
         # ASP.prune_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
