@@ -32,6 +32,7 @@ import torch.distributed as dist
 # from apex.parallel import DistributedDataParallel as DDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
+import torch.cuda.amp as amp
 
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
@@ -406,13 +407,19 @@ class DD_net(nn.Module):
         self.nb_filter = 16
 
         ##################CHANGE###############
+        ## in 1, out 16
         self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7),
                                padding=(3, 3))
         self.dnet1 = denseblock(self.nb_filter, filter_wh=5)
+        ## in 16*5 out: 16
         self.conv2 = nn.Conv2d(in_channels=self.conv1.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet2 = denseblock(self.nb_filter, filter_wh=5)
+
+        ## in: 16*5 out: 16
         self.conv3 = nn.Conv2d(in_channels=self.conv2.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet3 = denseblock(self.nb_filter, filter_wh=5)
+
+        ## in: 16*5 out: 16
         self.conv4 = nn.Conv2d(in_channels=self.conv3.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet4 = denseblock(self.nb_filter, filter_wh=5)
 
@@ -757,8 +764,8 @@ def dd_train(gpu, args):
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
-    # model = DDP(model)
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
+    model = DDP(model)
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -839,7 +846,7 @@ def dd_train(gpu, args):
 
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    psnr_calc(test_MSE_loss)
+    # psnr_calc(test_MSE_loss)
 
 
 
@@ -847,6 +854,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss):
     start = datetime.now()
+    scaler = amp.GradScaler()
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -855,31 +863,25 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            # nvtx.range_push("Batch: " + str(batch_index))
-            # nvtx.range_push("copy to device")
-            inputs = LQ_img.to(gpu)
-            # inputs = LQ_img.cuda(non_blocking=True)
-            targets = HQ_img.to(gpu)
-            # nvtx.range_pop()
-            # targets = HQ_img.cuda(non_blocking=True)
-            # outputs = model(inputs).to(rank)
-            # nvtx.range_push("Forward pass")
-            outputs = model(inputs)
-            MSE_loss = nn.MSELoss()(outputs, targets)
-            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-            # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-            loss = MSE_loss + 0.1 * (MSSSIM_loss)
-            # nvtx.range_pop()
-            # nvtx.range_pop()
+
+            with amp.autocast(dtype=torch.float16):
+                inputs = LQ_img.to(gpu)
+
+                targets = HQ_img.to(gpu)
+
+                outputs = model(inputs)
+                MSE_loss = nn.MSELoss()(outputs, targets)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
-            # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            loss.backward()
-            # with amp.scale_loss(loss, optimizer) as scaled_loss:
-            #     scaled_loss.backward()
-            optimizer.step()
+            # loss.backward()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
         # print("Validation")
