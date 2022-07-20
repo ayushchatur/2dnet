@@ -32,6 +32,7 @@ import torch.distributed as dist
 # from apex.parallel import DistributedDataParallel as DDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
+import torch.cuda.amp as amp
 
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
@@ -864,6 +865,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss):
     start = datetime.now()
+    scaler = amp.GradScaler()
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -872,68 +874,58 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            # nvtx.range_push("Batch: " + str(batch_index))
-            # nvtx.range_push("copy to device")
-            inputs = LQ_img.to(gpu)
-            # inputs = LQ_img.cuda(non_blocking=True)
-            targets = HQ_img.to(gpu)
-            # nvtx.range_pop()
-            # targets = HQ_img.cuda(non_blocking=True)
-            # outputs = model(inputs).to(rank)
-            # nvtx.range_push("Forward pass")
-            outputs = model(inputs)
-            MSE_loss = nn.MSELoss()(outputs, targets)
-            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-            # loss = nn.MSELoss()(outputs , targets_train) + 0.1*(1-MSSSIM()(outputs,targets_train))
-            loss = MSE_loss + 0.1 * (MSSSIM_loss)
-            # nvtx.range_pop()
-            # nvtx.range_pop()
+
+            with amp.autocast(enabled=False,):
+                inputs = LQ_img.to(gpu)
+
+                targets = HQ_img.to(gpu)
+
+                outputs = model(inputs)
+                MSE_loss = nn.MSELoss()(outputs, targets)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+            # print(outputs.shape)
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
-            # print("output shape:" + str(outputs.shape) + " target shape:" + str(targets.shape))
             model.zero_grad()
-            loss.backward()
-            # with amp.scale_loss(loss, optimizer) as scaled_loss:
-            #     scaled_loss.backward()
-            optimizer.step()
+            # loss.backward()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
         # print("Validation")
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            inputs = LQ_img.to(gpu)
-            targets = HQ_img.to(gpu)
-            outputs = model(inputs)
-            # outputs = model(inputs)
-            MSE_loss = nn.MSELoss()(outputs, targets)
-            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-            # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-            loss = MSE_loss + 0.1 * (MSSSIM_loss)
-            # loss = MSE_loss
-            # print("MSE_loss", MSE_loss.item())
-            # print("MSSSIM_loss", MSSSIM_loss.item())
-            # print("Total_loss", loss.item())
-            # print("====================================")
+            with amp.autocast(enabled=True):
+                inputs = LQ_img.to(gpu)
+                targets = HQ_img.to(gpu)
+                outputs = model(inputs)
+                # outputs = model(inputs)
+                MSE_loss = nn.MSELoss()(outputs, targets)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + 0.1 * (MSSSIM_loss)
 
             val_MSE_loss.append(MSE_loss.item())
-            val_MSSSIM_loss.append(MSSSIM_loss.item())
             val_total_loss.append(loss.item())
-
+            val_MSSSIM_loss.append(MSSSIM_loss.item())
+            # print(len(outputs_np))
+            print("shape: ", outputs.shape)
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
                 outputs_np = outputs.cpu().detach().numpy()
                 (batch_size, channel, height, width) = outputs.size()
-                for m in range(batch_size):
-                    file_name1 = file_name[m]
-                    file_name1 = file_name1.replace(".IMA", ".tif")
-                    im = Image.fromarray(outputs_np[m, 0, :, :])
-                    im.save('reconstructed_images/val/' + file_name1)
-                # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-
+            # for m in range(batch_size):
+            #     file_name1 = file_name[m]
+            #     file_name1 = file_name1.replace(".IMA", ".tif")
+            #     im = Image.fromarray(outputs_np[m, 0, :, :])
+            #     im.save('reconstructed_images/val/' + file_name1)
+            # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+            # gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
