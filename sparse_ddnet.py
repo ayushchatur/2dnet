@@ -41,6 +41,25 @@ import torch.cuda.amp as amp
 
 INPUT_CHANNEL_SIZE = 1
 
+def ln_struc_spar(model):
+    parm = []
+    for name, module in model.named_modules():
+        if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
+                parm.append((module, "weight"))
+                # parm.append((module, "bias"))
+    for item in parm:
+        try:
+            prune.ln_structured(item[0], amount=0.5, name="weight", n=1, dim=0)
+        except Exception as e:
+            print('Error pruning: ', item[1], "exception: ", e)
+    for module, name in parm:
+        try:
+            prune.remove(module, "weight")
+            prune.remove(module, "bias")
+        except  Exception as e:
+            print('error pruning weight/bias for ',name,  e)
+    print('pruning operation finished')
+
 def structured_sparsity(model):
     parm = []
     for name, module in model.named_modules():
@@ -407,19 +426,13 @@ class DD_net(nn.Module):
         self.nb_filter = 16
 
         ##################CHANGE###############
-        ## in 1, out 16
         self.conv1 = nn.Conv2d(in_channels=INPUT_CHANNEL_SIZE, out_channels=self.nb_filter, kernel_size=(7, 7),
                                padding=(3, 3))
         self.dnet1 = denseblock(self.nb_filter, filter_wh=5)
-        ## in 16*5 out: 16
         self.conv2 = nn.Conv2d(in_channels=self.conv1.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet2 = denseblock(self.nb_filter, filter_wh=5)
-
-        ## in: 16*5 out: 16
         self.conv3 = nn.Conv2d(in_channels=self.conv2.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet3 = denseblock(self.nb_filter, filter_wh=5)
-
-        ## in: 16*5 out: 16
         self.conv4 = nn.Conv2d(in_channels=self.conv3.out_channels * 5, out_channels=self.nb_filter, kernel_size=(1, 1))
         self.dnet4 = denseblock(self.nb_filter, filter_wh=5)
 
@@ -764,8 +777,8 @@ def dd_train(gpu, args):
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
-    model = DDP(model)
+    # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
+    # model = DDP(model)
     # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
@@ -818,7 +831,7 @@ def dd_train(gpu, args):
         parm = []
         # original_model = copy.deepcopy(model)
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        structured_sparsity(model)
+        ln_struc_spar(model)
         # ASP.prune_trained_model(model,optimizer)
         print('weights updated and masks removed... Model is sucessfully pruned')
         # create new OrderedDict that does not contain `module.`
@@ -864,7 +877,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
 
-            with amp.autocast(dtype=torch.float16):
+            with amp.autocast(enabled=False):
                 inputs = LQ_img.to(gpu)
 
                 targets = HQ_img.to(gpu)
@@ -873,7 +886,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
-
+            # print(outputs.shape)
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
@@ -888,37 +901,35 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            inputs = LQ_img.to(gpu)
-            targets = HQ_img.to(gpu)
-            outputs = model(inputs)
-            # outputs = model(inputs)
-            MSE_loss = nn.MSELoss()(outputs, targets)
-            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-            # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-            loss = MSE_loss + 0.1 * (MSSSIM_loss)
-            # loss = MSE_loss
-            # print("MSE_loss", MSE_loss.item())
-            # print("MSSSIM_loss", MSSSIM_loss.item())
-            # print("Total_loss", loss.item())
-            # print("====================================")
+            with amp.autocast(enabled=False):
+                inputs = LQ_img.to(gpu)
+                targets = HQ_img.to(gpu)
+                outputs = model(inputs)
+                # outputs = model(inputs)
+                MSE_loss = nn.MSELoss()(outputs, targets)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + 0.1 * (MSSSIM_loss)
 
             val_MSE_loss.append(MSE_loss.item())
-            val_MSSSIM_loss.append(MSSSIM_loss.item())
             val_total_loss.append(loss.item())
-
+            val_MSSSIM_loss.append(MSSSIM_loss.item())
+            # print(len(outputs_np))
+            print("shape: ", outputs.shape)
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
                 outputs_np = outputs.cpu().detach().numpy()
                 (batch_size, channel, height, width) = outputs.size()
-                for m in range(batch_size):
-                    file_name1 = file_name[m]
-                    file_name1 = file_name1.replace(".IMA", ".tif")
-                    im = Image.fromarray(outputs_np[m, 0, :, :])
-                    im.save('reconstructed_images/val/' + file_name1)
-                # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-
+    print('pruning model')
+    ln_struc_spar(model)
+            # for m in range(batch_size):
+            #     file_name1 = file_name[m]
+            #     file_name1 = file_name1.replace(".IMA", ".tif")
+            #     im = Image.fromarray(outputs_np[m, 0, :, :])
+            #     im.save('reconstructed_images/val/' + file_name1)
+            # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+            # gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):

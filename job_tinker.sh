@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #SBATCH --job-name=ddnet
 #SBATCH --partition=a100_normal_q
 #SBATCH --time=16:00:00
@@ -11,7 +10,7 @@
 #SBATCH --dependency=259619
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-export MASTER_PORT=8888
+export MASTER_PORT=8887
 #export WORLD_SIZE=4
 ### get the first node name as master address - customized for vgg slurm
 ### e.g. master(gnodee[2-5],gnoded1) == gnodee2
@@ -28,7 +27,7 @@ else
     echo "MASTER_ADDR="${SLURM_NODELIST}
     export MASTER_ADDR=${SLURM_NODELIST}
 fi
-
+export epochs=50
 mkdir -p ./loss
 mkdir -p ./reconstructed_images
 mkdir -p ./reconstructed_images/val
@@ -63,18 +62,21 @@ module list
 nvidia-smi
 export batch_size=1
 export epochs=50
-export retrain=1
+export retrain=3
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
 
 echo "epochs : $epochs"
 # cd ~
-source activate test
+conda activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
-
+imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+module load containers/singularity
 ### the command to run
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
-time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
+#time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
+
+singularity exec --nv --writable-tmpfs --bind=${TMPDIR},/cm/shared:/cm/shared,/projects:/projects $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh
