@@ -921,15 +921,15 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     print("Training complete in: " + str(datetime.now() - start))
                 outputs_np = outputs.cpu().detach().numpy()
                 (batch_size, channel, height, width) = outputs.size()
-    print('pruning model')
-    ln_struc_spar(model)
-            # for m in range(batch_size):
-            #     file_name1 = file_name[m]
-            #     file_name1 = file_name1.replace(".IMA", ".tif")
-            #     im = Image.fromarray(outputs_np[m, 0, :, :])
-            #     im.save('reconstructed_images/val/' + file_name1)
-            # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-            # gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+                for m in range(batch_size):
+                    file_name1 = file_name[m]
+                    file_name1 = file_name1.replace(".IMA", ".tif")
+                    im = Image.fromarray(outputs_np[m, 0, :, :])
+                    im.save('reconstructed_images/val/' + file_name1)
+                    gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+                    gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+        print('pruning model')
+        ln_struc_spar(model)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
