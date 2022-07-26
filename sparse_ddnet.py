@@ -897,7 +897,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             # scaler.update()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
-        # print("Validation")
+        print("Validation")
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
@@ -915,7 +915,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             val_total_loss.append(loss.item())
             val_MSSSIM_loss.append(MSSSIM_loss.item())
             # print(len(outputs_np))
-            print("shape: ", outputs.shape)
+            # print("shape: ", outputs.shape)
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
@@ -926,7 +926,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     file_name1 = file_name1.replace(".IMA", ".tif")
                     im = Image.fromarray(outputs_np[m, 0, :, :])
                     im.save('reconstructed_images/val/' + file_name1)
-                    gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+                    # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         print('pruning model')
         ln_struc_spar(model)
