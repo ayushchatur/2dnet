@@ -892,6 +892,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             train_total_loss.append(loss.item())
             model.zero_grad()
             loss.backward()
+            optimizer.step()
             # scaler.scale(loss).backward()
             # scaler.step(optimizer)
             # scaler.update()
