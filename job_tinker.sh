@@ -61,7 +61,7 @@ module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
 nvidia-smi
 export batch_size=1
-export epochs=30
+export epochs=35
 export retrain=3
 echo "batch : $batch_size"
 

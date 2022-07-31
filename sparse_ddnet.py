@@ -930,7 +930,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         print('pruning model')
-        if k == 25:
+        if k == 30:
             ln_struc_spar(model)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
