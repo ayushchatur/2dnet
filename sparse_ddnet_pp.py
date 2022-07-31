@@ -757,11 +757,11 @@ def dd_train(gpu, args):
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 2,
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
                               pin_memory=True, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
                              pin_memory=True, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
                             pin_memory=True, sampler=val_sampler)
     # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
