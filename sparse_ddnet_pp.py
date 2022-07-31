@@ -757,12 +757,12 @@ def dd_train(gpu, args):
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
-                              pin_memory=False, sampler=train_sampler)
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 2,
+                              pin_memory=True, sampler=train_sampler)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
-                             pin_memory=False, sampler=test_sampler)
+                             pin_memory=True, sampler=test_sampler)
     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size,
-                            pin_memory=False, sampler=val_sampler)
+                            pin_memory=True, sampler=val_sampler)
     # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
@@ -897,9 +897,9 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
-
-            for param in model.parameters():
-                param.grad = 0
+            optimizer.zero_grad(set_to_none=True)
+            # for param in model.parameters():
+            #     param.grad = 0
             nvtx.range_push("backward pass")
             # model.zero_grad()
 
