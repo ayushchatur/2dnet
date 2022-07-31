@@ -897,8 +897,12 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
+
+            for param in model.parameters():
+                param.grad = 0
             nvtx.range_push("backward pass")
-            model.zero_grad()
+            # model.zero_grad()
+
             loss.backward()
             nvtx.range_pop()
             nvtx.range_pop()
