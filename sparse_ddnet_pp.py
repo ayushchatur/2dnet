@@ -723,7 +723,8 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
-
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 def cleanup():
     dist.destroy_process_group()
 
@@ -815,7 +816,8 @@ def dd_train(gpu, args):
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
     if (not (path.exists(model_file))):
-        train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+        with torch.autograd.profiler.emit_nvtx():
+            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                          val_total_loss)
         print("train end")
@@ -862,7 +864,7 @@ def dd_train(gpu, args):
     # psnr_calc(test_MSE_loss)
 
 
-
+import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss):
@@ -876,25 +878,34 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-
+            nvtx.range_push("Batch: " + str(batch_index))
             with amp.autocast(enabled=False):
+                nvtx.range_push("copy to device")
                 inputs = LQ_img.to(gpu)
 
                 targets = HQ_img.to(gpu)
+                nvtx.range_pop()
+                nvtx.range_push("forward pass,epoch:"+ str(k))
 
                 outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                nvtx.range_pop()
             # print(outputs.shape)
+
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
-            # model.zero_grad()
+
             for param in model.parameters():
                 param.grad = 0
+            nvtx.range_push("backward pass")
+            # model.zero_grad()
+
             loss.backward()
-            optimizer.step()
+            nvtx.range_pop()
+            nvtx.range_pop()
             # scaler.scale(loss).backward()
             # scaler.step(optimizer)
             # scaler.update()
@@ -932,8 +943,8 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         print('pruning model')
-        if k == 30:
-            ln_struc_spar(model)
+        # if k == 25:
+        ln_struc_spar(model)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
