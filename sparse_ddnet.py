@@ -757,11 +757,11 @@ def dd_train(gpu, args):
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
     train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
-                              pin_memory=False, sampler=train_sampler)
+                              pin_memory=True, sampler=train_sampler)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
-                             pin_memory=False, sampler=test_sampler)
+                             pin_memory=True, sampler=test_sampler)
     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
-                            pin_memory=False, sampler=val_sampler)
+                            pin_memory=True, sampler=val_sampler)
     # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
@@ -877,7 +877,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
 
-            with amp.autocast(enabled=False):
+            with amp.autocast(enabled=True):
                 inputs = LQ_img.to(gpu)
 
                 targets = HQ_img.to(gpu)
@@ -904,7 +904,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            with amp.autocast(enabled=False):
+            with amp.autocast(enabled=True):
                 inputs = LQ_img.to(gpu)
                 targets = HQ_img.to(gpu)
                 outputs = model(inputs)
@@ -924,15 +924,17 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     print("Training complete in: " + str(datetime.now() - start))
                 outputs_np = outputs.cpu().detach().numpy()
                 (batch_size, channel, height, width) = outputs.size()
-                for m in range(batch_size):
-                    file_name1 = file_name[m]
-                    file_name1 = file_name1.replace(".IMA", ".tif")
-                    im = Image.fromarray(outputs_np[m, 0, :, :])
-                    im.save('reconstructed_images/val/' + file_name1)
+               # for m in range(batch_size):
+               #     file_name1 = file_name[m]
+               #     file_name1 = file_name1.replace(".IMA", ".tif")
+               #     im = Image.fromarray(outputs_np[m, 0, :, :])
+               #     im.save('reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                    gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+               #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         print('pruning model')
         if k == 30:
+            print("dense training done in : " , str(datetime.now()- start))
+            
             ln_struc_spar(model)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
