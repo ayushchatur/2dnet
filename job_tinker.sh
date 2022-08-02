@@ -5,7 +5,7 @@
 #SBATCH -A HPCBIGDATA2
 #SBATCH --gres=gpu:1
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=48
+#SBATCH --cpus-per-task=128
 #SBATCH --propagate=STACK
 #SBATCH --dependency=259619
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
@@ -28,8 +28,14 @@ else
     export MASTER_ADDR=${SLURM_NODELIST}
 fi
 export epochs=50
-mkdir -p ./loss
-mkdir -p ./reconstructed_images
+#echo "slurm job: $SLURM_JOBID"
+#expor job_id=$SLURM_JOBID
+mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
+cp ../sparse_ddnet.py .
+cp ../sparse_ddnet_pp.py .
+
+mkdir -p ./loss/
+mkdir -p ./reconstructed_images/
 mkdir -p ./reconstructed_images/val
 mkdir -p ./reconstructed_images/test
 mkdir -p ./visualize
