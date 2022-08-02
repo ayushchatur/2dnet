@@ -737,6 +737,7 @@ def dd_train(gpu, args):
     batch = args.batch
     epochs = args.epochs
     retrain = args.retrain
+    amp_enabled = args.amp
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -819,7 +820,7 @@ def dd_train(gpu, args):
         with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss)
+                         val_total_loss, amp_enabled)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -867,7 +868,7 @@ def dd_train(gpu, args):
 import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss):
+                     val_total_loss, amp_enabled):
     start = datetime.now()
     scaler = amp.GradScaler()
     for k in range(epochs):
@@ -903,7 +904,13 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             nvtx.range_push("backward pass")
             # model.zero_grad()
 
-            loss.backward()
+            if amp_enabled:
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
             nvtx.range_pop()
             nvtx.range_pop()
             # scaler.scale(loss).backward()
@@ -915,7 +922,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            with amp.autocast(enabled=False):
+            with amp.autocast(enabled=amp_enabled):
                 inputs = LQ_img.to(gpu)
                 targets = HQ_img.to(gpu)
                 outputs = model(inputs)
@@ -933,15 +940,15 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
-                outputs_np = outputs.cpu().detach().numpy()
-                (batch_size, channel, height, width) = outputs.size()
-                for m in range(batch_size):
-                    file_name1 = file_name[m]
-                    file_name1 = file_name1.replace(".IMA", ".tif")
-                    im = Image.fromarray(outputs_np[m, 0, :, :])
-                    im.save('reconstructed_images/val/' + file_name1)
-                    # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                    gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+                # outputs_np = outputs.cpu().detach().numpy()
+                # (batch_size, channel, height, width) = outputs.size()
+                # for m in range(batch_size):
+                #     file_name1 = file_name[m]
+                #     file_name1 = file_name1.replace(".IMA", ".tif")
+                #     im = Image.fromarray(outputs_np[m, 0, :, :])
+                #     im.save('reconstructed_images/val/' + file_name1)
+                #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
+                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         print('pruning model')
         # if k == 25:
         ln_struc_spar(model)
@@ -1029,6 +1036,8 @@ def main():
                         help='number of batch per gpu')
     parser.add_argument('--retrain', default=0, type=int, metavar='N',
                         help='retrain epochs')
+    parser.add_argument('--amp', default=False, type=bool, metavar='N',
+                        help='mixed precision')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
