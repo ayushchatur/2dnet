@@ -21,13 +21,11 @@ echo "NODELIST="${SLURM_NODELIST}
 ##only for tinkercliffs
 if [ ${SLURM_NODELIST:6:1} == "[" ]; then
     echo "MASTER_ADDR="${SLURM_NODELIST:0:6}${SLURM_NODELIST:7:3}
-module reset
     export MASTER_ADDR=${SLURM_NODELIST:0:6}${SLURM_NODELIST:7:3}
 else
     echo "MASTER_ADDR="${SLURM_NODELIST}
     export MASTER_ADDR=${SLURM_NODELIST}
 fi
-export epochs=50
 #echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
@@ -92,5 +90,7 @@ module load containers/singularity
 #time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
 echo "current dir: $PWD"
 chmod 755 * -R  
-singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch
+echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
+
+singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh

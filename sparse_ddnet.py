@@ -728,6 +728,8 @@ def dd_train(gpu, args):
     global dir_pre
     dir_pre = args.out_dir
     prune= args.prune_epoch
+    print('amp: ',amp_enabled)
+    
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -942,22 +944,22 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
     if (rank == 0):
         print("Saving model parameters")
         torch.save(model.state_dict(), model_file)
-    with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
+    with open('/loss/train_MSE_loss_' + str(rank), 'w') as f:
         for item in train_MSE_loss:
             f.write("%f " % item)
-    with open(dir_pre + '/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open('/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in train_MSSSIM_loss:
             f.write("%f " % item)
-    with open(dir_pre + '/loss/train_total_loss_' + str(rank), 'w') as f:
+    with open('/loss/train_total_loss_' + str(rank), 'w') as f:
         for item in train_total_loss:
             f.write("%f " % item)
-    with open(dir_pre + '/loss/val_MSE_loss_' + str(rank), 'w') as f:
+    with open('/loss/val_MSE_loss_' + str(rank), 'w') as f:
         for item in val_MSE_loss:
             f.write("%f " % item)
-    with open(dir_pre + '/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open('/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in val_MSSSIM_loss:
             f.write("%f " % item)
-    with open(dir_pre +  '/loss/val_total_loss_' + str(rank), 'w') as f:
+    with open('/loss/val_total_loss_' + str(rank), 'w') as f:
         for item in val_total_loss:
             f.write("%f " % item)
 
