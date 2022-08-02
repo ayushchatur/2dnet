@@ -736,7 +736,7 @@ def dd_train(gpu, args):
     batch = args.batch
     epochs = args.epochs
     retrain = args.retrain
-    amp_enabled = args.amp
+    amp_enabled = (args.amp == "enable")
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -1029,8 +1029,9 @@ def main():
                         help='number of batch per gpu')
     parser.add_argument('--retrain', default=0, type=int, metavar='N',
                         help='retrain epochs')
-    parser.add_argument('--amp', default=False, type=bool, metavar='m',
+    parser.add_argument('--amp', default="enable", type=str, metavar='m',
                         help='mixed precision')
+
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes

@@ -737,7 +737,7 @@ def dd_train(gpu, args):
     batch = args.batch
     epochs = args.epochs
     retrain = args.retrain
-    amp_enabled = args.amp
+    amp_enabled = (args.amp == "enable")
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -880,7 +880,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
             nvtx.range_push("Batch: " + str(batch_index))
-            with amp.autocast(enabled=False):
+            with amp.autocast(enabled=amp_enabled):
                 nvtx.range_push("copy to device")
                 inputs = LQ_img.to(gpu)
 
