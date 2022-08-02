@@ -727,6 +727,9 @@ def dd_train(gpu, args):
     epochs = args.epochs
     retrain = args.retrain
     amp_enabled = (args.amp == "enable")
+    global dir_pre
+    dir_pre = args.out_dir
+    prune = args.prune_epoch
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
