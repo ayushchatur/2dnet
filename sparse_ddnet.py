@@ -896,7 +896,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             optimizer.zero_grad(set_to_none=True)
             #BW pass
             if amp_enabled:
-                print('bw pass')
+                # print('bw pass')
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
