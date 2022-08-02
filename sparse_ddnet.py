@@ -945,19 +945,19 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
     with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
         for item in train_MSE_loss:
             f.write("%f " % item)
-    with open(dir_pre + 'loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + '/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in train_MSSSIM_loss:
             f.write("%f " % item)
-    with open(dir_pre + 'loss/train_total_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + '/loss/train_total_loss_' + str(rank), 'w') as f:
         for item in train_total_loss:
             f.write("%f " % item)
-    with open(dir_pre + 'loss/val_MSE_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + '/loss/val_MSE_loss_' + str(rank), 'w') as f:
         for item in val_MSE_loss:
             f.write("%f " % item)
-    with open(dir_pre + 'loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + '/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in val_MSSSIM_loss:
             f.write("%f " % item)
-    with open(dir_pre +  'loss/val_total_loss_' + str(rank), 'w') as f:
+    with open(dir_pre +  '/loss/val_total_loss_' + str(rank), 'w') as f:
         for item in val_total_loss:
             f.write("%f " % item)
 
@@ -987,7 +987,7 @@ def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_to
         #     file_name1 = file_name[m]
         #     file_name1 = file_name1.replace(".IMA", ".tif")
         #     im = Image.fromarray(outputs_np[m, 0, :, :])
-        #     im.save(dir_pre + 'reconstructed_images/test/' + file_name1)
+        #     im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
         # outputs.cpu()
         # targets_test[l_map:l_map+batch, :, :, :].cpu()
         # inputs_test[l_map:l_map+batch, :, :, :].cpu()
