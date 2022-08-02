@@ -1029,7 +1029,7 @@ def main():
                         help='number of batch per gpu')
     parser.add_argument('--retrain', default=0, type=int, metavar='N',
                         help='retrain epochs')
-    parser.add_argument('--amp', default="enable", type=str, metavar='m',
+    parser.add_argument('--amp', default="disable", type=str, metavar='m',
                         help='mixed precision')
 
 
