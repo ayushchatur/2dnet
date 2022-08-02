@@ -75,13 +75,14 @@ nvidia-smi
 export batch_size=1
 export epochs=35
 export retrain=3
+export prune_epoch=30
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
 
 echo "epochs : $epochs"
 # cd ~
-conda activate test
+#conda activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
 imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
@@ -90,5 +91,5 @@ module load containers/singularity
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
 #time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
 
-singularity exec --nv --writable-tmpfs --bind=${TMPDIR}/tmpfs/dest_dir:/projects/synergy_lab/garvit217/enhancement_data,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
+singularity exec --nv --writable-tmpfs --bind=${TMPDIR}/tmpfs/dest_dir:/projects/synergy_lab/garvit217/enhancement_data,/cm/shared:/cm/shared $imagefile python $SLURM_JOBID/sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh

@@ -40,7 +40,7 @@ import torch.cuda.amp as amp
 
 
 INPUT_CHANNEL_SIZE = 1
-
+global  dir_pre
 def ln_struc_spar(model):
     parm = []
     for name, module in model.named_modules():
@@ -147,18 +147,6 @@ def count_parameters(model):
         param = parameter.numel()
         total_params+=param
     return total_params
-def init_env_variable():
-    job_id = ""
-
-    try:
-        job_id = os.environ['SLURM_JOBID']
-    except:
-        job_id = ""
-
-    print("slurm jobid: " + str(job_id))
-    vizualize_folder = vizualize_folder + jobid
-    loss_folder = loss_folder + jobid
-    reconstructed_images = reconstructed_images + jobid
 
 
 def gaussian(window_size, sigma):
@@ -536,13 +524,13 @@ class DD_net(nn.Module):
 
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
-    mapped_root = "./visualize/" + val_test + "/mapped/"
-    diff_target_out_root = "./visualize/" + val_test + "/diff_target_out/"
-    diff_target_in_root = "./visualize/" + val_test + "/diff_target_in/"
-    ssim_root = "./visualize/" + val_test + "/ssim/"
-    out_root = "./visualize/" + val_test + "/"
-    in_img_root = "./visualize/" + val_test + "/input/"
-    out_img_root = "./visualize/" + val_test + "/target/"
+    mapped_root = dir_pre + "/visualize/" + val_test + "/mapped/"
+    diff_target_out_root = dir_pre +"/visualize/" + val_test + "/diff_target_out/"
+    diff_target_in_root = dir_pre + "/visualize/" + val_test + "/diff_target_in/"
+    # ssim_root = dir_pre + "/visualize/" + val_test + "/ssim/"
+    out_root = dir_pre + "/visualize/" + val_test + "/"
+    in_img_root = dir_pre +  "/visualize/" + val_test + "/input/"
+    out_img_root = "/visualize/" + val_test + "/target/"
 
     # if not os.path.exists("./visualize"):
     #     os.makedirs("./visualize")
@@ -737,6 +725,8 @@ def dd_train(gpu, args):
     epochs = args.epochs
     retrain = args.retrain
     amp_enabled = (args.amp == "enable")
+    dir_pre = args.out_dir
+    prune= args.prune_epoch
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -818,7 +808,7 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled)
+                         val_total_loss, amp_enabled, prune)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -842,7 +832,7 @@ def dd_train(gpu, args):
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled)
+                             val_total_loss, amp_enabled, prune)
 
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
@@ -866,7 +856,7 @@ def dd_train(gpu, args):
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled):
+                     val_total_loss, amp_enabled, prune_step):
     start = datetime.now()
     scaler = amp.GradScaler()
     for k in range(epochs):
@@ -938,10 +928,10 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                #     file_name1 = file_name[m]
                #     file_name1 = file_name1.replace(".IMA", ".tif")
                #     im = Image.fromarray(outputs_np[m, 0, :, :])
-               #     im.save('reconstructed_images/val/' + file_name1)
+               #     im.save(dir_pre + '/reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        if k == 30:
+        if prune_step > 0 and k == prune_step :
             print("dense training done in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
@@ -951,22 +941,22 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
     if (rank == 0):
         print("Saving model parameters")
         torch.save(model.state_dict(), model_file)
-    with open('loss/train_MSE_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
         for item in train_MSE_loss:
             f.write("%f " % item)
-    with open('loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + 'loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in train_MSSSIM_loss:
             f.write("%f " % item)
-    with open('loss/train_total_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + 'loss/train_total_loss_' + str(rank), 'w') as f:
         for item in train_total_loss:
             f.write("%f " % item)
-    with open('loss/val_MSE_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + 'loss/val_MSE_loss_' + str(rank), 'w') as f:
         for item in val_MSE_loss:
             f.write("%f " % item)
-    with open('loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open(dir_pre + 'loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in val_MSSSIM_loss:
             f.write("%f " % item)
-    with open('loss/val_total_loss_' + str(rank), 'w') as f:
+    with open(dir_pre +  'loss/val_total_loss_' + str(rank), 'w') as f:
         for item in val_total_loss:
             f.write("%f " % item)
 
@@ -990,18 +980,18 @@ def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_to
         test_MSE_loss.append(MSE_loss.item())
         test_MSSSIM_loss.append(MSSSIM_loss.item())
         test_total_loss.append(loss.item())
-        outputs_np = outputs.cpu().detach().numpy()
-        (batch_size, channel, height, width) = outputs.size()
-        for m in range(batch_size):
-            file_name1 = file_name[m]
-            file_name1 = file_name1.replace(".IMA", ".tif")
-            im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save('reconstructed_images/test/' + file_name1)
+        # outputs_np = outputs.cpu().detach().numpy()
+        # (batch_size, channel, height, width) = outputs.size()
+        # for m in range(batch_size):
+        #     file_name1 = file_name[m]
+        #     file_name1 = file_name1.replace(".IMA", ".tif")
+        #     im = Image.fromarray(outputs_np[m, 0, :, :])
+        #     im.save(dir_pre + 'reconstructed_images/test/' + file_name1)
         # outputs.cpu()
         # targets_test[l_map:l_map+batch, :, :, :].cpu()
         # inputs_test[l_map:l_map+batch, :, :, :].cpu()
         # gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
-        gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
+        # gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
 
 
 def psnr_calc(mse_t):
@@ -1023,14 +1013,18 @@ def main():
     # parser.add_argument('-nr', '--nr', default=0, type=int,
     #                    help='ranking within the nodes')
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='N',
+    parser.add_argument('--epochs', default=2, type=int, metavar='e',
                         help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='N',
+    parser.add_argument('--batch', default=2, type=int, metavar='b',
                         help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='N',
+    parser.add_argument('--retrain', default=0, type=int, metavar='r',
                         help='retrain epochs')
     parser.add_argument('--amp', default="disable", type=str, metavar='m',
                         help='mixed precision')
+    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
+                        help='default directory to output files')
+    parser.add_argument('--prune_epoch', default=0, type=int, metavar='p',
+                        help='epochs at which to prune')
 
 
     args = parser.parse_args()

@@ -147,18 +147,7 @@ def count_parameters(model):
         param = parameter.numel()
         total_params+=param
     return total_params
-def init_env_variable():
-    job_id = ""
 
-    try:
-        job_id = os.environ['SLURM_JOBID']
-    except:
-        job_id = ""
-
-    print("slurm jobid: " + str(job_id))
-    vizualize_folder = vizualize_folder + jobid
-    loss_folder = loss_folder + jobid
-    reconstructed_images = reconstructed_images + jobid
 
 
 def gaussian(window_size, sigma):
@@ -746,7 +735,7 @@ def dd_train(gpu, args):
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
     # root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=256)
     testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
     valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
     # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
@@ -868,9 +857,10 @@ def dd_train(gpu, args):
 import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled):
+                     val_total_loss, amp_enabled, prune_step):
     start = datetime.now()
     scaler = amp.GradScaler()
+    sparsified = False
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -879,7 +869,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
-            nvtx.range_push("Batch: " + str(batch_index))
+            if not sparsified:
+                nvtx.range_push("Batch: " + str(batch_index))
+            else:
+                nvtx.range_push("Sp-Batch: " + str(batch_index))
+
             with amp.autocast(enabled=amp_enabled):
                 nvtx.range_push("copy to device")
                 inputs = LQ_img.to(gpu)
@@ -952,6 +946,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print('pruning model')
         # if k == 25:
         ln_struc_spar(model)
+        sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
@@ -1030,14 +1025,18 @@ def main():
     # parser.add_argument('-nr', '--nr', default=0, type=int,
     #                    help='ranking within the nodes')
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='N',
+    parser.add_argument('--epochs', default=2, type=int, metavar='e',
                         help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='N',
+    parser.add_argument('--batch', default=2, type=int, metavar='b',
                         help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='N',
+    parser.add_argument('--retrain', default=0, type=int, metavar='r',
                         help='retrain epochs')
     parser.add_argument('--amp', default="disable", type=str, metavar='m',
                         help='mixed precision')
+    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
+                        help='default directory to output files')
+    parser.add_argument('--prune_epoch', default=0, type=int, metavar='p',
+                        help='epochs at which to prune')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
