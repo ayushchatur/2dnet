@@ -40,7 +40,7 @@ import torch.cuda.amp as amp
 
 
 INPUT_CHANNEL_SIZE = 1
-global  dir_pre
+# dir_pre="."
 def ln_struc_spar(model):
     parm = []
     for name, module in model.named_modules():
@@ -725,7 +725,7 @@ def dd_train(gpu, args):
     epochs = args.epochs
     retrain = args.retrain
     amp_enabled = (args.amp == "enable")
-    dir_pre = args.out_dir
+    global dir_pre = args.out_dir
     prune= args.prune_epoch
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
