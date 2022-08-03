@@ -73,6 +73,7 @@ export batch_size=1
 export epochs=35
 export retrain=3
 export prune_epoch=30
+export num_data_w=4
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
@@ -91,5 +92,5 @@ echo "current dir: $PWD"
 chmod 755 * -R  
 echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
 
-singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable
+singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --num_w $num_data_w
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh

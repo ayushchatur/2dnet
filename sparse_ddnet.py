@@ -728,8 +728,9 @@ def dd_train(gpu, args):
     global dir_pre
     dir_pre = args.out_dir
     prune= args.prune_epoch
+    num_w = args.num_w
     print('amp: ',amp_enabled)
-    
+    print('num of workers: ', num_w) 
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
@@ -750,11 +751,11 @@ def dd_train(gpu, args):
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
                               pin_memory=True, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
                              pin_memory=True, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 16,
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
                             pin_memory=True, sampler=val_sampler)
     # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
@@ -1029,7 +1030,8 @@ def main():
                         help='default directory to output files')
     parser.add_argument('--prune_epoch', default=0, type=int, metavar='p',
                         help='epochs at which to prune')
-
+    parser.add_argument('--num_w', default=1, type=int, metavar='w',
+                        help='num of data loader workers')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
