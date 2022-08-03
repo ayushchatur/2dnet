@@ -56,7 +56,6 @@ echo "Staging full data per node"
 #cd $TMPDIR/tmpfs
 export dest_dir=$TMPDIR/tmpfs
 cp -r /projects/synergy_lab/garvit217/enhancement_data $dest_dir
-
 echo "SLURM_JOBID="$SLURM_JOBID
 echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
 echo "SLURM_NNODES"=$SLURM_NNODES

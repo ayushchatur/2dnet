@@ -809,6 +809,7 @@ def dd_train(gpu, args):
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
 
     if (not (path.exists(model_file))):
+        print('model file not found')
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                          val_total_loss, amp_enabled, prune)
@@ -840,15 +841,15 @@ def dd_train(gpu, args):
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
     print("testing end")
-    with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-        for item in test_MSE_loss:
-            f.write("%f " % item)
-    with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in test_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('loss/test_total_loss_' + str(rank), 'w') as f:
-        for item in test_total_loss:
-            f.write("%f " % item)
+    #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
+    #    for item in test_MSE_loss:
+    #        f.write("%f " % item)
+    #with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
+    #    for item in test_MSSSIM_loss:
+    #        f.write("%f " % item)
+    #with open('loss/test_total_loss_' + str(rank), 'w') as f:
+    #    for item in test_total_loss:
+    #        f.write("%f " % item)
     print("everything complete.......")
 
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
