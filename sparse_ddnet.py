@@ -821,18 +821,15 @@ def dd_train(gpu, args):
     else:
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
-        print("Loading model parameters")
-        print("sparifying the model....")
-        calculate_global_sparsity(model)
-        parm = []
-        # original_model = copy.deepcopy(model)
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
-        ln_struc_spar(model)
-        # ASP.prune_trained_model(model,optimizer)
-        print('weights updated and masks removed... Model is sucessfully pruned')
-        # create new OrderedDict that does not contain `module.`
         calculate_global_sparsity(model)
         if retrain > 0:
+            model.load_state_dict(torch.load(model_file, map_location=map_location))
+            print("sparifying the model....")
+            ln_struc_spar(model)
+            # ASP.prune_trained_model(model,optimizer)
+            print('weights updated and masks removed... Model is sucessfully pruned')
+            # create new OrderedDict that does not contain `module.`
+            calculate_global_sparsity(model)
             print('fine tune retraining for ', retrain , ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
