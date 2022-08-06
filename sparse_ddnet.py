@@ -861,6 +861,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                      val_total_loss, amp_enabled, prune_step):
     start = datetime.now()
     scaler = amp.GradScaler()
+    sparsified = False
     for k in range(epochs):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',

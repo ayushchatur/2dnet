@@ -815,8 +815,8 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
         with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled)
+                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                             val_total_loss, amp_enabled, prune)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -947,11 +947,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 #     im.save('reconstructed_images/val/' + file_name1)
                 #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                 #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        print('pruning model')
-        print('pruning model')
-        # if k == 25:
-        ln_struc_spar(model)
-        sparsified = True
+        if prune_step > 0 and k == prune_step :
+            print("dense training done in : " , str(datetime.now()- start))
+            print('pruning model')
+            ln_struc_spar(model)
+        # sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
