@@ -729,7 +729,6 @@ def dd_train(gpu, args):
     amp_enabled = (args.amp == "enable")
     global dir_pre
     dir_pre = args.out_dir
-    prune = args.prune_epoch
     num_w = args.num_w
     print('amp: ', amp_enabled)
     print('num of workers: ', num_w)
@@ -816,7 +815,7 @@ def dd_train(gpu, args):
         with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, prune)
+                             val_total_loss, amp_enabled, retrain)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -861,11 +860,11 @@ def dd_train(gpu, args):
 import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_step):
+                     val_total_loss, amp_enabled, prune_ep):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
-    for k in range(epochs):
+    for k in range(epochs + prune_ep):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
@@ -947,10 +946,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 #     im.save('reconstructed_images/val/' + file_name1)
                 #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                 #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        if prune_step > 0 and k == prune_step :
-            print("dense training done in : " , str(datetime.now()- start))
+        if prune_ep > 0 and  k == (epochs-1):
+            print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
+            print("sparsing retraining now starting")
         # sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
@@ -1035,13 +1035,11 @@ def main():
     parser.add_argument('--batch', default=2, type=int, metavar='b',
                         help='number of batch per gpu')
     parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
+                        help='sparse retraining epochs')
     parser.add_argument('--amp', default="disable", type=str, metavar='m',
                         help='mixed precision')
     parser.add_argument('--out_dir', default=".", type=str, metavar='o',
                         help='default directory to output files')
-    parser.add_argument('--prune_epoch', default=0, type=int, metavar='p',
-                        help='epochs at which to prune')
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
 
