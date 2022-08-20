@@ -813,7 +813,7 @@ def dd_train(gpu, args):
         print('model file not found')
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, prune)
+                         val_total_loss, amp_enabled, retrain)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -862,7 +862,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
-    for k in range(epochs):
+    for k in range(epochs+ prune_step):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
@@ -934,7 +934,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                #     im.save(dir_pre + '/reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        if prune_step > 0 and k == prune_step :
+        if prune_step > 0 and k == (epochs-1) :
             print("dense training done in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
