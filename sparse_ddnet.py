@@ -812,6 +812,7 @@ def dd_train(gpu, args):
 
     if (not (path.exists(model_file))):
         print('model file not found')
+
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                          val_total_loss, amp_enabled, retrain)
@@ -863,6 +864,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
+    densetime=0
     for k in range(epochs+ prune_ep):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -936,9 +938,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         if prune_ep > 0 and k == (epochs-1) :
-            print("dense training done in : " , str(datetime.now()- start))
+            densetime = str(datetime.now()- start)
+            print("dense training done in : " , densetime)
             print('pruning model')
             ln_struc_spar(model)
+    print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
