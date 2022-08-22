@@ -944,22 +944,22 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
     if (rank == 0):
         print("Saving model parameters")
         torch.save(model.state_dict(), model_file)
-    with open('/loss/train_MSE_loss_' + str(rank), 'w') as f:
+    with open('./loss/train_MSE_loss_' + str(rank), 'w') as f:
         for item in train_MSE_loss:
             f.write("%f " % item)
-    with open('/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open('./loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in train_MSSSIM_loss:
             f.write("%f " % item)
-    with open('/loss/train_total_loss_' + str(rank), 'w') as f:
+    with open('./loss/train_total_loss_' + str(rank), 'w') as f:
         for item in train_total_loss:
             f.write("%f " % item)
-    with open('/loss/val_MSE_loss_' + str(rank), 'w') as f:
+    with open('./loss/val_MSE_loss_' + str(rank), 'w') as f:
         for item in val_MSE_loss:
             f.write("%f " % item)
-    with open('/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+    with open('./loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
         for item in val_MSSSIM_loss:
             f.write("%f " % item)
-    with open('/loss/val_total_loss_' + str(rank), 'w') as f:
+    with open('./loss/val_total_loss_' + str(rank), 'w') as f:
         for item in val_total_loss:
             f.write("%f " % item)
 
