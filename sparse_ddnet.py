@@ -730,6 +730,7 @@ def dd_train(gpu, args):
     prune= args.prune_epoch
     num_w = args.num_w
     print('amp: ',amp_enabled)
+    print('batch size: ', batch)
     print('num of workers: ', num_w) 
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
@@ -858,15 +859,15 @@ def dd_train(gpu, args):
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_step):
+                     val_total_loss, amp_enabled, prune_ep):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
-    for k in range(epochs+ prune_step):
+    for k in range(epochs+ prune_ep):
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-        train_sampler.set_epoch(epochs)
+        train_sampler.set_epoch(epochs + prune_ep)
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
@@ -934,7 +935,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                #     im.save(dir_pre + '/reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        if prune_step > 0 and k == (epochs-1) :
+        if prune_ep > 0 and k == (epochs-1) :
             print("dense training done in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
