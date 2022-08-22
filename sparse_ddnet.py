@@ -34,6 +34,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
 
+
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
 # reconstructed_images = "reconstructed_images"
@@ -809,6 +810,8 @@ def dd_train(gpu, args):
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+    if args.wan > 0:
+        wandb.watch(model, log_freq=100)
 
     if (not (path.exists(model_file))):
         print('model file not found')
@@ -899,7 +902,8 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             else:
                 loss.backward()
                 optimizer.step()
-
+            if(args.wan > 1):
+                wandb.log({"loss": loss})
 
             # scaler.scale(loss).backward()
             # scaler.step(optimizer)
@@ -1036,10 +1040,16 @@ def main():
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
 
+    parser.add_argument('--wan', default=-1, type=int, metavar='w',
+                        help='num of data loader workers')
+
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
     # init_env_variable()
     args.nr = int(os.environ['SLURM_PROCID'])
+    if(args.wan > 0):
+        import wandb
+        wandb.init()
     print("SLURM_PROCID: " + str(args.nr))
     # world_size = 4
     # os.environ['MASTER_ADDR'] = 'localhost'
