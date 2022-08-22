@@ -730,6 +730,7 @@ def dd_train(gpu, args):
     prune= args.prune_epoch
     num_w = args.num_w
     print('amp: ',amp_enabled)
+    print('batch size: ', batch)
     print('num of workers: ', num_w) 
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
