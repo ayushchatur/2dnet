@@ -730,6 +730,7 @@ def dd_train(gpu, args):
     dir_pre = args.out_dir
     prune= args.prune_epoch
     num_w = args.num_w
+    en_wan = args.wan
     print('amp: ',amp_enabled)
     print('batch size: ', batch)
     print('num of workers: ', num_w) 
@@ -810,7 +811,7 @@ def dd_train(gpu, args):
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
-    if args.wan > 0:
+    if en_wan > 0:
         wandb.watch(model, log_freq=100)
 
     if (not (path.exists(model_file))):
@@ -839,7 +840,7 @@ def dd_train(gpu, args):
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, prune)
+                             val_total_loss, amp_enabled, prune, en_wan)
 
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
@@ -863,7 +864,7 @@ def dd_train(gpu, args):
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_ep):
+                     val_total_loss, amp_enabled, prune_ep, en_wan):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
@@ -902,7 +903,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             else:
                 loss.backward()
                 optimizer.step()
-            if(args.wan > 1):
+            if(en_wan > 0):
                 wandb.log({"loss": loss})
 
             # scaler.scale(loss).backward()
