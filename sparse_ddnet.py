@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time : 7/31/2020 1:43 PM
-# @Author : Zhicheng Zhang
-# @E-mail : zhicheng0623@gmail.com
+# @Time : 01/06/2022 1:43 PM
+# @Author : Ayush Chaturvedi
+# @E-mail : ayushchatur@vt.edu
 # @Site :
-# @File : train_main.py
+# @File : sparse_ddnet.py
 # @Software: PyCharm
 import sys
 import time
@@ -651,58 +651,52 @@ class CTDataset(Dataset):
         self.img_list_l = self.img_list_l[0:length]
         self.img_list_h = self.img_list_h[0:length]
         self.transform = transform
-
-    def __len__(self):
-        return len(self.img_list_l)
-
-    def __getitem__(self, idx):
-        # print("Dataloader idx: ", idx)
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        inputs_np = None
-        targets_np = None
-        rmin = 0
-        rmax = 1
-
-        # print("HQ", self.data_root_h + self.img_list_h[idx])
-        # print("LQ", self.data_root_l + self.img_list_l[idx])
-        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-        # print("test")
-        # exit()
-        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-
-        input_file = self.img_list_l[idx]
-        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
-        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
-        cmax1 = np.amax(image_target)
-        cmin1 = np.amin(image_target)
-        image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
-        assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
-        cmax2 = np.amax(image_input)
-        cmin2 = np.amin(image_input)
-        image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
-        assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
-        mins = ((cmin1 + cmin2) / 2)
-        maxs = ((cmax1 + cmax2) / 2)
-        image_target = image_target.reshape((1, 512, 512))
-        image_input = image_input.reshape((1, 512, 512))
-        inputs_np = image_input
-        targets_np = image_target
-
-        inputs = torch.from_numpy(inputs_np)
-        targets = torch.from_numpy(targets_np)
-        inputs = inputs.type(torch.FloatTensor)
-        targets = targets.type(torch.FloatTensor)
-
-        sample = {'vol': input_file,
+        self.tensor_list = []
+        
+        for i in range(len(self.img_list_l)):
+            rmax = 0
+            rmin = 1
+            image_target = read_correct_image(self.data_root_h + self.img_list_h[i])
+            image_input = read_correct_image(self.data_root_l + self.img_list_l[i])
+            input_file = self.img_list_l[i]
+            assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
+            assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
+            cmax1 = np.amax(image_target)
+            cmin1 = np.amin(image_target)
+            image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
+            assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
+            cmax2 = np.amax(image_input)
+            cmin2 = np.amin(image_input)
+            image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
+            assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
+            mins = ((cmin1 + cmin2) / 2)
+            maxs = ((cmax1 + cmax2) / 2)
+            image_target = image_target.reshape((1, 512, 512))
+            image_input = image_input.reshape((1, 512, 512))
+            inputs_np = image_input
+            targets_np = image_target
+    
+            inputs = torch.from_numpy(inputs_np)
+            targets = torch.from_numpy(targets_np)
+            inputs = inputs.type(torch.FloatTensor).to('cuda:0')
+            targets = targets.type(torch.FloatTensor).to('cuda:0')
+            sample = {
+                  'vol':input_file,
                   'HQ': targets,
                   'LQ': inputs,
                   'max': maxs,
                   'min': mins}
-        return sample
+            self.tensor_list.append(sample)
+            print('device from tensor_list[1]', str(self.tensor_list[0]['HQ'].get_device()))
+            
+    def __len__(self):
+        return len(self.tensor_list)
 
+    def __getitem__(self, idx):
+        # print("Dataloader idx: ", idx)
+#         print('len tensor)list:', len(self.tensor_list))
+
+        return self.tensor_list[idx]
 
 # jy
 def setup(rank, world_size):
@@ -755,11 +749,11 @@ def dd_train(gpu, args):
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
     train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                              pin_memory=True, sampler=train_sampler)
+                              pin_memory=False, sampler=train_sampler)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                             pin_memory=True, sampler=test_sampler)
+                             pin_memory=False, sampler=test_sampler)
     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                            pin_memory=True, sampler=val_sampler)
+                            pin_memory=False, sampler=val_sampler)
     # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
@@ -819,7 +813,7 @@ def dd_train(gpu, args):
 
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain)
+                         val_total_loss, amp_enabled, retrain,en_wan)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -944,8 +938,8 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         if prune_ep > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
-            print("dense training done in : " , densetime)
-            print('pruning model')
+            #print("dense training done in : " , densetime)
+            print('pruning model on epoch: ', k)
             ln_struc_spar(model)
     print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
 
@@ -1042,7 +1036,7 @@ def main():
                         help='num of data loader workers')
 
     parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='num of data loader workers')
+                        help='enable wandb configuration')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
@@ -1081,3 +1075,4 @@ if __name__ == '__main__':
 
     main();
     exit()
+
