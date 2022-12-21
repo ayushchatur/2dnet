@@ -737,7 +737,7 @@ def dd_train(gpu, args):
     #root = add
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=1251)
     train_data, vali_data = data.random_split(trainset, [851, 400])
-    valida_data, test_data = data.random_split(vali_data, [200, 200])
+    valset, testset = data.random_split(vali_data, [200, 200])
     
 #     testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l,, length=784)
 #     valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
@@ -748,9 +748,9 @@ def dd_train(gpu, args):
     #train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
     train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=test_sampler)
+    test_loader = DataLoader(test_data, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=test_sampler)
     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=val_sampler)
-    #train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
+    #train_loader = DataLoader(train_data, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     #test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     #val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
