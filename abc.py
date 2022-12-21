@@ -636,8 +636,8 @@ class CTDataset(Dataset):
         targets = torch.from_numpy(targets_np)
         inputs = inputs.type(torch.FloatTensor)
         targets = targets.type(torch.FloatTensor)
-        print('input shape ', inputs.shape)
-        print('input shape ', targets.shape)
+       # print('input shape ', inputs.shape)
+       # print('input shape ', targets.shape)
         sample = {
               'vol':input_file,
               'HQ': targets,
@@ -824,6 +824,7 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
 
         for k in range(epochs):
+            print('epochs: ',k)
             train_sampler.set_epoch(epochs)
             for batch_index, batch_samples in enumerate(train_loader):
 
