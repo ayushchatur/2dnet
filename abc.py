@@ -759,7 +759,7 @@ def dd_train(gpu, args):
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
     model.to(gpu)
-    model = DDP(model, device_ids=[gpu])
+    model = DDP(model, device_ids=[gpu], find_unused_parameters=True)
     learn_rate = 0.0001;
     epsilon = 1e-8
 
