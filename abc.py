@@ -626,7 +626,7 @@ class CTDataset(Dataset):
         image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
         assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
         mins = ((cmin1 + cmin2) / 2)
-        maxs = ((cmax1 + cmax2) / 2)
+        maxs = ((int(cmax1) + int(cmax2)) / 2)
         image_target = image_target.reshape((1, dims, dims))
         image_input = image_input.reshape((1, dims, dims))
         inputs_np = image_input
