@@ -475,6 +475,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
     outputs_size = list(outputs.size())
     # num_img = outputs_size[0]
     (num_img, channel, height, width) = outputs.size()
+    trans = transforms.ToPILImage()
     for i in range(num_img):
         # output_img = outputs[i, 0, :, :].cpu().detach().numpy()
         output_img = outputs[i, 0, :, :].cpu().detach().numpy()
@@ -490,29 +491,36 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(target_img_mapped)
-        cv2.imwrite(out_img_root + file_name, im )
+        im = trans(torch.from_numpy(target_img_mapped))
+        im.save(out_img_root + file_name)
+#         im = Image.fromarray(target_img_mapped)
+#         cv2.imwrite(out_img_root + file_name, im )
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(input_img_mapped)
+        im = trans(torch.from_numpy(target_img_mapped))
+        im.save(in_img_root+file_name)
+#         im = Image.fromarray(input_img_mapped)
         #im.save(in_img_root + file_name)
-        cv2.imwrite(in_img_root+file_name , im)
+#         cv2.imwrite(in_img_root+file_name , im)
+        
         # jy
         # im.save(folder_ori_HU+'/'+file_name)
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(output_img_mapped)
+        im = trans(torch.from_numpy(target_img_mapped))
+        im.save(mapped_root + file_name)
+#         im = Image.fromarray(output_img_mapped)
   #      im.save(mapped_root + file_name)
-        cv2.save(mapped_root + file_name , im)
+#         cv2.save(mapped_root + file_name , im)
         # jy
         # im.save(folder_enh_HU+'/'+file_name)
 
         difference_target_out = (target_img - output_img)
         difference_target_out = np.absolute(difference_target_out)
         fig = plt.figure()
-        plt.imshow(difference_target_out, cmap='gray')
+        plt.imshow(difference_target_out, )
         plt.colorbar()
         plt.clim(0, 0.2)
         plt.axis('off')
@@ -525,7 +533,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         difference_target_in = (target_img - input_img)
         difference_target_in = np.absolute(difference_target_in)
         fig = plt.figure()
-        plt.imshow(difference_target_in, cmap='gray')
+        plt.imshow(difference_target_in, )
         plt.colorbar()
         plt.clim(0, 0.2)
         plt.axis('off')
