@@ -879,7 +879,7 @@ def dd_train(gpu, args):
                         file_name1 = file_name1.replace(".IMA", ".tif")
                         im = Image.fromarray(outputs_np[m, 0, :, :])
                         transform=transforms.ToPILImage()
-                        im=transform(outputs_np)
+                        im=transform(outputs_np[m, 0, :, :])
                         im.save('reconstructed_images/val/' + file_name1)
 #                         cv2.imwrite('reconstructed_images/val/' + file_name1, im)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
