@@ -491,13 +491,13 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(target_img_mapped)
-        cv2.write(out_img_root + file_name, im )
+        cv2.imwrite(out_img_root + file_name, im )
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(input_img_mapped)
         #im.save(in_img_root + file_name)
-        cv2.write(in_img_root+file_name , im)
+        cv2.imwrite(in_img_root+file_name , im)
         # jy
         # im.save(folder_ori_HU+'/'+file_name)
 
@@ -879,7 +879,7 @@ def dd_train(gpu, args):
                         file_name1 = file_name1.replace(".IMA", ".tif")
                         im = Image.fromarray(outputs_np[m, 0, :, :])
                         #im.save('reconstructed_images/val/' + file_name1)
-                        cv2.write('reconstructed_images/val/' + file_name1, im)
+                        cv2.imwrite('reconstructed_images/val/' + file_name1, im)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
                 # vali.update(1)
