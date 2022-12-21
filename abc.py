@@ -24,6 +24,7 @@ import os
 from os import path
 from PIL import Image
 from matplotlib import pyplot as plt
+import torch.utils.data as data
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import re
@@ -722,36 +723,27 @@ def dd_train(gpu, args):
     batch = args.batch
     epochs = args.epochs
     print('batch: ', batch, 'epochs: ', epochs)
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
-    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
-    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
-    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
+    root_train_h = "/projects/synergy_lab/ayush/brain/HQ/"
+    root_train_l = "/projects/synergy_lab/ayush/brain/LQ/"
+    
+#     root_val_h = "projects/synergy_lab/ayush/brain/val/HQ/"
+#     root_val_l = "projects/synergy_lab/ayush/brain/val/LQ/"
 
-    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
-    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
+#     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
+#     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    root_hq_vgg3_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b3/HQ/"
-    root_hq_vgg3_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b3/HQ/"
-    root_hq_vgg3_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b3/HQ/"
-
-    root_hq_vgg1_tr = "/projects/synergy_lab/ayush/modcat6/train/vgg_output_b1/HQ/"
-    root_hq_vgg1_te = "/projects/synergy_lab/ayush/modcat6/test/vgg_output_b1/HQ/"
-    root_hq_vgg1_va = "/projects/synergy_lab/ayush/modcat6/val/vgg_output_b1/HQ/"
 
     #root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=5120)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=784)
-    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, root_hq_vgg3=root_hq_vgg3_tr,root_hq_vgg1=root_hq_vgg1_tr, length=32)
-    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, root_hq_vgg3=root_hq_vgg3_te,root_hq_vgg1=root_hq_vgg1_te, length=16)
-    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, root_hq_vgg3=root_hq_vgg3_va,root_hq_vgg1=root_hq_vgg1_va, length=16)
-    #trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
-    #testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
-    #valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, , length=1251)
+    train_data, vali_data = random_split(trainset, [851, 400])
+    valida_data, test_data = random_split(vali_data, [200, 200])
+    
+#     testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l,, length=784)
+#     valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
-    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
+    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data, num_replicas=args.world_size, rank=rank)
+    test_sampler = torch.utils.data.distributed.DistributedSampler(test_data, num_replicas=args.world_size, rank=rank)
+    val_sampler = torch.utils.data.distributed.DistributedSampler(valida_data, num_replicas=args.world_size, rank=rank)
     #train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
     train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size, pin_memory=False, sampler=train_sampler)
