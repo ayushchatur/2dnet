@@ -911,7 +911,7 @@ def dd_train(gpu, args):
         lq_image = LQ_img.to(gpu)
         hq_image = HQ_img.to(gpu)
 
-        enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
+        enhanced_image = model(lq_image, hq_image)
 
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
         msssim_1 = 1 - MSSSIM()(enhanced_image, hq_image)
