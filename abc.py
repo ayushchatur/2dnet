@@ -590,7 +590,7 @@ class CTDataset(Dataset):
 #             print('device from tensor_list[1]', str(self.tensor_list[0]['HQ'].get_device()))
             
     def __len__(self):
-        return len(self.tensor_list)
+        return len(self.img_list_h)
 
     def __getitem__(self, idx):
         # print("Dataloader idx: ", idx)
