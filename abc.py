@@ -606,15 +606,15 @@ class CTDataset(Dataset):
 #         rmax = 0
 #         rmin = 1
             
-        image_target = Image.open(self.data_root_h + self.img_list_h[i])
-        image_input  = Image.open(self.data_root_l + self.img_list_l[i])
+        image_target = Image.open(self.data_root_h + self.img_list_h[idx])
+        image_input  = Image.open(self.data_root_l + self.img_list_l[idx])
         image_target = np.asarray( image_target, dtype=np.uint8 )
         image_input = np.asarray( image_input, dtype=np.uint8 )
         dims = len(image_target)
 
         image_target = image_target[0:dims,0:dims,0]
             
-        input_file = self.img_list_l[i]
+        input_file = self.img_list_l[idx]
         assert (image_input.shape == image_target.shape )
 #            assert ( == 512 and image_target.shape[1] == 512)
         cmax1 = np.amax(image_target)
