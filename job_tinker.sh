@@ -3,7 +3,7 @@
 #SBATCH --job-name=ddnet
 #SBATCH --partition=a100_normal_q
 #SBATCH --time=16:00:00
-#SBATCH -A HPCBIGDATA2
+#SBATCH -A openondemand22
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=48
@@ -63,7 +63,7 @@ module list
 nvidia-smi
 export batch_size=1
 export epochs=50
-export beta=0.05
+export beta=0.2
 # cd ~
 source activate test
 # cd -
@@ -74,6 +74,6 @@ module load containers/singularity
 
 ### the command to run
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
-#singularity exec --nv --writable-tmpfs --bind=${TMPDIR},/cm/shared:/cm/shared,/projects:/projects $imagefile python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs --beta $beta
-time python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs --beta $beta
+singularity exec --nv --writable-tmpfs --bind=${TMPDIR},/cm/shared:/cm/shared,/projects:/projects $imagefile python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs --beta $beta
+#time python abc.py -n 1 -g 1 --batch $batch_size --epochs $epochs --beta $beta
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh

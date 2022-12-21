@@ -18,15 +18,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
-
 from matplotlib import pyplot as plt
-
 import os
 from os import path
 from PIL import Image
-
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
+             join=True)
 from torch.utils.data import DataLoader
 import re
 import torch.multiprocessing as mp
@@ -35,13 +33,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 from collections import defaultdict
 from torchvision import models as torchmodels
-
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
 # reconstructed_images = "reconstructed_images"
-
-
-
+    # os.environ['MASTER_ADDR'] = '10.21.10.4'
 INPUT_CHANNEL_SIZE = 1
 
 
@@ -441,34 +436,8 @@ class DD_net(nn.Module):
         dc7 = F.leaky_relu(self.convT7(self.batch12(x)))
         dc7_1 = F.leaky_relu(self.convT8(self.batch13(dc7)))
         output = dc7_1
-        # print('shape of dc7_1', output.size()) ## 1,1,512,512
 
-        # print("shape of vgg_inp: " + str(vgg_inp.size()))
-        # print("shape of zz: " + str(self.zz.size()))
-        # zz.to(gpu)
-        if output.shape[1] != 3:
-            output = output.repeat(1, 3, 1, 1)
-            target = target.repeat(1, 3, 1, 1)
-        output = (output - self.mean) / self.std
-        target = (target - self.mean) / self.std
-        if self.resize:
-            output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
-            target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
-        # y = target
-        # b1,b3
-        out_b1 = self.blocks[0](output)
-        out_b2 = self.blocks[1](out_b1)
-        out_b3 = self.blocks[2](out_b2)
-
-        tar_b1 = self.blocks[0](target)
-        tar_b2 = self.blocks[1](tar_b1)
-        tar_b3 = self.blocks[2](tar_b2)
-
-        # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
-        # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
-
-        return dc7_1, out_b3, out_b1, tar_b3, tar_b1
-
+        return output , target
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = "./visualize/" + val_test + "/mapped/"
@@ -520,19 +489,21 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(target_img_mapped)
-        im.save(out_img_root + file_name)
+        cv2.write(out_img_root + file_name, im )
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(input_img_mapped)
-        im.save(in_img_root + file_name)
+        #im.save(in_img_root + file_name)
+        cv2.write(in_img_root+file_name , im)
         # jy
         # im.save(folder_ori_HU+'/'+file_name)
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
         im = Image.fromarray(output_img_mapped)
-        im.save(mapped_root + file_name)
+  #      im.save(mapped_root + file_name)
+        cv2.save(mapped_root + file_name , im)
         # jy
         # im.save(folder_enh_HU+'/'+file_name)
 
@@ -599,33 +570,30 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
 
 class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, root_hq_vgg3,root_hq_vgg1, length):
+    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
-        self.data_root_h_vgg_3 = root_hq_vgg3 + "/"
-        self.data_root_h_vgg_1 = root_hq_vgg1 + "/"
-
         self.img_list_l = os.listdir(self.data_root_l)
         self.img_list_h = os.listdir(self.data_root_h)
-        self.vgg_hq_img3 = os.listdir(self.data_root_h_vgg_3)
-        self.vgg_hq_img1 = os.listdir(self.data_root_h_vgg_1)
-
         self.img_list_l.sort()
         self.img_list_h.sort()
-        self.vgg_hq_img3.sort()
-        self.vgg_hq_img1.sort()
-
         self.img_list_l = self.img_list_l[0:length]
         self.img_list_h = self.img_list_h[0:length]
-        self.vgg_hq_img_list3 = self.vgg_hq_img3[0:length]
-        self.vgg_hq_img_list1 = self.vgg_hq_img1[0:length]
+        self.transform = transform
         self.sample = dict()
-
+#         self.tensor_list = []
+        
+#         for i in range(len(self.img_list_l)):
+            
+#             print('device from tensor_list[1]', str(self.tensor_list[0]['HQ'].get_device()))
+            
     def __len__(self):
-        return len(self.img_list_l)
+        return len(self.tensor_list)
 
     def __getitem__(self, idx):
         # print("Dataloader idx: ", idx)
+#         print('len tensor)list:', len(self.tensor_list))
+        
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
@@ -633,23 +601,20 @@ class CTDataset(Dataset):
         targets_np = None
         rmin = 0
         rmax = 1
+#         rmax = 0
+#         rmin = 1
+            
+        image_target = Image.open(self.data_root_h + self.img_list_h[i])
+        image_input  = Image.open(self.data_root_l + self.img_list_l[i])
+        image_target = np.asarray( image_target, dtype=np.uint8 )
+        image_input = np.asarray( image_input, dtype=np.uint8 )
+        dims = len(image_target)
 
-        # print("HQ", self.data_root_h + self.img_list_h[idx])
-        # print("LQ", self.data_root_l + self.img_list_l[idx])
-        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-        # print("test")
-        # exit()
-        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        # print("low quality {} ".format(self.data_root_h + self.img_list_h[idx]))
-        # print("high quality {}".format(self.data_root_h + self.img_list_l[idx]))
-        # print("hq vgg b3 {}".format(self.data_root_h_vgg + self.vgg_hq_img_list[idx]))
-        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-        # vgg_hq_img3 = np.load(self.data_root_h_vgg_3 + self.vgg_hq_img_list3[idx]) ## shape : 1,256,56,56
-        # vgg_hq_img1 = np.load(self.data_root_h_vgg_1 + self.vgg_hq_img_list1[idx]) ## shape : 1,64,244,244
-
-        input_file = self.img_list_l[idx]  ## low quality image
-        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
-        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
+        image_target = image_target[0:dims,0:dims,0]
+            
+        input_file = self.img_list_l[i]
+        assert (image_input.shape == image_target.shape )
+#            assert ( == 512 and image_target.shape[1] == 512)
         cmax1 = np.amax(image_target)
         cmin1 = np.amin(image_target)
         image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
@@ -660,33 +625,26 @@ class CTDataset(Dataset):
         assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
         mins = ((cmin1 + cmin2) / 2)
         maxs = ((cmax1 + cmax2) / 2)
-        image_target = image_target.reshape((1, 512, 512))
-        image_input = image_input.reshape((1, 512, 512))
+        image_target = image_target.reshape((1, dims, dims))
+        image_input = image_input.reshape((1, dims, dims))
         inputs_np = image_input
         targets_np = image_target
-
+    
         inputs = torch.from_numpy(inputs_np)
         targets = torch.from_numpy(targets_np)
+#            inputs = inputs.type(torch.FloatTensor).to('cuda:0')
+#            targets = targets.type(torch.FloatTensor).to('cuda:0')
+        print('input shape ', inputs.shape)
+        print('input shape ', targets.shape)
+        sample = {
+              'vol':input_file,
+              'HQ': targets,
+              'LQ': inputs,
+              'max': maxs,
+              'min': mins}
+#         self.tensor_list.append(sample)
 
-        inputs = inputs.type(torch.FloatTensor)
-        targets = targets.type(torch.FloatTensor)
-
-        # vgg_hq_b3 =  torch.from_numpy(vgg_hq_img3)
-        # vgg_hq_b1 =  torch.from_numpy(vgg_hq_img1)
-        #
-        # vgg_hq_b3 = vgg_hq_b3.type(torch.FloatTensor)
-        # vgg_hq_b1 = vgg_hq_b1.type(torch.FloatTensor)
-
-        # print("hq vgg b3 {} b1 {}".format(vgg_hq_b3.shape , vgg_hq_b1.shape))
-        self.sample = {'vol': input_file,
-                  'HQ': targets,
-                  'LQ': inputs,
-                  # 'HQ_vgg_op':vgg_hq_b3, ## 1,256,56,56
-                  # 'HQ_vgg_b1': vgg_hq_b1,  ## 1,256,56,56
-                  'max': maxs,
-                  'min': mins}
-        return self.sample
-
+        return sample
 
 # jy
 def setup(rank, world_size):
@@ -880,18 +838,14 @@ def dd_train(gpu, args):
                 lq_image = LQ_img.to(gpu) ## low quality image
                 hq_image = HQ_img.to(gpu) ## high quality target image
 
-                enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image,
-                                                                               hq_image)  # vgg_en_image should be 1,256,56,56
+                enhanced_image  = model(lq_image,hq_image)  # vgg_en_image should be 1,256,56,56
 
-                MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-                Loss_b3= VGGloss()(out_vgg_b3,tar_b3)
-                loss_b1 = VGGloss()(out_vgg_b1,tar_b1)
-                total_train_loss = MSE_loss + (beta * (Loss_b3 + loss_b1))
+                MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # shold already nbe same dimension
+                MSSSIM_loss = 1 - MSSSIM()(enhanced_image, hq_image)
+                total_train_loss = MSE_loss + (beta * MSSSIM_loss)
 
 
                 train_MSE_loss[k].append(MSE_loss.item())
-                train_loss_b3[k].append(Loss_b3.item())
-                train_loss_b1[k].append(loss_b1.item())
                 train_total_loss[k].append(total_train_loss.item())
 
                 model.zero_grad()  # zero the gradients
@@ -901,8 +855,6 @@ def dd_train(gpu, args):
 
             print('total training loss:', (sum(train_total_loss[k]) / len(train_total_loss[k])))
             print('training  mse:', sum(train_MSE_loss[k]) / len(train_MSE_loss[k]))
-            print('training b1:', sum(train_loss_b1[k]) / len(train_loss_b1[k]))
-            print('training b3:', sum(train_loss_b3[k]) / len(train_loss_b3[k]))
             scheduler.step()  #
 
             print("~~~~~~~~~~~~~Validation~~~~~~~~~~~~~~~~")
@@ -912,18 +864,14 @@ def dd_train(gpu, args):
                 lq_image = LQ_img.to(gpu)
                 hq_image = HQ_img.to(gpu)
 
-                enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
+                enhanced_image = model(lq_image, hq_image)
 
                 MSE_loss = nn.MSELoss()(enhanced_image, hq_image)  # should already nbe same dimension
-
-                Loss_b3 = VGGloss()(out_vgg_b3, tar_b3)
-                loss_b1 = VGGloss()(out_vgg_b1, tar_b1)
+                MSSSIM_loss = 1 - MSSSIM()(enhanced_image, hq_image)
 
 
-                val_loss = MSE_loss + (beta * (Loss_b3 + loss_b1))
+                val_loss = MSE_loss + (beta * MSSSIM_loss)
                 val_MSE_loss[k].append(MSE_loss.item())
-                val_MSSI_loss_b1[k].append(loss_b1.item())
-                val_MSSI_loss_b3[k].append(Loss_b3.item())
 
                 val_total_loss[k].append(val_loss.item())
 
@@ -936,14 +884,13 @@ def dd_train(gpu, args):
                         file_name1 = file_name[m]
                         file_name1 = file_name1.replace(".IMA", ".tif")
                         im = Image.fromarray(outputs_np[m, 0, :, :])
-                        im.save('reconstructed_images/val/' + file_name1)
+                        #im.save('reconstructed_images/val/' + file_name1)
+                        cv2.write('reconstructed_images/val/' + file_name1, im)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                     gen_visualization_files(enhanced_image, hq_image, lq_image, file_name, "val", maxs, mins)
                 # vali.update(1)
             print('total validation loss:', sum(val_total_loss[k]) / len(val_total_loss[k]))
             print('validation  mse:', sum(val_MSE_loss[k]) / len(val_MSE_loss[k]))
-            print('validation b1:', sum(val_MSSI_loss_b1[k]) / len(val_MSSI_loss_b1[k]))
-            print('validation b3:', sum(val_MSSI_loss_b3[k]) / len(val_MSSI_loss_b3[k]))
 
         print("train and val end.............")
         if (rank == 0):
@@ -952,13 +899,9 @@ def dd_train(gpu, args):
             try:
                 print('serializing losses')
                 np.save('loss/train_MSE_loss_' + str(rank), np.array([v for k, v in train_MSE_loss.items()]))
-                np.save('loss/train_loss_b1_' + str(rank), np.array([v for k, v in train_loss_b1.items()]))
-                np.save('loss/train_loss_b3_' + str(rank), np.array([v for k, v in train_loss_b3.items()]))
                 np.save('loss/train_total_loss_' + str(rank), np.array([v for k, v in train_total_loss.items()]))
 
                 np.save('loss/val_MSE_loss_' + str(rank), np.array([v for k, v in val_MSE_loss.items()]))
-                np.save('loss/val_loss_b1_' + str(rank), np.array([v for k, v in val_MSSI_loss_b1.items()]))
-                np.save('loss/val_loss_b3_' + str(rank), np.array([v for k, v in val_MSSI_loss_b3.items()]))
                 np.save('loss/val_total_loss_' + str(rank), np.array([v for k, v in val_total_loss.items()]))
             except Exception as e:
                 print('error serializing: ', e)
@@ -968,7 +911,7 @@ def dd_train(gpu, args):
 
     test_MSSSIM_loss = []
     test_SSIM_loss = []
-
+import cv2 
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
@@ -979,14 +922,10 @@ def dd_train(gpu, args):
         enhanced_image, out_vgg_b3, out_vgg_b1, tar_b3, tar_b1 = model(lq_image, hq_image)
 
         MSE_loss = nn.MSELoss()(enhanced_image, hq_image)
-        MSSSIM_loss = torch.mean(torch.abs(torch.sub(out_vgg_b3, tar_b3)))
-        MSSSIM_loss2 = torch.mean(torch.abs(torch.sub(out_vgg_b1, tar_b1)))
         msssim_1 = 1 - MSSSIM()(enhanced_image, hq_image)
         ssim_1 = 1 - SSIM()(enhanced_image,hq_image)
-        loss = MSE_loss + (beta * (MSSSIM_loss + MSSSIM_loss2))
+        loss = MSE_loss + (beta * msssim_1)
         print("MSE_loss", MSE_loss.item())
-        print("loss block b1", MSSSIM_loss2.item())
-        print("loss block b3", MSSSIM_loss.item())
         print("Total_loss", loss.item())
         print("MSSSIM loss", msssim_1.item())
         print("SSIM Loss", ssim_1.item())
@@ -994,8 +933,6 @@ def dd_train(gpu, args):
         print("====================================")
         # test_MSE_loss
         test_MSE_loss.append(MSE_loss.item())
-        test_loss_b1.append(MSSSIM_loss2.item())
-        test_loss_b3.append(MSSSIM_loss.item())
         test_total_loss.append(loss.item())
         test_MSSSIM_loss.append(msssim_1.item())
         test_SSIM_loss.append(ssim_1.item())
@@ -1005,7 +942,7 @@ def dd_train(gpu, args):
             file_name1 = file_name[m]
             file_name1 = file_name1.replace(".IMA", ".tif")
             im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save('reconstructed_images/test/' + file_name1)
+            cv2.imwrite('reconstructed_images/test/' + file_name1 , im)
         # outputs.cpu()
         # targets_test[l_map:l_map+batch, :, :, :].cpu()
         # inputs_test[l_map:l_map+batch, :, :, :].cpu()
