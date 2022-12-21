@@ -734,7 +734,7 @@ def dd_train(gpu, args):
 
 
     #root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, , length=1251)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=1251)
     train_data, vali_data = random_split(trainset, [851, 400])
     valida_data, test_data = random_split(vali_data, [200, 200])
     
