@@ -911,7 +911,6 @@ def dd_train(gpu, args):
 
     test_MSSSIM_loss = []
     test_SSIM_loss = []
-import cv2 
     print("~~~~~~~~~~~Testing~~~~~~~~~~~~~~~")
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
