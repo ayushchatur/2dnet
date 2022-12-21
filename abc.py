@@ -944,8 +944,10 @@ def dd_train(gpu, args):
         for m in range(batch_size):
             file_name1 = file_name[m]
             file_name1 = file_name1.replace(".IMA", ".tif")
-            im = Image.fromarray(outputs_np[m, 0, :, :])
-            cv2.imwrite('reconstructed_images/test/' + file_name1 , im)
+            im=transform(torch.from_numpy(outputs_np[m, 0, :, :]))
+            im.save('reconstructed_images/test/' + file_name1)
+#             im = Image.fromarray(outputs_np[m, 0, :, :])
+#             cv2.imwrite('reconstructed_images/test/' + file_name1 , im)
         # outputs.cpu()
         # targets_test[l_map:l_map+batch, :, :, :].cpu()
         # inputs_test[l_map:l_map+batch, :, :, :].cpu()
