@@ -634,8 +634,8 @@ class CTDataset(Dataset):
     
         inputs = torch.from_numpy(inputs_np)
         targets = torch.from_numpy(targets_np)
-#            inputs = inputs.type(torch.FloatTensor).to('cuda:0')
-#            targets = targets.type(torch.FloatTensor).to('cuda:0')
+        inputs = inputs.type(torch.FloatTensor)
+        targets = targets.type(torch.FloatTensor)
         print('input shape ', inputs.shape)
         print('input shape ', targets.shape)
         sample = {
