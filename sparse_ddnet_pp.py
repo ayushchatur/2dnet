@@ -33,7 +33,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
-
+# from dataload_optimization import CTDataset
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
 # reconstructed_images = "reconstructed_images"
@@ -162,21 +162,6 @@ def create_window(window_size, channel=1):
     return window
 
 
-def read_correct_image(path):
-    offset = 0
-    ct_org = None
-    with Image.open(path) as img:
-        ct_org = np.float32(np.array(img))
-        if 270 in img.tag.keys():
-            for item in img.tag[270][0].split("\n"):
-                if "c0=" in item:
-                    loi = item.strip()
-                    offset = re.findall(r"[-+]?\d*\.\d+|\d+", loi)
-                    offset = (float(offset[1]))
-    ct_org = ct_org + offset
-    neg_val_index = ct_org < (-1024)
-    ct_org[neg_val_index] = -1024
-    return ct_org
 
 
 def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False, val_range=None):
@@ -372,14 +357,16 @@ class denseblock(nn.Module):
         #    conv = self.conv2[i](conv)      ######CHANGE
         #    conv = F.leaky_relu(conv)
         #    x = torch.cat((x, conv),dim=1)
-
+        nvtx.range_push("dense block 1 forward")
         conv_1 = self.batch_norm1_0(x)
         conv_1 = self.conv1_0(conv_1)
         conv_1 = F.leaky_relu(conv_1)
         conv_2 = self.batch_norm2_0(conv_1)
         conv_2 = self.conv2_0(conv_2)
         conv_2 = F.leaky_relu(conv_2)
+        nvtx.range_pop()
 
+        nvtx.range_push("dense block 2 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_1(x)
         conv_1 = self.conv1_1(conv_1)
@@ -387,7 +374,9 @@ class denseblock(nn.Module):
         conv_2 = self.batch_norm2_1(conv_1)
         conv_2 = self.conv2_1(conv_2)
         conv_2 = F.leaky_relu(conv_2)
-
+        nvtx.range_pop()
+        
+        nvtx.range_push("dense block 1 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_2(x)
         conv_1 = self.conv1_2(conv_1)
@@ -395,7 +384,9 @@ class denseblock(nn.Module):
         conv_2 = self.batch_norm2_2(conv_1)
         conv_2 = self.conv2_2(conv_2)
         conv_2 = F.leaky_relu(conv_2)
+        nvtx.range_pop()
 
+        nvtx.range_push("dense block 1 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_3(x)
         conv_1 = self.conv1_3(conv_1)
@@ -404,6 +395,7 @@ class denseblock(nn.Module):
         conv_2 = self.conv2_3(conv_2)
         conv_2 = F.leaky_relu(conv_2)
         x = torch.cat((x, conv_2), dim=1)
+        nvtx.range_pop()
 
         return x
 
@@ -640,68 +632,6 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
             f.write("%f\n" % item)
 
 
-class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
-        self.data_root_l = root_dir_l + "/"
-        self.data_root_h = root_dir_h + "/"
-        self.img_list_l = os.listdir(self.data_root_l)
-        self.img_list_h = os.listdir(self.data_root_h)
-        self.img_list_l.sort()
-        self.img_list_h.sort()
-        self.img_list_l = self.img_list_l[0:length]
-        self.img_list_h = self.img_list_h[0:length]
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.img_list_l)
-
-    def __getitem__(self, idx):
-        # print("Dataloader idx: ", idx)
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        inputs_np = None
-        targets_np = None
-        rmin = 0
-        rmax = 1
-
-        # print("HQ", self.data_root_h + self.img_list_h[idx])
-        # print("LQ", self.data_root_l + self.img_list_l[idx])
-        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-        # print("test")
-        # exit()
-        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-
-        input_file = self.img_list_l[idx]
-        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
-        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
-        cmax1 = np.amax(image_target)
-        cmin1 = np.amin(image_target)
-        image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
-        assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
-        cmax2 = np.amax(image_input)
-        cmin2 = np.amin(image_input)
-        image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
-        assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
-        mins = ((cmin1 + cmin2) / 2)
-        maxs = ((cmax1 + cmax2) / 2)
-        image_target = image_target.reshape((1, 512, 512))
-        image_input = image_input.reshape((1, 512, 512))
-        inputs_np = image_input
-        targets_np = image_target
-
-        inputs = torch.from_numpy(inputs_np)
-        targets = torch.from_numpy(targets_np)
-        inputs = inputs.type(torch.FloatTensor)
-        targets = targets.type(torch.FloatTensor)
-
-        sample = {'vol': input_file,
-                  'HQ': targets,
-                  'LQ': inputs,
-                  'max': maxs,
-                  'min': mins}
-        return sample
 
 
 # jy
@@ -727,6 +657,7 @@ def dd_train(gpu, args):
     epochs = args.epochs
     retrain = args.retrain
     amp_enabled = (args.amp == "enable")
+    new_loader = (args.new_load == 'enable')
     global dir_pre
     dir_pre = args.out_dir
     num_w = args.num_w
@@ -740,9 +671,18 @@ def dd_train(gpu, args):
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
     # root = add
+    if new_loader == True:
+        from dataload_opt_list import CTDataset 
+    else:
+        from dataload import CTDataset
+    data_tims = datetime.now()
     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=256)
     testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
     valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
+    
+    print('time to stage data on GPU mem: ', str(datetime.now() - data_tims))
+    
+    
     # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
     # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
     # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
@@ -754,11 +694,11 @@ def dd_train(gpu, args):
 
     train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False,
                               num_workers=args.world_size * num_w,
-                              pin_memory=True, sampler=train_sampler)
+                               sampler=train_sampler)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                             pin_memory=True, sampler=test_sampler)
+                              sampler=test_sampler)
     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                            pin_memory=True, sampler=val_sampler)
+                             sampler=val_sampler)
 # train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
     # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
@@ -815,7 +755,7 @@ def dd_train(gpu, args):
         with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, retrain)
+                             val_total_loss, amp_enabled, retrain, new_loader)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -834,11 +774,11 @@ def dd_train(gpu, args):
             calculate_global_sparsity(model)
             print('fine tune retraining for ', retrain, ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, prune)
+                             val_total_loss, amp_enabled, retrain, new_loader)
 
-    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
+    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, new_loader, rank)
 
     print("testing end")
     with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
@@ -860,7 +800,7 @@ def dd_train(gpu, args):
 import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_ep):
+                     val_total_loss, amp_enabled, prune_ep, new_loader):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
@@ -870,8 +810,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
               train_MSSSIM_loss[k])
         train_sampler.set_epoch(epochs)
         for batch_index, batch_samples in enumerate(train_loader):
-            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                    batch_samples['max'], batch_samples['min']
+            maxs, mins =  batch_samples['max'], batch_samples['min']
+#             print(maxs)
+#             print(mins)
+            targets = batch_samples['HQ']
+            inputs = batch_samples['LQ']
             if not sparsified:
                 nvtx.range_push("Batch: " + str(batch_index))
             else:
@@ -879,10 +822,13 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
 
             with amp.autocast(enabled=amp_enabled):
                 nvtx.range_push("copy to device")
-                inputs = LQ_img.to(gpu)
-
-                targets = HQ_img.to(gpu)
+                if not new_loader == True:
+                    inputs = LQ_img.to(gpu)
+                    targets = HQ_img.to(gpu)
+                
+#                 targets = HQ_img.to(gpu)
                 nvtx.range_pop()
+    
                 nvtx.range_push("forward pass,epoch:"+ str(k))
 
                 outputs = model(inputs)
@@ -916,12 +862,19 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
         print("Validation")
+        nvtx.range_push("Validation")
         for batch_index, batch_samples in enumerate(val_loader):
-            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                    batch_samples['max'], batch_samples['min']
+            maxs, mins =  batch_samples['max'], batch_samples['min']
+#             print(maxs)
+#             print(mins)
+            targets = batch_samples['HQ']
+            inputs = batch_samples['LQ']
             with amp.autocast(enabled=amp_enabled):
-                inputs = LQ_img.to(gpu)
-                targets = HQ_img.to(gpu)
+                if not new_loader == True:
+                    inputs = LQ_img.to(gpu)
+                    targets = HQ_img.to(gpu)
+#                 inputs = LQ_img.to(gpu)
+#                 targets = HQ_img.to(gpu)
                 outputs = model(inputs)
                 # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -946,11 +899,14 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 #     im.save('reconstructed_images/val/' + file_name1)
                 #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                 #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
+        nvtx.range_pop()
         if prune_ep > 0 and  k == (epochs-1):
             print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
-            print("sparsing retraining now starting")
+            print("sparse retraining now starting")
+            sparsified = True
+            print('pruning model on epoch: ', k)
         # sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
@@ -978,12 +934,17 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
             f.write("%f " % item)
 
 
-def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss):
+def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, new_loader):
     for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                batch_samples['max'], batch_samples['min']
-        inputs = LQ_img.to(gpu)
-        targets = HQ_img.to(gpu)
+        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
+        if not new_loader == True:
+            inputs = LQ_img.to(gpu)
+            targets = HQ_img.to(gpu)
+        else:
+            inputs = LQ_img
+            targets = HQ_img
+#         inputs = LQ_img.to(gpu)
+#         targets = HQ_img.to(gpu)
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
         MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -1042,6 +1003,8 @@ def main():
                         help='default directory to output files')
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
+    parser.add_argument('--new_load', default="disable", type=str, metavar='d',
+                        help='new data loader')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes

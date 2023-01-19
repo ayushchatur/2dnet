@@ -15,100 +15,6 @@ import torch.nn.functional as F
 from math import exp
 import numpy as np
 
-
-def read_correct_image(path):
-    offset = 0
-    ct_org = None
-    with Image.open(path) as img:
-        ct_org = np.float32(np.array(img))
-        if 270 in img.tag.keys():
-            for item in img.tag[270][0].split("\n"):
-                if "c0=" in item:
-                    loi = item.strip()
-                    offset = re.findall(r"[-+]?\d*\.\d+|\d+", loi)
-                    offset = (float(offset[1]))
-    ct_org = ct_org + offset
-    neg_val_index = ct_org < (-1024)
-    ct_org[neg_val_index] = -1024
-    return ct_org
-
-
-class CTDataset(Dataset):
-    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
-        self.data_root_l = root_dir_l + "/"
-        self.data_root_h = root_dir_h + "/"
-        self.img_list_l = os.listdir(self.data_root_l)
-        self.img_list_h = os.listdir(self.data_root_h)
-        self.img_list_l.sort()
-        self.img_list_h.sort()
-        self.img_list_l = self.img_list_l[0:length]
-        self.img_list_h = self.img_list_h[0:length]
-        self.transform = transform
-        self.tensor_list_hq = []
-        self.tensor_list_lq = []
-        self.tensor_list_maxs = []
-        self.tensor_list_mins = []
-        self.tensor_list_fname = []
-        
-        
-        for i in range(len(self.img_list_l)):
-            rmax = 0
-            rmin = 1
-            image_target = read_correct_image(self.data_root_h + self.img_list_h[i])
-            image_input = read_correct_image(self.data_root_l + self.img_list_l[i])
-            input_file = self.img_list_l[i]
-            assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
-            assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
-            cmax1 = np.amax(image_target)
-            cmin1 = np.amin(image_target)
-            image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
-            assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
-            cmax2 = np.amax(image_input)
-            cmin2 = np.amin(image_input)
-            image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
-            assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
-            mins = ((cmin1 + cmin2) / 2)
-            maxs = ((cmax1 + cmax2) / 2)
-            image_target = image_target.reshape((1, 512, 512))
-            image_input = image_input.reshape((1, 512, 512))
-            inputs_np = image_input
-            targets_np = image_target
-    
-            inputs = torch.from_numpy(inputs_np)
-            targets = torch.from_numpy(targets_np)
-            inputs = inputs.type(torch.FloatTensor).to('cuda:0')
-            targets = targets.type(torch.FloatTensor).to('cuda:0')
-            self.tensor_list_fname.append(input_file)
-            self.tensor_list_hq.append(targets)
-            self.tensor_list_lq.append(inputs)
-            self.tensor_list_maxs.append(maxs)
-            self.tensor_list_mins.append(mins)
-            
-    def __len__(self):
-        return len(self.tensor_list_mins)
-
-    def __getitem__(self, idx):
-        # print("Dataloader idx: ", idx)
-#         print('len tensor)list:', len(self.tensor_list))
-        if torch.is_tensor(idx):
-            print("idx; ", idx)
-            idx = idx.tolist()
-            
-        fname = self.tensor_list_fname[idx]
-        hq = self.tensor_list_hq[idx]
-        lq = self.tensor_list_lq[idx]
-        maxs = self.tensor_list_maxs[idx]
-        mins = self.tensor_list_mins[idx]
-        
-        sample = {
-                 'vol': fname,
-                  'HQ': hq,
-                  'LQ': lq,
-                  'max': maxs,
-                  'min': mins
-        }
-        return sample
-    
 class DD_net(nn.Module):
     def __init__(self):
         super(DD_net, self).__init__()
@@ -224,24 +130,166 @@ class DD_net(nn.Module):
 
         return output
 
+def read_correct_image(path):
+    offset = 0
+    ct_org = None
+    with Image.open(path) as img:
+        ct_org = np.float32(np.array(img))
+        if 270 in img.tag.keys():
+            for item in img.tag[270][0].split("\n"):
+                if "c0=" in item:
+                    loi = item.strip()
+                    offset = re.findall(r"[-+]?\d*\.\d+|\d+", loi)
+                    offset = (float(offset[1]))
+    ct_org = ct_org + offset
+    neg_val_index = ct_org < (-1024)
+    ct_org[neg_val_index] = -1024
+    return ct_org
+
+
+class CTDataset(Dataset):
+    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
+        self.data_root_l = root_dir_l + "/"
+        self.data_root_h = root_dir_h + "/"
+        self.img_list_l = os.listdir(self.data_root_l)
+        self.img_list_h = os.listdir(self.data_root_h)
+        self.img_list_l.sort()
+        self.img_list_h.sort()
+        self.img_list_l = self.img_list_l[0:length]
+        self.img_list_h = self.img_list_h[0:length]
+        self.transform = transform
+        self.tensor_list_hq = []
+        self.tensor_list_lq = []
+        self.tensor_list_maxs = []
+        self.tensor_list_mins = []
+        self.tensor_list_fname = []
+        
+        
+        for i in range(len(self.img_list_l)):
+            rmax = 0
+            rmin = 1
+            image_target = read_correct_image(self.data_root_h + self.img_list_h[i])
+            image_input = read_correct_image(self.data_root_l + self.img_list_l[i])
+            input_file = self.img_list_l[i]
+            assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
+            assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
+            cmax1 = np.amax(image_target)
+            cmin1 = np.amin(image_target)
+            image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
+            assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
+            cmax2 = np.amax(image_input)
+            cmin2 = np.amin(image_input)
+            image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
+            assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
+            mins = ((cmin1 + cmin2) / 2)
+            maxs = ((cmax1 + cmax2) / 2)
+            image_target = image_target.reshape((1, 512, 512))
+            image_input = image_input.reshape((1, 512, 512))
+            inputs_np = image_input
+            targets_np = image_target
+    
+            inputs = torch.from_numpy(inputs_np)
+            targets = torch.from_numpy(targets_np)
+            inputs = inputs.type(torch.FloatTensor).to('cuda:0')
+            targets = targets.type(torch.FloatTensor).to('cuda:0')
+            self.tensor_list_fname.append(input_file)
+            self.tensor_list_hq.append(targets)
+            self.tensor_list_lq.append(inputs)
+            self.tensor_list_maxs.append(maxs)
+            self.tensor_list_mins.append(mins)
+        print("done staging data to GPU")
+            
+    def __len__(self):
+        return len(self.tensor_list_mins)
+
+    def __getitem__(self, idx):
+        # print("Dataloader idx: ", idx)
+#         print('len tensor)list:', len(self.tensor_list))
+        if torch.is_tensor(idx):
+            print("idx; ", idx)
+            idx = idx.tolist()
+            
+        fname = self.tensor_list_fname[idx]
+        hq = self.tensor_list_hq[idx]
+        lq = self.tensor_list_lq[idx]
+        maxs = self.tensor_list_maxs[idx]
+        mins = self.tensor_list_mins[idx]
+        
+        sample = {
+                 'vol': fname,
+                  'HQ': hq,
+                  'LQ': lq,
+                  'max': maxs,
+                  'min': mins
+        }
+        return sample
+    
+
+def custom_collate(sample_batched): #(2)
+    hq_list = []
+    min_list = []
+    max_list = []
+    lq_list = []
+    vol_list = []
+    for item in sample_batched:
+#         print(type(item['HQ']))
+#         print(type(item['min']))
+#         print(type(item['max']))
+#         print(type(item['LQ']))
+#         print(type(item['vol']))
+#         print(item['HQ'].shape)
+# #         print(item['min'].shape)
+# #         print(item['max'].shape)
+#         print(item['LQ'].shape)
+#         print(item['vol'].shape)
+        hq_list.append(item['HQ'])
+        min_list.append(item['min'])
+        max_list.append(item['max'])
+        lq_list.append(item['LQ'])
+        vol_list.append(item['vol'])
+        
+    hq_img = torch.stack(hq_list)
+#     min_t = torch.stack(min_list)
+    
+#     max_t = torch.stack(max_list)
+    
+    lq_img = torch.stack(lq_list)
+#     fname_t = torch.stack(vol_list)
+    sample =  {
+        'vol' : vol_list,
+        'min': max_list,
+        'HQ': hq_img,
+        'LQ': lq_img,
+        'max': min_list
+    }
+#     print('final sample', sample)
+    return sample
+
 def main():
     print('hell')
     dir_hq = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
     dir_lq = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"
     datas = CTDataset(dir_hq, dir_lq, 784)
 #     loader = CTDataset(dir_hq, dir_lq, 784)
-    dataloader = DataLoader(datas, batch_size=4, shuffle = True, num_workers = 0)
+    dataloader = DataLoader(datas, batch_size=3, shuffle = False, num_workers = 0, collate_fn = custom_collate)
     
     print('hello')
     for i_batch, sample_batched in enumerate(dataloader):
-        HQ_img, LQ_img, maxs, mins =  sample_batched['HQ'], sample_batched['LQ'], \
-                                                        sample_batched['max'], sample_batched['min']
+        HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
+                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
         print(i_batch, sample_batched['HQ'].shape, sample_batched['LQ'].get_device())
 #         print(sample_batched['vol'])
-        print(sample_batched['max'].shape)
-#         print(sample_batched['HQ'].get_device())
-        print()
-#         print(f)
+#         print(sample_batched['max'].shape)
+#         print(sample_batched)
+#         print('sample batch', len(sample_batched))
+#         for i in range(len(fname)):
+#             print("~~~~~~~~~~~~~~~~")
+# #             print(sample_batched[i])
+#             print('fikle' , fname[i])
+    
+# #         print(sample_batched['HQ'].get_device())
+#         print()
+# #         print(f)
             
 if __name__ == '__main__':
     main()

@@ -31,6 +31,9 @@ def read_correct_image(path):
     neg_val_index = ct_org < (-1024)
     ct_org[neg_val_index] = -1024
     return ct_org
+
+
+
 class NumpyExternalSource(object):
     
 
@@ -104,9 +107,10 @@ class NumpyExternalSource(object):
     
             inputs = torch.from_numpy(inputs_np)
             targets = torch.from_numpy(targets_np)
+#             print(targets)
     
-            inputs = inputs.type(torch.FloatTensor)
-            targets = targets.type(torch.FloatTensor)
+#             inputs = inputs.type(torch.FloatTensor)
+#             targets = targets.type(torch.FloatTensor)
             
 #             jpeg_filename, label = self.files[self.i % self.n].split(' ')
             hq_bl.append(targets)  # we can use numpy
@@ -114,6 +118,7 @@ class NumpyExternalSource(object):
             vol_bl.append(str(self.img_list_l[self.i % self.n]))
             max_bl.append(maxs)
             min_bl.append(mins)
+#             print(vol_bl)
             
             self.i += 1
         return ( hq_bl,lq_bl,max_bl, min_bl)
@@ -130,10 +135,89 @@ def ExternalSourcePipeline(batch_size, num_threads, device_id, external_data):
 #         images = fn.decoders.image(jpegs, device="mixed")
 #         images = fn.resize(images, resize_x=240, resize_y=240)
 #         output = fn.cast(images, dtype=types.UINT8)
-#         print('hq' , hq[0])
+        print('hq' , type(hq))
         hq = hq.gpu()
         lq = lq.gpu()
 #         hq_ig = hq.to(device_id)
 #         lq_ig = lq.to(device_id)
         pipe.set_outputs(hq,lq,maxs,mins)
     return pipe
+
+
+
+batch_size = 4
+epochs = 3
+
+
+# In[2]:
+
+
+
+
+# In[3]:
+def main():
+
+ 
+    dir_hq = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
+    dir_lq = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"   
+    valdir_hq = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ"
+    valdir_lq = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ"
+    
+    
+    # In[3]:
+    
+    
+    from nvidia.dali.plugin.pytorch import DALIGenericIterator as PyTorchIterator
+    from nvidia.dali.plugin.pytorch import LastBatchPolicy
+    
+    eii = NumpyExternalSource(dir_hq,dir_lq, batch_size, 0, 1)
+    pipe = ExternalSourcePipeline(batch_size=batch_size, num_threads=2, device_id = 0,
+                                  external_data = eii)
+    output_str = ['HQ','LQ', 'max', 'min']
+    pii = PyTorchIterator(pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.PARTIAL)
+    
+    
+    val_ei = NumpyExternalSource(valdir_hq,valdir_lq, batch_size, 0, 1)
+    val_pipe = ExternalSourcePipeline(batch_size=batch_size, num_threads=2, device_id = 0,
+                                  external_data = val_ei)
+    # output_str = ['HQ','LQ', 'max', 'min']
+    val_pii = PyTorchIterator(val_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.PARTIAL)
+    
+    for e in range(epochs):
+        for i, data in enumerate(pii):
+    #         HQ_img, LQ_img, maxs, mins = batch_samples['HQ'], batch_samples['LQ'], \
+    #                                                     batch_samples['max'], batch_samples['min']
+    #         print("epoch: {}, iter {}, real batch size: {}".format(e, i, len(data[0])))
+    #         print('t d[0]' , type(data[0]))
+            for batch_samples in data:
+                HQ_img, LQ_img, maxs, mins = batch_samples['HQ'], batch_samples['LQ'], \
+                                                        batch_samples['max'], batch_samples['min']
+            
+    #             print('HQ_img' , type(HQ_img), HQ_img.shape, torch.mean(HQ_img))
+    #             print('LQ_img' , type(LQ_img), LQ_img.shape, torch.mean(LQ_img))
+    #             print('maxs' , type(maxs), maxs.shape)
+                
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~validation starting~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        for i, data in enumerate(val_pii):
+    #         HQ_img, LQ_img, maxs, mins = batch_samples['HQ'], batch_samples['LQ'], \
+    #                                                     batch_samples['max'], batch_samples['min']
+            print("epoch: {}, iter {}, real batch size: {}".format(e, i, len(data[0])))
+    #         print('t d[0]' , type(data[0]))
+            for batch_samples in data:
+                HQ_img, LQ_img, maxs, mins = batch_samples['HQ'], batch_samples['LQ'], \
+                                                        batch_samples['max'], batch_samples['min']
+            
+                print('HQ_img' , type(HQ_img), HQ_img.shape, torch.mean(HQ_img))
+                print('LQ_img' , type(LQ_img), LQ_img.shape, torch.mean(LQ_img))
+                print('maxs' , type(maxs), maxs.shape)
+                
+                
+                
+    #             print('batch_samples' , len(batch_samples))
+    #         print(batch_samples)
+    #         print('file name:' , data[0].shape)
+        
+        pii.reset()
+        val_pii.reset()
+if __name__ == '__main__':
+    main()
