@@ -666,7 +666,8 @@ def dd_train(gpu, args):
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
     new_loader = (args.new_load == 'enable')
     if new_loader == True:
-        from dataload_opt_list import CTDataset 
+        print("new loader enabled")
+        from dataload_opt_list import CTDataset, custom_collate
     else:
         from dataload import CTDataset
     # root = add
@@ -681,13 +682,21 @@ def dd_train(gpu, args):
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+    if new_loader == True:
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                              pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                             pin_memory=False, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                            pin_memory=False, sampler=val_sampler)
+        train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                  pin_memory=False, sampler=train_sampler, collate_fn = custom_collate)
+        test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                 pin_memory=False, sampler=test_sampler, collate_fn = custom_collate)
+        val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                pin_memory=False, sampler=val_sampler, collate_fn = custom_collate)
+    else: 
+        train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                  pin_memory=False, sampler=train_sampler)
+        test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                 pin_memory=False, sampler=test_sampler)
+        val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
+                                pin_memory=False, sampler=val_sampler)
 #     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
 #     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
 #     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
