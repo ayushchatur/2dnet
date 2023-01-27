@@ -663,7 +663,7 @@ def dd_train(gpu, args):
     new_loader = (args.new_load == 'enable')
     if new_loader == True:
         print("new loader enabled")
-        from data_loader.dataload_opt_list import CTDataset, custom_collate
+        from data_loader import CTDataset, custom_collate
     else:
         from dataload import CTDataset
     # root = add
