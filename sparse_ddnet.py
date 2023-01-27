@@ -798,8 +798,8 @@ def dd_train(gpu, args):
             print('fine tune retraining for ', retrain , ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, retrain, en_wan, new_loader)
+                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                              val_total_loss, amp_enabled, retrain, en_wan, new_loader)
 
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank, new_loader)
 
@@ -951,7 +951,8 @@ def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_to
     for batch_index, batch_samples in enumerate(test_loader):
         HQ_img, LQ_img, maxs, mins, file_name = batch_samples['HQ'], batch_samples['LQ'], \
                                                 batch_samples['max'], batch_samples['min'], batch_samples['vol']
-        
+        inputs = LQ_img
+        targets = HQ_img        
         if new_loader == False:
             inputs = LQ_img.to(gpu)
             targets = HQ_img.to(gpu)
