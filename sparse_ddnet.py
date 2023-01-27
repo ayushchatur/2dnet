@@ -6,11 +6,8 @@
 # @Site :
 # @File : sparse_ddnet.py
 # @Software: PyCharm
-import sys
-import time
 # from apex import amp
 # import torch.cuda.nvtx as nvtx
-import copy
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -26,7 +23,6 @@ from PIL import Image
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-import re
 import torch.multiprocessing as mp
 import torch.distributed as dist
 # from apex.parallel import DistributedDataParallel as DDP
@@ -667,7 +663,7 @@ def dd_train(gpu, args):
     new_loader = (args.new_load == 'enable')
     if new_loader == True:
         print("new loader enabled")
-        from dataload_opt_list import CTDataset, custom_collate
+        from data_loader.dataload_opt_list import CTDataset, custom_collate
     else:
         from dataload import CTDataset
     # root = add
