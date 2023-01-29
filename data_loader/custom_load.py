@@ -91,7 +91,7 @@ class CTDataset(object):
             'HQ': hq,
             'LQ': lq,
             'min': mins,
-            'maxs': maxs
+            'max': maxs
         }
         return sample
 
