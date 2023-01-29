@@ -699,8 +699,8 @@ def dd_train(gpu, args):
         print('model file not found')
 
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain, en_wan, new_loader)
+                         train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                         val_total_loss, amp_enabled, retrain, en_wan)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -719,11 +719,11 @@ def dd_train(gpu, args):
             calculate_global_sparsity(model)
             print('fine tune retraining for ', retrain , ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                               train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                               val_total_loss, amp_enabled, retrain, en_wan)
 
-    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank)
+    test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
 
     print("testing end")
     #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
@@ -744,8 +744,8 @@ def dd_train(gpu, args):
 
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                     train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, new_loader):
+                     train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                     val_total_loss, amp_enabled, retrain, en_wan):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
@@ -863,7 +863,7 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
             f.write("%f " % item)
 
 
-def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank, new_loader):
+def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):
     index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
     for idx in index_list:
         batch_samples = test_loader.get_item(idx)
@@ -871,10 +871,6 @@ def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_to
                                                 batch_samples['max'], batch_samples['min'], batch_samples['vol']
         inputs = LQ_img
         targets = HQ_img        
-        # if new_loader == False:
-        #     inputs = LQ_img.to(gpu)
-        #     targets = HQ_img.to(gpu)
-
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
         MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
