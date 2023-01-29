@@ -99,13 +99,13 @@ def main():
     print('hell')
     dir_hq = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
     dir_lq = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"
-    hq, lq, mins, maxs, fnames = get_all_lists(dir_hq, dir_lq, 100, batch_size=4)
-    b_hq = create_batch(hq, 4, True, "cpu")
-    b_lq = create_batch(lq, 4, True, "cpu")
-    b_min = create_batch(mins, 4, False)
-    b_maxs = create_batch(maxs, 4, False)
-    b_fname = create_batch(fnames, 4, False)
-    index_list = np.random.default_rng(seed=22).permutation(range(len(b_hq)))
+    # hq, lq, mins, maxs, fnames = get_all_lists(dir_hq, dir_lq, 100, batch_size=4)
+    # b_hq = create_batch(hq, 4, True, "cpu")
+    # b_lq = create_batch(lq, 4, True, "cpu")
+    # b_min = create_batch(mins, 4, False)
+    # b_maxs = create_batch(maxs, 4, False)
+    # b_fname = create_batch(fnames, 4, False)
+    # index_list = np.random.default_rng(seed=22).permutation(range(len(b_hq)))
 
 
 #         print(f)

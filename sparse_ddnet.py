@@ -661,9 +661,9 @@ def dd_train(gpu, args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
     from data_loader.custom_load import CTDataset
-    train_loader = CTDataset(root_train_h,root_train_l,100,gpu,batch)
-    test_loader = CTDataset(root_test_h,root_test_l,100,gpu,batch)
-    val_loader = CTDataset(root_val_h,root_val_l,100,gpu,batch)
+    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
+    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
+    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
 
     model = DD_net()
     model.to(gpu)
