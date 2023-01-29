@@ -660,105 +660,22 @@ def dd_train(gpu, args):
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-    new_loader = (args.new_load == 'enable')
-    if new_loader == True:
-        print("new loader enabled")
-        from data_loader import CTDataset, custom_collate
-    else:
-        from dataload import CTDataset
-    # root = add
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
-#     trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
-#     testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
-#     valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
+    from data_loader.custom_load import CTDataset
+    train_loader = CTDataset(root_train_h,root_train_l,100,gpu,batch)
+    test_loader = CTDataset(root_test_h,root_test_l,100,gpu,batch)
+    val_loader = CTDataset(root_val_h,root_val_l,100,gpu,batch)
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
-    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-    if new_loader == True:
-
-        train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                  pin_memory=False, sampler=train_sampler, collate_fn = custom_collate)
-        test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                 pin_memory=False, sampler=test_sampler, collate_fn = custom_collate)
-        val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                pin_memory=False, sampler=val_sampler, collate_fn = custom_collate)
-    else: 
-        train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                  pin_memory=False, sampler=train_sampler)
-        test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                 pin_memory=False, sampler=test_sampler)
-        val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                                pin_memory=False, sampler=val_sampler)
-#     train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
-#     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
-#     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
-#     train_loader = DataLoader(trainset, batch_size=batch, pin_memory=False, batch_sampler=train_sampler)
-#     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False)
-#     val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
-#     from nvidia.dali.plugin.pytorch import DALIGenericIterator as PyTorchIterator
-#     from nvidia.dali.plugin.pytorch import LastBatchPolicy
-#     from dali_pipe import NumpyExternalSource, ExternalSourcePipeline
-# #     from
-
-# #     trainset = NumpyExternalSource(root_train_h,root_train_l, batch, rank, args.world_size)
-# #     valset = NumpyExternalSource(root_val_h,root_val_l, batch, rank, args.world_size)
-#     testset = NumpyExternalSource(root_test_h,root_test_l, batch, rank, args.world_size)
-    
-# #     train_pipe = ExternalSourcePipeline(batch_size=batch, num_threads=2, device_id = rank, external_data=trainset)
-# #     val_pipe = ExternalSourcePipeline(batch_size=batch, num_threads=2, device_id = rank,external_data = valset)
-#     test_pipe = ExternalSourcePipeline(batch_size=batch, num_threads=2, device_id = rank, external_data  = testset)
-# #     train_pipe.build()
-    
-#     output_str = ['HQ','LQ', 'max', 'min']
-# #     train_loader = PyTorchIterator(train_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.PARTIAL)
-# #     val_loader = PyTorchIterator(val_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.DROP)
-#     test_loader = PyTorchIterator(test_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.DROP)
     model = DD_net()
-#     train_source = NumpyExternalSource(root_train_h,root_train_l, batch, 0, 1)
-#     train_pipe = ExternalSourcePipeline(batch_size=batch, num_threads=2, device_id = 0,
-#                                   external_data = train_source)
-#     train_loader = PyTorchIterator(train_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.PARTIAL)
-    
-    
-#     val_source = NumpyExternalSource(root_val_h,root_val_l, batch, 0, 1)
-#     val_pipe = ExternalSourcePipeline(batch_size=batch, num_threads=2, device_id = 0,
-#                                   external_data = val_source)  
-#     val_loader = PyTorchIterator(val_pipe,output_str, last_batch_padded=True, last_batch_policy=LastBatchPolicy.PARTIAL)
-    
-
-    # torch.cuda.set_device(rank)
-    # model.cuda(rank)
     model.to(gpu)
     model = DDP(model, device_ids=[gpu])
-    learn_rate = 0.0001;
+    learn_rate = 0.0001
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
-    # model = DDP(model)
-    # optimizer1 = torch.optim.Adam(model.dnet1.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    # optimizer4 = torch.optim.Adam(model.dnet4.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     decayRate = 0.95
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
-    # scheduler1 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer1, gamma=decayRate)
-    # scheduler2 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer2, gamma=decayRate)
-    # scheduler3 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer3, gamma=decayRate)
-    # scheduler4 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer4, gamma=decayRate)
 
-    # outputs = ddp_model(torch.randn(20, 10).to(rank))
-
-    # max_train_img_init = 5120;
-    # max_train_img_init = 32;
-    # max_val_img_init = 784;
-    # max_val_img_init = 16;
-    # max_test_img = 784;
 
     train_MSE_loss = [0]
     train_MSSSIM_loss = [0]
@@ -803,10 +720,10 @@ def dd_train(gpu, args):
             print('fine tune retraining for ', retrain , ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                              train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                              val_total_loss, amp_enabled, retrain, en_wan, new_loader)
+                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                              val_total_loss, amp_enabled, retrain, en_wan)
 
-    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank, new_loader)
+    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank)
 
     print("testing end")
     #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
@@ -834,22 +751,20 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
     sparsified = False
     densetime=0
     for k in range(epochs + retrain):
-        train_sampler.set_epoch(epochs + retrain)
+        # train_sampler.set_epoch(epochs + retrain)
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
 #         train_sampler.set_epoch(epochs + prune_ep)
-        for batch_index, sample_batched in enumerate(train_loader):
+        index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        for idx in index_list:
+            sample_batched = train_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
             
             targets = HQ_img 
             inputs = LQ_img
             with amp.autocast(enabled= amp_enabled):
-                if new_loader == False:
-                    inputs = LQ_img.to(gpu)
-                    targets = HQ_img.to(gpu)
-
                 outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -883,17 +798,13 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print("schelud")
         scheduler.step()
         print("Validation")
-        for batch_index, sample_batched in enumerate(val_loader):
-#             for batch_samples in data:
+        for idx in index_list:
+            sample_batched = val_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
             targets = HQ_img
             with amp.autocast(enabled= amp_enabled):
-                if new_loader == False:
-                    inputs = LQ_img.to(gpu)
-                    targets = HQ_img.to(gpu)
-                    
                 outputs = model(inputs)
                 # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -953,14 +864,16 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
 
 
 def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, rank, new_loader):
-    for batch_index, batch_samples in enumerate(test_loader):
+    index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
+    for idx in index_list:
+        batch_samples = test_loader.get_item(idx)
         HQ_img, LQ_img, maxs, mins, file_name = batch_samples['HQ'], batch_samples['LQ'], \
                                                 batch_samples['max'], batch_samples['min'], batch_samples['vol']
         inputs = LQ_img
         targets = HQ_img        
-        if new_loader == False:
-            inputs = LQ_img.to(gpu)
-            targets = HQ_img.to(gpu)
+        # if new_loader == False:
+        #     inputs = LQ_img.to(gpu)
+        #     targets = HQ_img.to(gpu)
 
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
