@@ -756,8 +756,10 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
 #         train_sampler.set_epoch(epochs + prune_ep)
-        index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        for idx in index_list:
+        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+
+        for idx in train_index_list:
             sample_batched = train_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
@@ -798,7 +800,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print("schelud")
         scheduler.step()
         print("Validation")
-        for idx in index_list:
+        for idx in val_index_list:
             sample_batched = val_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
