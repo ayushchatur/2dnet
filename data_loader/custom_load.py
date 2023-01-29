@@ -3,10 +3,13 @@ import os
 import torch
 from random import shuffle
 import numpy as np
+from operator import itemgetter
 class CTDataset(object):
-    def __init__(self, root_dir_h, root_dir_l, length, device,seed = 333):
+
+    def __init__(self, root_dir_h, root_dir_l, length, device,batch_size = 1, seed = 333):
         self.seed = seed
         self.pos = 0
+        self.batch_size = batch_size
         self.device = device
         self.data_root_l = root_dir_l + "/"
         self.data_root_h = root_dir_h + "/"
@@ -19,6 +22,7 @@ class CTDataset(object):
         # self.transform = transform
 
         self.index_list = [x for x in range(len(length))]
+        shuffle(self.index_list)
 
         self.tensor_list_hq = []
         self.tensor_list_lq = []
@@ -58,27 +62,45 @@ class CTDataset(object):
             self.tensor_list_lq.append(inputs)
             self.tensor_list_maxs.append(maxs)
             self.tensor_list_mins.append(mins)
+
+
         print("done staging data to GPU")
     def __iter__(self):
-        shuffle(self.index_list)
+        # shuffle(self.index_list)
         return self
 
+    def return_stack(self, list_inp, index_list) -> torch.Tensor:
+        hq_list = list(itemgetter(*index_list)(list_inp))
+        hq_batch = torch.stack(hq_list)
+        return hq_batch
+
+
+    def create_batch(self):
+        batch_list = self.index_list[self.pos:self.pos+self.batch_size]
+        hq_batch = self.return_stack(self.tensor_list_hq,batch_list)
+        lq_batch = self.return_stack(self.tensor_list_hq,batch_list)
+        mins_batch = self.return_stack(self.tensor_list_hq,batch_list)
+        maxs_batch = self.return_stack(self.tensor_list_hq,batch_list)
+        fname_batch = self.return_stack(self.tensor_list_hq,batch_list)
+
+
+        self.pos += self.batch_size
+        return hq_batch,lq_batch,mins_batch,maxs_batch,fname_batch
+
+
     def __next__(self):
-        idx = self.index_list[self.pos]
-        fname = self.tensor_list_fname[idx]
-        hq = self.tensor_list_hq[idx]
-        lq = self.tensor_list_lq[idx]
-        maxs = self.tensor_list_maxs[idx]
-        mins = self.tensor_list_mins[idx]
+        hq_batch, lq_batch, mins_batch, maxs_batch, fname_batch =
+        self.create_batch()
+
 
         sample = {
-            'vol': fname,
-            'HQ': hq,
-            'LQ': lq,
-            'max': maxs,
-            'min': mins
+            'vol': fname_batch,
+            'HQ': hq_batch,
+            'LQ': lq_batch,
+            'max': maxs_batch,
+            'min': mins_batch
         }
-        yield sample
+        return sample
 
     def __len__(self):
         return len(self.tensor_list_mins)
