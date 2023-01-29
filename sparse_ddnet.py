@@ -1015,7 +1015,7 @@ def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_to
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
 #     print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
 #     generate_plots(epochs)
-    psnr_calc(data2)
+    psnr_calc(test_MSE_loss)
 
 def psnr_calc(mse_t):
     psnr = []
