@@ -728,7 +728,6 @@ def dd_train(gpu, args):
     amp_enabled = (args.amp == "enable")
     global dir_pre
     dir_pre = args.out_dir
-    prune= args.prune_epoch
     num_w = args.num_w
     en_wan = args.wan
     print('amp: ',amp_enabled)
@@ -873,7 +872,7 @@ def train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, tr
         print("Training for Epocs: ", epochs+ retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-        train_sampler.set_epoch(epochs + prune_ep)
+        train_sampler.set_epoch(epochs + retrain)
         
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
