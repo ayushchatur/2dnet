@@ -2,8 +2,8 @@
 
 nvidia-smi
 export batch_size=32
-export epochs=30
-export retrain=5
+export epochs=35
+export retrain=0
 export num_data_w=1
 export newload='enable'
 export amp='disable'
@@ -15,4 +15,4 @@ echo "append: $append"
 touch output_$append.out
 echo "output_89.out"
 date
-time docker run --gpus  device=all --env MASTER_ADDR --env MASTER_PORT --env SLURM_PROCID --env append --rm  -w /code -v /run/user/1001/2dnet:/projects/synergy_lab/garvit217/enhancement_data -v ~/ddnet/2dnet/2dnet:/code nvcr.io/nvidia/pytorch:21.12-py3 python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --amp $amp --new_load $newload > output_$append.out &
+time docker run --gpus device=all --env MASTER_ADDR --env MASTER_PORT --env SLURM_PROCID --env append --rm  -w /code -v /run/user/1001/2dnet:/projects/synergy_lab/garvit217/enhancement_data -v $PWD:/code nvcr.io/nvidia/pytorch:21.12-py3 python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --amp $amp --new_load $newload > output_$append.out 2>&1 &
