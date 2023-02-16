@@ -817,9 +817,9 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
         print('model file not found')
 
-        train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain)
+        train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                     train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                     val_total_loss, amp_enabled, en_wan)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -838,9 +838,9 @@ def dd_train(gpu, args):
             calculate_global_sparsity(model)
             print('fine tune retraining for ', retrain , ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, prune, en_wan)
+            train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                     train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                     val_total_loss, amp_enabled, en_wan)
 
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
@@ -862,18 +862,19 @@ def dd_train(gpu, args):
 
 
 
-def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+def train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_ep, en_wan):
+                     val_total_loss, amp_enabled, en_wan):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
     densetime=0
-    for k in range(epochs+ prune_ep):
-        print("Training for Epocs: ", epochs)
+    for k in range(epochs+ retrain):
+        print("Training for Epocs: ", epochs+ retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
         train_sampler.set_epoch(epochs + prune_ep)
+        
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
@@ -942,11 +943,12 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                #     im.save(dir_pre + '/reconstructed_images/val/' + file_name1)
                     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
-        if prune_ep > 0 and k == (epochs-1) :
+        if retrain > 0 and sparsified == False and k >= (epochs-1):
             densetime = str(datetime.now()- start)
             print("dense training done in : " , densetime)
             print('pruning model')
             ln_struc_spar(model)
+            sparsified = True
     print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
@@ -1026,7 +1028,7 @@ def main():
     # parser.add_argument('-nr', '--nr', default=0, type=int,
     #                    help='ranking within the nodes')
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
+    parser.add_argument('--epochs', default=50, type=int, metavar='e',
                         help='number of total epochs to run')
     parser.add_argument('--batch', default=2, type=int, metavar='b',
                         help='number of batch per gpu')
@@ -1036,13 +1038,10 @@ def main():
                         help='mixed precision')
     parser.add_argument('--out_dir', default=".", type=str, metavar='o',
                         help='default directory to output files')
-    parser.add_argument('--prune_epoch', default=0, type=int, metavar='p',
-                        help='epochs at which to prune')
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
-
     parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='num of data loader workers')
+                        help='enable wan DB')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
