@@ -41,6 +41,74 @@ import torch.cuda.amp as amp
 
 
 INPUT_CHANNEL_SIZE = 1
+
+def prune_thresh(item, amount):
+
+    w = item.weight
+    b = item.bias
+    w_s = w.size()
+    b_s = b.size()
+    b_flat = torch.flatten(b)
+    w_flat = torch.flatten(w)
+
+    w_numpy = w_flat.clone().cpu().detach().numpy()
+    b_numpy = b_flat.clone().cpu().detach().numpy()
+
+    w_threshold = np.percentile(np.abs(w_numpy), amount*100)
+    b_threshold = np.percentile(np.abs(w_numpy), amount*100)
+
+    # pp = torch.where(w_flat > threshold, w_flat, float(0))
+    w_numpy_new = w_numpy[  (w_threshold <= w_numpy)  | (w_numpy <= (-1*w_threshold))]
+
+    b_numpy_new = b_numpy[ (b_threshold <= b_numpy)  | (b_threshold <= (-1*b_numpy))]
+
+    w_tensor = torch.from_numpy(w_numpy_new)
+    b_tensor = torch.from_numpy(b_numpy_new)
+
+
+    # top_k_w = torch.topk(w_flat,int(w_flat.size().numel() * amount))
+    # top_k_b = torch.topk(b_flat, int(b_flat.size().numel() * amount))
+    # pp = torch.zeros_like(w)
+    sparse_tensor_w = torch.zeros_like(w_flat)
+    sparse_tensor_b = torch.zeros_like(b_flat)
+    sparse_tensor_w[:len(w_tensor)] = w_tensor
+    sparse_tensor_b[:len(b_tensor)] = b_tensor
+    # print(pp)
+    item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
+    item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
+def prune_weNb(item, amount):
+
+    w = item.weight
+    b = item.bias
+    w_s = w.size()
+    b_s = b.size()
+    b_flat = torch.flatten(b)
+    w_flat = torch.flatten(w)
+    top_k_w = torch.topk(w_flat,int(w_flat.size().numel() * amount))
+    top_k_b = torch.topk(b_flat, int(b_flat.size().numel() * amount))
+    # pp = torch.zeros_like(w)
+    sparse_tensor_w = torch.zeros_like(w_flat)
+    sparse_tensor_b = torch.zeros_like(b_flat)
+    sparse_tensor_w[:int(w_flat.size().numel() * amount)] = top_k_w.values
+    sparse_tensor_b[:int(b_flat.size().numel() * amount)] = top_k_b.values
+    # print(pp)
+    item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
+    item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
+def mag_prune(model, amt):
+    for index, item in enumerate(model.children()):
+        if(type(item) == denseblock):
+            for index, items in enumerate(item.children()):
+                if hasattr(items, "weight"):
+                    # print('pruning :', items)
+                    prune_thresh(items, amt)
+                else:
+                    print("not pruning in dense block: ", items)
+        else:
+            if hasattr(item, "weight") and hasattr(item.weight, "requires_grad"):
+                # print('pruning :', item)
+                prune_thresh(item, amt)
+            else:
+                print('not pruning: ', item)
 # dir_pre="."
 def ln_struc_spar(model):
     parm = []
@@ -807,7 +875,7 @@ def dd_train(gpu, args):
 
 
 
-    model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+    model_file = "weights_" + str(epochs) + "_" + str(batch) + "_bak.pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
     if en_wan > 0:
@@ -827,20 +895,13 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         calculate_global_sparsity(model)
-        if retrain > 0:
-            model.load_state_dict(torch.load(model_file, map_location=map_location))
-            print("sparifying the model....")
-            ln_struc_spar(model)
-            # ASP.prune_trained_model(model,optimizer)
-            print('weights updated and masks removed... Model is sucessfully pruned')
-            # create new OrderedDict that does not contain `module.`
-            calculate_global_sparsity(model)
-            print('fine tune retraining for ', retrain , ' epochs...')
-            # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+        mag_prune(list(model.children())[0], 0.1)
+        calculate_global_sparsity(model)
+        train_eval_ddnet(retrain, 0, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss, amp_enabled, en_wan)
-
+    
+    print("starting inference")
     test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss)
 
     print("testing end")
@@ -946,7 +1007,7 @@ def train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, tr
             densetime = str(datetime.now()- start)
             print("dense training done in : " , densetime)
             print('pruning model')
-            ln_struc_spar(model)
+            mag_prune(list(model.children())[0] ,0.5)
             sparsified = True
     print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
 
