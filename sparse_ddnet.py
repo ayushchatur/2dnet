@@ -713,8 +713,8 @@ def dd_train(gpu, args):
     prune_t = args.prune_t
     prune_amt = args.prune_amt
     # enable_gr = (args.enable_gr == "true")
-    gr_mode = args.graph_mode
-    gr_backend = args.backend
+    gr_mode = args.gr_mode
+    gr_backend = args.gr_backend
     amp_enabled = (args.amp == "enable")
     global dir_pre
     dir_pre = args.out_dir
