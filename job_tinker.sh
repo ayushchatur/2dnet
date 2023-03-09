@@ -85,6 +85,8 @@ else
 fi
 
 
+export gpu=$(nvidia-smi -L | wc -l)
+
 echo "current dir: $PWD"
 chmod 755 * -R
 
@@ -117,7 +119,6 @@ fi
 
 
 
-export gpu=$(nvidia-smi -L | wc -l)
 
 echo "cmd: $CMD"
 $BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
