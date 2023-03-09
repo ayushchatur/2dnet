@@ -50,7 +50,7 @@ mkdir -p ./visualize/test/diff_target_out/
 mkdir -p ./visualize/test/diff_target_in/
 mkdir -p ./visualize/test/input/
 mkdir -p ./visualize/test/target/
-
+cd ..
 echo "tmpfs for this job at $TMPDIR"
 echo "Staging full data per node"
 
@@ -100,9 +100,9 @@ if [ "$enable_profile" = "true" ]; then
   export CMD="${profile_prefix} ${CMD}"
 else
   if [ "$new_load" = "true" ];then
-    export file="../sparse_ddnet.py"
+    export file="sparse_ddnet.py"
   else
-    export file="../sparse_ddnet_old_dl.py"
+    export file="sparse_ddnet_old_dl.py"
   fi
 
 fi

@@ -964,7 +964,7 @@ def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_tot
             file_name1 = file_name[m]
             file_name1 = file_name1.replace(".IMA", ".tif")
             im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save('./reconstructed_images/test/' + file_name1)
+            im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
 #         outputs.cpu()
 #         targets_test[l_map:l_map+batch, :, :, :].cpu()
 #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
