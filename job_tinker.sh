@@ -88,18 +88,23 @@ fi
 echo "current dir: $PWD"
 chmod 755 * -R
 
-export CMD="python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --prune_epoch ${prune_epoch}  --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
 
+export profile_prefix="dlprof --output_path=${SLURM_JOBID}_profile --profile_name=${SLURM_JOBID}_profile --dump_model_data=true --mode=pytorch --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --gpuctxsw=true\" -f true --reports=all --delay 180 --duration 60"
 
 if [ "$enable_profile" = "true" ]; then
 #  if [ "" ]
   export file="sparse_ddnet_pro.py"
   export CMD="${profile_prefix} ${CMD}"
-
 else
   export file="sparse_ddnet.py"
 
 fi
+
+
+export CMD="${CMD} python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --prune_epoch ${prune_epoch}  --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
+
+
+
 
 
 if [ "$pytor" = "ver1" ]; then
@@ -109,8 +114,6 @@ else
   export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
 fi
 
-
-export profile_prefix="dlprof --output_path=${SLURM_JOBID}_profile --profile_name=${SLURM_JOBID}_profile --dump_model_data=true --mode=pytorch --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --gpuctxsw=true\" -f true --reports=all --delay 120 --duration 60"
 
 
 
