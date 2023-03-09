@@ -11,6 +11,7 @@
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
 export MASTER_PORT=$(shuf -i 2000-65000 -n 1)
+echo "port: $MASTER_PORT"
 #export WORLD_SIZE=4
 ### get the first node name as master address - customized for vgg slurm
 ### e.g. master(gnodee[2-5],gnoded1) == gnodee2
@@ -29,8 +30,8 @@ fi
 #echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
-cp ../sparse_ddnet.py .
-cp ../sparse_ddnet_pp.py .
+#cp ../sparse_ddnet.py .
+#cp ../sparse_ddnet_pp.py .
 
 mkdir -p ./loss/
 mkdir -p ./reconstructed_images/
@@ -95,10 +96,10 @@ export profile_prefix="dlprof --output_path=${SLURM_JOBID}_profile --profile_nam
 
 if [ "$enable_profile" = "true" ]; then
 #  if [ "" ]
-  export file="sparse_ddnet_pro.py"
+  export file="../sparse_ddnet_pro.py"
   export CMD="${profile_prefix} ${CMD}"
 else
-  export file="sparse_ddnet.py"
+  export file="../sparse_ddnet.py"
 
 fi
 
