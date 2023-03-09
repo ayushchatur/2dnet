@@ -16,9 +16,11 @@ import torch.nn.functional as F
 from math import exp
 import numpy as np
 
+from PIL import Image
 import os
 from os import path
-from PIL import Image
+import numpy as np
+import re
 
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
@@ -695,8 +697,83 @@ def setup(rank, world_size):
 
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
+def read_correct_image(path):
+    offset = 0
+    ct_org = None
+    with Image.open(path) as img:
+        ct_org = np.float32(np.array(img))
+        if 270 in img.tag.keys():
+            for item in img.tag[270][0].split("\n"):
+                if "c0=" in item:
+                    loi = item.strip()
+                    offset = re.findall(r"[-+]?\d*\.\d+|\d+", loi)
+                    offset = (float(offset[1]))
+    ct_org = ct_org + offset
+    neg_val_index = ct_org < (-1024)
+    ct_org[neg_val_index] = -1024
+    return ct_org
+class CTDataset(Dataset):
+    def __init__(self, root_dir_h, root_dir_l, length, transform=None):
+        self.data_root_l = root_dir_l + "/"
+        self.data_root_h = root_dir_h + "/"
+        self.img_list_l = os.listdir(self.data_root_l)
+        self.img_list_h = os.listdir(self.data_root_h)
+        self.img_list_l.sort()
+        self.img_list_h.sort()
+        self.img_list_l = self.img_list_l[0:length]
+        self.img_list_h = self.img_list_h[0:length]
+        self.transform = transform
 
+    def __len__(self):
+        return len(self.img_list_l)
 
+    def __getitem__(self, idx):
+        # print("Dataloader idx: ", idx)
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        inputs_np = None
+        targets_np = None
+        rmin = 0
+        rmax = 1
+
+        # print("HQ", self.data_root_h + self.img_list_h[idx])
+        # print("LQ", self.data_root_l + self.img_list_l[idx])
+        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
+        # print("test")
+        # exit()
+        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
+        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
+
+        input_file = self.img_list_l[idx]
+        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
+        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
+        cmax1 = np.amax(image_target)
+        cmin1 = np.amin(image_target)
+        image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
+        assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
+        cmax2 = np.amax(image_input)
+        cmin2 = np.amin(image_input)
+        image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
+        assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
+        mins = ((cmin1 + cmin2) / 2)
+        maxs = ((cmax1 + cmax2) / 2)
+        image_target = image_target.reshape((1, 512, 512))
+        image_input = image_input.reshape((1, 512, 512))
+        inputs_np = image_input
+        targets_np = image_target
+
+        inputs = torch.from_numpy(inputs_np)
+        targets = torch.from_numpy(targets_np)
+        inputs = inputs.type(torch.FloatTensor)
+        targets = targets.type(torch.FloatTensor)
+
+        sample = {'vol': input_file,
+                  'HQ': targets,
+                  'LQ': inputs,
+                  'max': maxs,
+                  'min': mins}
+        return sample
 def cleanup():
     dist.destroy_process_group()
 
@@ -728,10 +805,25 @@ def dd_train(gpu, args):
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-    from data_loader.custom_load import CTDataset
-    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
-    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
-    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
+
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
+    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
+    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
+    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
+    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
+    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
+
+    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
+    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
+    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 8,
+                              pin_memory=False, sampler=train_sampler)
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 8,
+                             pin_memory=False, sampler=test_sampler)
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers= 8 *args.world_size,
+                            pin_memory=False, sampler=val_sampler)
 
 
 
@@ -799,7 +891,7 @@ def dd_train(gpu, args):
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                               train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                              val_total_loss, amp_enabled, retrain, en_wan)
+                              val_total_loss, amp_enabled, retrain, en_wan, train_sampler)
     test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
 
     print("testing end")
@@ -823,7 +915,7 @@ def dd_train(gpu, args):
 
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt):
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
@@ -833,18 +925,18 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-#         train_sampler.set_epoch(epochs + prune_ep)
+        train_sampler.set_epoch(k)
         #list of indexes
-        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+        # train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        # val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
 
-        for idx in train_index_list:
-            sample_batched = train_loader.get_item(idx)
-            HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
-                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
+        for batch_index, batch_samples in enumerate(train_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                batch_samples['max'], batch_samples['min']
+
             
-            targets = HQ_img 
-            inputs = LQ_img
+            targets = HQ_img.to(gpu)
+            inputs = LQ_img.to(gpu)
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -874,12 +966,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print("schelud")
         scheduler.step()
         print("Validation")
-        for idx in val_index_list:
-            sample_batched = val_loader.get_item(idx)
-            HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
-                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
-            inputs = LQ_img
-            targets = HQ_img
+        for batch_index, batch_samples in enumerate(val_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                batch_samples['max'], batch_samples['min']
+            inputs = LQ_img.to(gpu)
+            targets = HQ_img.to(gpu)
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)
                 # outputs = model(inputs)
@@ -937,13 +1028,12 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
 
 
 def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):
-    index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
-    for idx in index_list:
-        batch_samples = test_loader.get_item(idx)
-        HQ_img, LQ_img, maxs, mins, file_name = batch_samples['HQ'], batch_samples['LQ'], \
-                                                batch_samples['max'], batch_samples['min'], batch_samples['vol']
-        inputs = LQ_img
-        targets = HQ_img        
+    # index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
+    for batch_index, batch_samples in enumerate(test_loader):
+        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+            batch_samples['max'], batch_samples['min']
+        inputs = LQ_img.to(gpu)
+        targets = HQ_img.to(gpu)
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
         MSSSIM_loss = 1 - MSSSIM()(outputs, targets)

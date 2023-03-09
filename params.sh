@@ -1,7 +1,8 @@
 #!/bin/bash
 
+#options: ver1/ver2
 export pytor="ver1"
-#to enable graph chane pytorch version above
+#to enable graph change pytorch version above otherwise the below two parameters wont be respected
 
 export graph_mode="reduce-overhead"
 export gr_back="incubator"
@@ -15,6 +16,7 @@ export batch_size=32
 export epochs=30
 export retrain=5
 export num_data_w=1
+export new_load="false"
 export wandb=-1
 # options mag/l1_struc or random_unstru will be set otherwise
 export prune_t="random_unstru"
