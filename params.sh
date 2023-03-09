@@ -6,7 +6,7 @@ export pytor="ver1"
 export graph_mode="reduce-overhead"
 export gr_back="incubator"
 
-export enable_profile="true"
+export enable_profile="false"
 #graph_mode: 1-> 2-> 3-> max-autotune
 
 
@@ -17,7 +17,7 @@ export retrain=5
 export num_data_w=1
 export wandb="true"
 # options mag/l1_struc or random_unstru will be set otherwise
-export prune_t="mag"
+export prune_t="random_unstru"
 export prune_amt="0.5"
 #options enable/disable
 export mp="disable"
