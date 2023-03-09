@@ -657,6 +657,7 @@ def dd_train(gpu, args):
     global dir_pre
     dir_pre = args.out_dir
     num_w = args.num_w
+    en_wan = args.wan
     print('amp: ', amp_enabled)
     print('num of workers: ', num_w)
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
@@ -666,39 +667,10 @@ def dd_train(gpu, args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    # root = add
-    if new_loader == True:
-        from data_loader.dataload_opt_list import CTDataset
-    else:
-        from dataload import CTDataset
-    data_tims = datetime.now()
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=256)
-    testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
-    valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
-    
-    print('time to stage data on GPU mem: ', str(datetime.now() - data_tims))
-    
-    
-    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
-    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
-    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
-
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
-    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
-    # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False,
-                              num_workers=args.world_size * num_w,
-                               sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                              sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * num_w,
-                             sampler=val_sampler)
-# train_loader = DataLoader(trainset, num_workers=world_size, pin_memory=False, batch_sampler=train_sampler)
-    # test_loader = DataLoader(testset, zbatch_size=batch, drop_last=False, shuffle=False)
-    # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
-
+    from data_loader.custom_load import CTDataset
+    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
+    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
+    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
     model = DD_net()
 
     # torch.cuda.set_device(rank)
@@ -750,8 +722,8 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
         with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, retrain, new_loader)
+                         train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                         val_total_loss, amp_enabled, retrain, en_wan)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -771,11 +743,9 @@ def dd_train(gpu, args):
             print('fine tune retraining for ', retrain, ' epochs...')
             # with torch.autograd.profiler.emit_nvtx():
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                             train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, retrain, new_loader)
-
-    test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, new_loader, rank)
-
+                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                              val_total_loss, amp_enabled, retrain, en_wan)
+    test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
     print("testing end")
     with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
         for item in test_MSE_loss:
@@ -795,32 +765,40 @@ def dd_train(gpu, args):
 
 import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                     train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, prune_ep, new_loader):
+                     train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                     val_total_loss, amp_enabled, retrain, en_wan):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
-    for k in range(epochs + prune_ep):
-        print("Training for Epocs: ", epochs)
+    for k in range(epochs + retrain):
+        print("Training for Epocs: ", epochs+retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-        train_sampler.set_epoch(epochs)
-        for batch_index, batch_samples in enumerate(train_loader):
-            maxs, mins =  batch_samples['max'], batch_samples['min']
+#         train_sampler.set_epoch(epochs)
+        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+        nvtx.range_push("Training")
+        for idx in train_index_list:
+            
+            
+            sample_batched = train_loader.get_item(idx)
+            HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
+                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
+#             maxs, mins =  batch_samples['max'], batch_samples['min']
 #             print(maxs)
 #             print(mins)
-            targets = batch_samples['HQ']
-            inputs = batch_samples['LQ']
+            targets = HQ_img
+            inputs = LQ_img
             if not sparsified:
-                nvtx.range_push("Batch: " + str(batch_index))
+                nvtx.range_push("Batch: " + str(idx))
             else:
-                nvtx.range_push("Sp-Batch: " + str(batch_index))
+                nvtx.range_push("Sp-Batch: " + str(idx))
 
             with amp.autocast(enabled=amp_enabled):
                 nvtx.range_push("copy to device")
-                if not new_loader == True:
-                    inputs = LQ_img.to(gpu)
-                    targets = HQ_img.to(gpu)
+#                 if not new_loader == True:
+#                     inputs = LQ_img.to(gpu)
+#                     targets = HQ_img.to(gpu)
                 
 #                 targets = HQ_img.to(gpu)
                 nvtx.range_pop()
@@ -852,23 +830,26 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 optimizer.step()
             nvtx.range_pop()
             nvtx.range_pop()
+            
+            
             # scaler.scale(loss).backward()
             # scaler.step(optimizer)
             # scaler.update()
         # print('loss: ',loss, ' mse: ', mse
         scheduler.step()
+        nvtx.range_pop()
         print("Validation")
         nvtx.range_push("Validation")
-        for batch_index, batch_samples in enumerate(val_loader):
-            maxs, mins =  batch_samples['max'], batch_samples['min']
-#             print(maxs)
-#             print(mins)
-            targets = batch_samples['HQ']
-            inputs = batch_samples['LQ']
+        for idx in val_index_list:
+            sample_batched = val_loader.get_item(idx)
+            HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
+                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
+            inputs = LQ_img
+            targets = HQ_img
             with amp.autocast(enabled=amp_enabled):
-                if not new_loader == True:
-                    inputs = LQ_img.to(gpu)
-                    targets = HQ_img.to(gpu)
+#                 if not new_loader == True:
+#                     inputs = LQ_img.to(gpu)
+#                     targets = HQ_img.to(gpu)
 #                 inputs = LQ_img.to(gpu)
 #                 targets = HQ_img.to(gpu)
                 outputs = model(inputs)
@@ -896,7 +877,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
                 #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         nvtx.range_pop()
-        if prune_ep > 0 and  k == (epochs-1):
+        if  sparsified == False and retrain > 0 and k == (epochs-1) :
             print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
             print('pruning model')
             ln_struc_spar(model)
@@ -930,17 +911,14 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
             f.write("%f " % item)
 
 
-def test_ddnet(gpu, model, test_MSE_loss, test_MSSSIM_loss, test_loader, test_total_loss, new_loader):
-    for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], batch_samples['max'], batch_samples['min']
-        if not new_loader == True:
-            inputs = LQ_img.to(gpu)
-            targets = HQ_img.to(gpu)
-        else:
-            inputs = LQ_img
-            targets = HQ_img
-#         inputs = LQ_img.to(gpu)
-#         targets = HQ_img.to(gpu)
+def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):
+    index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
+    for idx in index_list:
+        batch_samples = test_loader.get_item(idx)
+        HQ_img, LQ_img, maxs, mins, file_name = batch_samples['HQ'], batch_samples['LQ'], \
+                                                batch_samples['max'], batch_samples['min'], batch_samples['vol']
+        inputs = LQ_img
+        targets = HQ_img     
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
         MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -992,15 +970,17 @@ def main():
     parser.add_argument('--batch', default=2, type=int, metavar='b',
                         help='number of batch per gpu')
     parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='sparse retraining epochs')
+                        help='retrain epochs')
     parser.add_argument('--amp', default="disable", type=str, metavar='m',
                         help='mixed precision')
     parser.add_argument('--out_dir', default=".", type=str, metavar='o',
                         help='default directory to output files')
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='d',
+    parser.add_argument('--new_load', default="disable", type=str, metavar='l',
                         help='new data loader')
+    parser.add_argument('--wan', default=-1, type=int, metavar='h',
+                        help='enable wandb configuration')
 
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes

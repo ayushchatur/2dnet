@@ -775,6 +775,7 @@ def dd_train(gpu, args):
     if (not (path.exists(model_file))):
         print('model file not found')
 
+
         train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                          val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
@@ -799,7 +800,6 @@ def dd_train(gpu, args):
             train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                               train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                               val_total_loss, amp_enabled, retrain, en_wan)
-
     test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
 
     print("testing end")
@@ -817,6 +817,7 @@ def dd_train(gpu, args):
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
     # psnr_calc(test_MSE_loss)
+
 
 
 
