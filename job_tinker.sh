@@ -103,7 +103,7 @@ else
 fi
 
 
-export CMD="${CMD} python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --prune_epoch ${prune_epoch}  --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
+export CMD="${CMD} python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
 
 
 
