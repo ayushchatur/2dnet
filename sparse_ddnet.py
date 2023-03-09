@@ -787,19 +787,19 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         calculate_global_sparsity(model)
-        if retrain > 0:
-            model.load_state_dict(torch.load(model_file, map_location=map_location))
-            print("sparifying the model....")
-            ln_struc_spar(model, prune_amt)
-            # ASP.prune_trained_model(model,optimizer)
-            print('weights updated and masks removed... Model is sucessfully pruned')
-            # create new OrderedDict that does not contain `module.`
-            calculate_global_sparsity(model)
-            print('fine tune retraining for ', retrain , ' epochs...')
-            # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                              val_total_loss, amp_enabled, retrain, en_wan)
+        # if retrain > 0:
+        #     model.load_state_dict(torch.load(model_file, map_location=map_location))
+        #     print("sparifying the model....")
+        #     ln_struc_spar(model, prune_amt)
+        #     # ASP.prune_trained_model(model,optimizer)
+        #     print('weights updated and masks removed... Model is sucessfully pruned')
+        #     # create new OrderedDict that does not contain `module.`
+        #     calculate_global_sparsity(model)
+        #     print('fine tune retraining for ', retrain , ' epochs...')
+        #     # with torch.autograd.profiler.emit_nvtx():
+        #     train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+        #                       train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+        #                       val_total_loss, amp_enabled, retrain, en_wan)
     test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
 
     print("testing end")
@@ -964,7 +964,7 @@ def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_tot
             file_name1 = file_name[m]
             file_name1 = file_name1.replace(".IMA", ".tif")
             im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
+            im.save('./reconstructed_images/test/' + file_name1)
 #         outputs.cpu()
 #         targets_test[l_map:l_map+batch, :, :, :].cpu()
 #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
