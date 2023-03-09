@@ -15,7 +15,7 @@ export batch_size=32
 export epochs=30
 export retrain=5
 export num_data_w=1
-export wandb="true"
+export wandb=-1
 # options mag/l1_struc or random_unstru will be set otherwise
 export prune_t="random_unstru"
 export prune_amt="0.5"
