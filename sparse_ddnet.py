@@ -872,7 +872,7 @@ def train_eval_ddnet(epochs, retrain, gpu, model, optimizer, rank, scheduler, tr
         print("Training for Epocs: ", epochs+ retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-        train_sampler.set_epoch(epochs + retrain)
+        train_sampler.set_epoch(k)
         
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \

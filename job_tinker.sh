@@ -1,16 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --partition=a100_normal_q
+#SBATCH --partition=dgx_normal_q
 #SBATCH --time=16:00:00
 #SBATCH -A HPCBIGDATA2
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=128
 #SBATCH --propagate=STACK
 #SBATCH --dependency=259619
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-export MASTER_PORT=8887
+export MASTER_PORT=8889
 #export WORLD_SIZE=4
 ### get the first node name as master address - customized for vgg slurm
 ### e.g. master(gnodee[2-5],gnoded1) == gnodee2
@@ -69,11 +69,11 @@ module reset
 module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
 nvidia-smi
-export batch_size=1
-export epochs=35
-export retrain=3
-export prune_epoch=30
-export num_data_w=4
+export batch_size=32
+export epochs=50
+export retrain=0
+#export prune_epoch=30
+export mp="enable"
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
@@ -83,8 +83,15 @@ echo "epochs : $epochs"
 #conda activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
+if [[ "$SLURM_JOB_PARTITION" == *"dgx"* ]]; then
+  module load containers/apptainer
+  export BASE="apptainer"
+else
+  module load containers/singularity
+  export BASE="singularity"
+fi
 imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-module load containers/singularity
+
 ### the command to run
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
 #time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
@@ -92,5 +99,5 @@ echo "current dir: $PWD"
 chmod 755 * -R  
 echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
 
-singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --num_w $num_data_w
+$BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 2 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --num_w $num_data_w
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh
