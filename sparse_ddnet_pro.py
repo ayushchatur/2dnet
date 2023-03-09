@@ -7,7 +7,7 @@
 # @File : sparse_ddnet.py
 # @Software: PyCharm
 # from apex import amp
-# import torch.cuda.nvtx as nvtx
+import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -227,19 +227,21 @@ def create_window(window_size, channel=1):
 
 def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False, val_range=None):
     # Value range can be different from 255. Other common ranges are 1 (sigmoid) and 2 (tanh).
-    if val_range is None:
-        if torch.max(img1) > 128:
-            max_val = 255
-        else:
-            max_val = 1
-
-        if torch.min(img1) < -0.001:
-            min_val = -0.1
-        else:
-            min_val = 0
-        L = max_val - min_val
-    else:
-        L = val_range
+    # if val_range is None:
+    #     if torch.max(img1) > 128:
+    #         max_val = 255
+    #     else:
+    #         max_val = 1
+    #
+    #     if torch.min(img1) < -0.001:
+    #         min_val = -0.1
+    #     else:
+    #         min_val = 0
+    max_val = 1
+    min_val = 0
+    L = max_val - min_val
+    # else:
+    #     L = val_range
 
     padd = 0
     (batch, channel, height, width) = img1.size()
@@ -418,13 +420,16 @@ class denseblock(nn.Module):
         #    conv = self.conv2[i](conv)      ######CHANGE
         #    conv = F.leaky_relu(conv)
         #    x = torch.cat((x, conv),dim=1)
-
+        # nvtx.range_push("dense block 1 forward")
         conv_1 = self.batch_norm1_0(x)
         conv_1 = self.conv1_0(conv_1)
         conv_1 = F.leaky_relu(conv_1)
         conv_2 = self.batch_norm2_0(conv_1)
         conv_2 = self.conv2_0(conv_2)
         conv_2 = F.leaky_relu(conv_2)
+        # nvtx.range_pop()
+
+        # nvtx.range_push("dense block 2 forward")
 
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_1(x)
@@ -433,6 +438,7 @@ class denseblock(nn.Module):
         conv_2 = self.batch_norm2_1(conv_1)
         conv_2 = self.conv2_1(conv_2)
         conv_2 = F.leaky_relu(conv_2)
+        # nvtx.range_pop()
 
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_2(x)
@@ -518,7 +524,9 @@ class DD_net(nn.Module):
         c0 = F.leaky_relu(conv)
 
         p0 = self.max1(c0)
+        nvtx.range_push("Dense Block 1")
         D1 = self.dnet1(p0)
+        nvtx.range_pop()
 
         #######################################################################################
         conv = self.batch2(D1)
@@ -696,7 +704,8 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
-
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 def cleanup():
     dist.destroy_process_group()
 
@@ -739,7 +748,7 @@ def dd_train(gpu, args):
     model = DD_net()
     model.to(gpu)
 
-    if enable_gr:
+    if gr_mode != "none":
         model = DDP(model, device_ids=[gpu])
         model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
 
@@ -774,10 +783,8 @@ def dd_train(gpu, args):
 
     if (not (path.exists(model_file))):
         print('model file not found')
-
-        train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
+        with torch.autograd.profiler.emit_nvtx():
+            train_eval_ddnet(epochs, gpu, model, optimizer, rank,scheduler,train_MSE_loss, train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
         print("train end")
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -786,19 +793,6 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         calculate_global_sparsity(model)
-        if retrain > 0:
-            model.load_state_dict(torch.load(model_file, map_location=map_location))
-            print("sparifying the model....")
-            ln_struc_spar(model, prune_amt)
-            # ASP.prune_trained_model(model,optimizer)
-            print('weights updated and masks removed... Model is sucessfully pruned')
-            # create new OrderedDict that does not contain `module.`
-            calculate_global_sparsity(model)
-            print('fine tune retraining for ', retrain , ' epochs...')
-            # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                              val_total_loss, amp_enabled, retrain, en_wan)
 
     test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
 
@@ -841,9 +835,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             sample_batched = train_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
-            
+            optimizer.zero_grad(set_to_none=True)
             targets = HQ_img 
             inputs = LQ_img
+            nvtx.range_push("Training loop:  " + str(idx))
+            nvtx.range_push("Forward pass")
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -851,11 +847,13 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
                 print(loss)
 #             print('calculating loss')
+            nvtx.range_pop()
+
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
                 # model.zero_grad()
-            optimizer.zero_grad(set_to_none=True)
+            nvtx.range_push("backward pass")
             #BW pass
             if amp_enabled:
                 # print('bw pass')
@@ -870,9 +868,13 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
                 
             if(en_wan > 0):
                 wandb.log({"loss": loss})
+
+            nvtx.range_pop()
+            nvtx.range_pop()
         print("schelud")
         scheduler.step()
         print("Validation")
+        nvtx.range_push("Validation " + str(idx))
         for idx in val_index_list:
             sample_batched = val_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
@@ -893,7 +895,7 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
-
+        nvtx.range_pop()
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
             print('pruning model on epoch: ', k)
@@ -1040,7 +1042,7 @@ def main():
     # options mag/l1_struc/random_unstru
     parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
                         help='pruning type')
-    parser.add_argument('--gr_mode', default="none", type=str, metavar='t',
+    parser.add_argument('--gr_mode', default="reduced-overhead", type=str, metavar='t',
                         help='pruning type')
     parser.add_argument('--gr_backend', default="inductor", type=str, metavar='t',
                         help='pruning type')

@@ -10,7 +10,7 @@
 #SBATCH --dependency=259619
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-export MASTER_PORT=8887
+export MASTER_PORT=$(shuf -i 2000-65000 -n 1)
 #export WORLD_SIZE=4
 ### get the first node name as master address - customized for vgg slurm
 ### e.g. master(gnodee[2-5],gnoded1) == gnodee2
@@ -56,41 +56,56 @@ echo "Staging full data per node"
 #cd $TMPDIR/tmpfs
 export dest_dir=$TMPDIR/tmpfs
 cp -r /projects/synergy_lab/garvit217/enhancement_data $dest_dir
+echo "Staged full data per node on $dest_dir"
 echo "SLURM_JOBID="$SLURM_JOBID
-echo "SLURM_JOB_NODELIST"=$SLURM_JOB_NODELIST
-echo "SLURM_NNODES"=$SLURM_NNODES
-echo "SLURMTMPDIR="$SLURMTMPDIR
+echo "SLURM_JOB_NODELIST=$SLURM_JOB_NODELIST"
+echo "SLURM_NNODES=$SLURM_NNODES"
+echo "SLURMTMPDIR=$SLURMTMPDIR"
 
 echo "working directory = "$SLURM_SUBMIT_DIR
 
 # module load  apps  site/infer/easybuild/setup
 # module load PyTorch/1.7.1-fosscuda-2020b
 module reset
-module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
+#module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
-nvidia-smi
-export batch_size=1
-export epochs=35
-export retrain=3
-export prune_epoch=30
-export num_data_w=4
-echo "batch : $batch_size"
+nvidia-smi -L
 
-echo "retrain : $retrain"
-
-echo "epochs : $epochs"
 # cd ~
 #conda activate test
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
-imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-module load containers/singularity
-### the command to run
-#nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
-#time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
-echo "current dir: $PWD"
-chmod 755 * -R  
-echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
 
-singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --num_w $num_data_w
-#sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh
+if [[ "$SLURM_JOB_PARTITION" == *"dgx"* ]]; then
+  module load containers/apptainer
+  export BASE="apptainer"
+else
+  module load containers/singularity
+  export BASE="singularity"
+fi
+
+
+echo "current dir: $PWD"
+chmod 755 * -R
+
+if [ "$enable_profile" = "true" ]; then
+  export file="sparse_ddnet_pp.py"
+else
+  export file="sparse_ddnet.py"
+
+fi
+
+export gpu=$(nvidia-smi -L | wc -l)
+
+export CMD="python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --prune_epoch ${prune_epoch}  --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
+
+
+if [ "$pytor" = "ver1" ]; then
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+else
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
+  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
+fi
+
+echo "cmd: $CMD"
+#${BASE} exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
