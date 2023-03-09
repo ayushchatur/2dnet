@@ -712,7 +712,7 @@ def dd_train(gpu, args):
     retrain = args.retrain
     prune_t = args.prune_t
     prune_amt = args.prune_amt
-    enable_gr = (args.enable_gr == "true")
+    # enable_gr = (args.enable_gr == "true")
     gr_mode = args.graph_mode
     gr_backend = args.backend
     amp_enabled = (args.amp == "enable")
