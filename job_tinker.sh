@@ -115,4 +115,5 @@ fi
 
 
 echo "cmd: $CMD"
-srun $BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
+srun $BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD --output=$TMPDIR/myexec.out
+sgather $TMPDIR/myexec.out myexec.out
