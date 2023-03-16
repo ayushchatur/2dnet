@@ -707,7 +707,7 @@ def dd_train(args):
     torch.manual_seed(111)
     world_size =  int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["SLURM_PROCID"])
-    gpus_per_node = int(os.environ["SLURM_NTASKS"])
+    gpus_per_node = int(os.environ["$SLURM_NTASKS_PER_NODE"])
     
     # print("local rank: ", local_rank, " global rank:", rank)
 
