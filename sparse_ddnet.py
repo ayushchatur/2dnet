@@ -707,14 +707,14 @@ def dd_train(args):
     torch.manual_seed(111)
     world_size =  int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["SLURM_PROCID"])
-    gpus_per_node = int(os.environ["$SLURM_NTASKS_PER_NODE"])
+    gpus_per_node  = torch.cuda.device_count()
     
     # print("local rank: ", local_rank, " global rank:", rank)
 
     print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
           f" {gpus_per_node} allocated GPUs per node.", flush=True)
     
-    dist.init_process_group("nccl", rank=rank, world_size=args.world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
     torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
