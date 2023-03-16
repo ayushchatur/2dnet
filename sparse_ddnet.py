@@ -732,12 +732,12 @@ def dd_train(args):
     en_wan = args.wan
 
 
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
-    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
-    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
-    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
-    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
-    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
+    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ"
+    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ"
+    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ"
+    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ"
+    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
+    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"
     from data_loader.custom_load import CTDataset
     train_loader = CTDataset(root_train_h,root_train_l,5120,local_rank,batch)
     test_loader = CTDataset(root_test_h,root_test_l,784,local_rank,batch)
