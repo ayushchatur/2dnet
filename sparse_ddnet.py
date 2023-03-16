@@ -699,7 +699,7 @@ def setup(rank, world_size):
 
 def cleanup():
     dist.destroy_process_group()
-
+from socket import gethostname
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
