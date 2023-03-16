@@ -11,7 +11,7 @@
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-export MASTER_PORT=$(shuf -i 2000-65000 -n 1)
+export MASTER_PORT=$(expr 10000 + $(echo -n $SLURM_JOBID | tail -c 4))
 echo "master port: $MASTER_PORT"
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
@@ -61,7 +61,7 @@ echo "working directory = "$SLURM_SUBMIT_DIR
 module reset
 #module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
 module list
-nvidia-smi -L
+#nvidia-smi -L
 
 # cd ~
 #conda activate test
