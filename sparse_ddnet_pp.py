@@ -646,9 +646,9 @@ torch.backends.cudnn.benchmark=True
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
-def dd_train(gpu, args):
-    rank = args.nr * args.gpus + gpu
-    dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
+def dd_train(local_rank, args):
+    gloabl_rank = args.nr * args.gpus + local_rank
+    dist.init_process_group("gloo", rank=gloabl_rank, world_size=args.world_size)
     batch = args.batch
     epochs = args.epochs
     retrain = args.retrain
@@ -675,8 +675,8 @@ def dd_train(gpu, args):
 
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
-    model.to(gpu)
-    model = DDP(model, device_ids=[gpu])
+    model.to(local_rank)
+    model = DDP(model, device_ids=[local_rank])
     learn_rate = 0.0001;
     epsilon = 1e-8
 

@@ -1,33 +1,24 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --partition=a100_normal_q
-#SBATCH --time=16:00:00
-#SBATCH -A HPCBIGDATA2
-#SBATCH --gres=gpu:1
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=128
-#SBATCH --propagate=STACK
-#SBATCH --dependency=259619
+#SBATCH --nodes=2                # node count
+#SBATCH --ntasks-per-node=2      # total number of tasks per node
+#SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --mem=128G                # total memory per node (4 GB per cpu-core is default)
+#SBATCH --gres=gpu:2             #GPU per node 
+#SBATCH --partition=a100_normal_q # slurm partition
+#SBATCH --time=16:00:00          # time limit
+#SBATCH -A HPCBIGDATA2           # account name
+
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
 export MASTER_PORT=$(shuf -i 2000-65000 -n 1)
-echo "port: $MASTER_PORT"
-#export WORLD_SIZE=4
-### get the first node name as master address - customized for vgg slurm
-### e.g. master(gnodee[2-5],gnoded1) == gnodee2
-echo "NODELIST="${SLURM_NODELIST}
-# echo "${SLURM_NODELIST:7:1}"
-# echo "${SLURM_NODELIST:8:3}"
-# echo "MASTERs_ADDR="${SLURM_NODELIST:0:6}${SLURM_NODELIST:7:3}
-##only for tinkercliffs
-if [ ${SLURM_NODELIST:6:1} == "[" ]; then
-    echo "MASTER_ADDR="${SLURM_NODELIST:0:6}${SLURM_NODELIST:7:3}
-    export MASTER_ADDR=${SLURM_NODELIST:0:6}${SLURM_NODELIST:7:3}
-else
-    echo "MASTER_ADDR="${SLURM_NODELIST}
-    export MASTER_ADDR=${SLURM_NODELIST}
-fi
-#echo "slurm job: $SLURM_JOBID"
+echo "master port: $MASTER_PORT"
+master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_ADDR=$master_addr
+echo "MASTER_ADDR="$MASTER_ADDR
+export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
+export "world size: $WORLD_SIZE"
+echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
 #cp ../sparse_ddnet.py .
@@ -86,7 +77,7 @@ else
 fi
 
 
-export gpu=$(nvidia-smi -L | wc -l)
+# export gpu=$(nvidia-smi -L | wc -l)
 
 echo "current dir: $PWD"
 chmod 755 * -R
@@ -109,7 +100,7 @@ fi
 
 
 
-export CMD="${CMD} python ${file} -n ${SLURM_NNODES} -g $gpu --batch ${batch_size}  --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
+export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
 
 
 
@@ -123,8 +114,5 @@ else
 fi
 
 
-
-
-
 echo "cmd: $CMD"
-$BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
+srun $BASE exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD

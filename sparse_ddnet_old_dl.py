@@ -776,15 +776,26 @@ class CTDataset(Dataset):
         return sample
 def cleanup():
     dist.destroy_process_group()
-
+from socket import gethostname
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
-def dd_train(gpu, args):
-    rank = args.nr * args.gpus + gpu
+def dd_train(args):
+    torch.manual_seed(111)
+    world_size =  int(os.environ["WORLD_SIZE"])
+    rank = int(os.environ["SLURM_PROCID"])
+    gpus_per_node = int(os.environ["SLURM_NTASKS"])
+    local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+    # print("local rank: ", local_rank, " global rank:", rank)
+
+    print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
+          f" {gpus_per_node} allocated GPUs per node.", flush=True)
+
+    
     dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
+    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
+    if rank == 0: print(args)
     batch = args.batch
-    print(args)
     epochs = args.epochs
     retrain = args.retrain
     prune_t = args.prune_t
@@ -813,30 +824,29 @@ def dd_train(gpu, args):
     # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
     # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=rank)
-    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=args.world_size, rank=rank)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=args.world_size, rank=rank)
+    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=world_size, rank=rank)
+    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
+    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=world_size, rank=rank)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 8,
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=gpus_per_node,
                               pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=args.world_size * 8,
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=gpus_per_node,
                              pin_memory=False, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers= 8 *args.world_size,
-                            pin_memory=False, sampler=val_sampler)
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=gpus_per_node,pin_memory=False, sampler=val_sampler)
 
 
 
 
     model = DD_net()
-    model.to(gpu)
+    model.to(local_rank)
 
     if gr_mode != "none":
-        model = DDP(model, device_ids=[gpu])
+        model = DDP(model, device_ids=[local_rank])
         model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
 
     else:
-        model = DDP(model, device_ids=[gpu])
+        model = DDP(model, device_ids=[local_rank])
     learn_rate = 0.0001
     epsilon = 1e-8
 
@@ -844,8 +854,6 @@ def dd_train(gpu, args):
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
     decayRate = 0.95
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
-
-
     train_MSE_loss = [0]
     train_MSSSIM_loss = [0]
     train_total_loss = [0]
@@ -855,9 +863,6 @@ def dd_train(gpu, args):
     test_MSE_loss = [0]
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
-
-
-
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
@@ -868,11 +873,11 @@ def dd_train(gpu, args):
         print('model file not found')
 
 
-        train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+        train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                          train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                          val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler)
         print("train end")
-        serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
+        serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
 
     else:
@@ -892,7 +897,7 @@ def dd_train(gpu, args):
         #     train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
         #                       train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
         #                       val_total_loss, amp_enabled, retrain, en_wan, train_sampler)
-    test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
+    test_ddnet(local_rank, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss)
 
     print("testing end")
     #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
@@ -908,6 +913,7 @@ def dd_train(gpu, args):
 
     print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
     print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
+    dist.destroy_process_group()
     # psnr_calc(test_MSE_loss)
 
 
@@ -1027,13 +1033,13 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
             f.write("%f " % item)
 
 
-def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):
+def test_ddnet(local_rank, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss):
     # index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
     for batch_index, batch_samples in enumerate(test_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
             batch_samples['max'], batch_samples['min']
-        inputs = LQ_img.to(gpu)
-        targets = HQ_img.to(gpu)
+        inputs = LQ_img.to(local_rank)
+        targets = HQ_img.to(local_rank)
         outputs = model(inputs)
         MSE_loss = nn.MSELoss()(outputs, targets)
         MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -1104,14 +1110,8 @@ def psnr_calc(mse_t):
 
 def main():
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
-    parser.add_argument('-g', '--gpus', default=1, type=int,
-                        help='number of gpus per node')
     # parser.add_argument('-nr', '--nr', default=0, type=int,
     #                    help='ranking within the nodes')
-    parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--epochs', default=2, type=int, metavar='e',
                         help='number of total epochs to run')
     parser.add_argument('--batch', default=2, type=int, metavar='b',
@@ -1139,22 +1139,19 @@ def main():
                         help='enable wandb configuration')
 
     args = parser.parse_args()
-    args.world_size = args.gpus * args.nodes
+    # args.world_size = args.gpus * args.nodes
     # init_env_variable()
-    args.nr = int(os.environ['SLURM_PROCID'])
+    # args.nr = int(os.environ['SLURM_PROCID'])
     if(args.wan > 0):
         import wandb
         wandb.init()
-    print("SLURM_PROCID: " + str(args.nr))
+    # print("SLURM_PROCID: " + str(args.nr))
     # world_size = 4
     # os.environ['MASTER_ADDR'] = 'localhost'
     # os.environ['MASTER_ADDR'] = '10.21.10.4'
     # os.environ['MASTER_PORT'] = '12355'
     # os.environ['MASTER_PORT'] = '8888'
-    mp.spawn(dd_train,
-             args=(args,),
-             nprocs=args.gpus,
-             join=True)
+    dd_train(args)
 
 
 if __name__ == '__main__':
