@@ -739,9 +739,9 @@ def dd_train(args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
     from data_loader.custom_load import CTDataset
-    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
-    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
-    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
+    train_loader = CTDataset(root_train_h,root_train_l,5120,local_rank,batch)
+    test_loader = CTDataset(root_test_h,root_test_l,784,local_rank,batch)
+    val_loader = CTDataset(root_val_h,root_val_l,784,local_rank,batch)
 
 
 
@@ -778,7 +778,7 @@ def dd_train(args):
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
     if en_wan > 0:
         wandb.watch(model, log_freq=100)
 
