@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
 #SBATCH --nodes=2                # node count
-#SBATCH --ntasks-per-node=2      # total number of tasks per node
+#SBATCH --ntasks-per-node=2      # total number of tasks per node= gpus per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem=128G                # total memory per node (4 GB per cpu-core is default)
 #SBATCH --gres=gpu:2             #GPU per node 
@@ -17,7 +17,7 @@ master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
 echo "MASTER_ADDR="$MASTER_ADDR
 export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
-export "world size: $WORLD_SIZE"
+export "world size=" $WORLD_SIZE
 echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID

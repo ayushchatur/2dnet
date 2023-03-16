@@ -13,8 +13,8 @@ export enable_profile="false"
 
 
 export batch_size=32
-export epochs=30
-export retrain=5
+export epochs=50
+export retrain=0
 export num_data_w=1
 export new_load="false"
 export wandb=-1

@@ -714,7 +714,7 @@ def dd_train(args):
     print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
           f" {gpus_per_node} allocated GPUs per node.", flush=True)
     
-    dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=args.world_size)
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
     torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
@@ -832,7 +832,8 @@ def dd_train(args):
 
 
 
-def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+
+def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt):
     start = datetime.now()
