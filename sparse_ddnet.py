@@ -742,7 +742,7 @@ def dd_train(args):
     train_loader = CTDataset(root_train_h,root_train_l,5120,local_rank,batch)
     test_loader = CTDataset(root_test_h,root_test_l,784,local_rank,batch)
     val_loader = CTDataset(root_val_h,root_val_l,784,local_rank,batch)
-
+    dist.barrier()
 
 
 
@@ -778,15 +778,15 @@ def dd_train(args):
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     if en_wan > 0:
         wandb.watch(model, log_freq=100)
-
+    dist.barrier()
     if (not (path.exists(model_file))):
         print('model file not found')
 
 
-        train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss,train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
+        train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss,train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
         print("train end")
         serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
@@ -795,42 +795,21 @@ def dd_train(args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         calculate_global_sparsity(model)
-        # if retrain > 0:
-        #     model.load_state_dict(torch.load(model_file, map_location=map_location))
-        #     print("sparifying the model....")
-        #     ln_struc_spar(model, prune_amt)
-        #     # ASP.prune_trained_model(model,optimizer)
-        #     print('weights updated and masks removed... Model is sucessfully pruned')
-        #     # create new OrderedDict that does not contain `module.`
-        #     calculate_global_sparsity(model)
-        #     print('fine tune retraining for ', retrain , ' epochs...')
-        #     # with torch.autograd.profiler.emit_nvtx():
-        #     train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-        #                       train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-        #                       val_total_loss, amp_enabled, retrain, en_wan)
-    test_ddnet(model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss)
 
-    print("testing end")
-    #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-    #    for item in test_MSE_loss:
-    #        f.write("%f " % item)
-    #with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-    #    for item in test_MSSSIM_loss:
-    #        f.write("%f " % item)
-    #with open('loss/test_total_loss_' + str(rank), 'w') as f:
-    #    for item in test_total_loss:
-    #        f.write("%f " % item)
-    print("everything complete.......")
-
-    print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
-    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    psnr_calc(test_MSE_loss)
+    if rank == 0:
+        print("testing~~~~~~~~~~~~~")
+        test_ddnet(rank, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss)
+        print("testing end")
+        print("everything complete.......")
+        print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
+        print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
+        # psnr_calc(test_MSE_loss)
+        dist.destroy_process_group()
 
 
 
 
-
-def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
                      val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt):
     start = datetime.now()
@@ -844,8 +823,8 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
               train_MSSSIM_loss[k])
 #         train_sampler.set_epoch(epochs + prune_ep)
         #list of indexes
-        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+        train_index_list = np.random.default_rng(seed=22).permutation(range(int(len(train_loader) / world_size)))
+        val_index_list = np.random.default_rng(seed=22).permutation(range(int (len(val_loader) / world_size)))
 
         for idx in train_index_list:
             sample_batched = train_loader.get_item(idx)
@@ -859,7 +838,7 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                print(loss)
+                # print(loss)
 #             print('calculating loss')
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
@@ -900,7 +879,7 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
             val_MSE_loss.append(MSE_loss.item())
             val_total_loss.append(loss.item())
             val_MSSSIM_loss.append(MSSSIM_loss.item())
-            if (k == epochs - 1):
+            if (k == (epochs + retrain - 1)):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
 
@@ -924,28 +903,29 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
                           val_MSSSIM_loss, val_total_loss):
     if (rank == 0):
         print("Saving model parameters")
-        torch.save(model.state_dict(), model_file)
-    with open('./loss/train_MSE_loss_' + str(rank), 'w') as f:
-        for item in train_MSE_loss:
-            f.write("%f " % item)
-    with open('./loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in train_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('./loss/train_total_loss_' + str(rank), 'w') as f:
-        for item in train_total_loss:
-            f.write("%f " % item)
-    with open('./loss/val_MSE_loss_' + str(rank), 'w') as f:
-        for item in val_MSE_loss:
-            f.write("%f " % item)
-    with open('./loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in val_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('./loss/val_total_loss_' + str(rank), 'w') as f:
-        for item in val_total_loss:
-            f.write("%f " % item)
+        torch.save(model.state_dict(), dir_pre + "/" + model_file)
+        with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
+            for item in train_MSE_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+            for item in train_MSSSIM_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/train_total_loss_' + str(rank), 'w') as f:
+            for item in train_total_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_MSE_loss_' + str(rank), 'w') as f:
+            for item in val_MSE_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+            for item in val_MSSSIM_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_total_loss_' + str(rank), 'w') as f:
+            for item in val_total_loss:
+                f.write("%f " % item)
 
 
-def test_ddnet(model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss):
+
+def test_ddnet(local_rank, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss):
     index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
     for idx in index_list:
         batch_samples = test_loader.get_item(idx)
@@ -979,19 +959,18 @@ def test_ddnet(model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_lo
 #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
 #         gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
         gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
-    if (rank == 0):
         print("Saving model parameters")
         # torch.save(model.state_dict(), model_file)
-        try:
-            print('serializing test losses')
-            np.save('loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
-#             np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
-#             np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
-            np.save('loss/test_total_loss_' + str(rank), np.array(test_total_loss))
-            np.save('loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
-#             np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
-        except Exception as e:
-            print('error serializing: ', e)
+    try:
+        print('serializing test losses')
+        np.save(dir_pre + '/loss/test_MSE_loss_' + str(local_rank), np.array(test_MSE_loss))
+        #            np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
+        #            np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
+        np.save(dir_pre + '/loss/test_total_loss_' + str(local_rank), np.array(test_total_loss))
+        np.save(dir_pre + '/loss/test_loss_mssim_' + str(local_rank), np.array(test_MSSSIM_loss))
+    #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
+    except Exception as e:
+        print('error serializing: ', e)
 
     print("testing end")
 
@@ -1002,7 +981,7 @@ def test_ddnet(model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_lo
 #     print("size of out target: " + str(data2.shape))
 
     # print("size of append target: " + str(data3.shape))
-    with open("myfile.txt", "w") as file1:
+    with open(dir_pre + "/myfile.txt", "w") as file1:
         s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: "+ str(np.std(test_MSE_loss))
         file1.write(s1)
         s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss)))+ 'std dev : '+ str(np.std(test_MSSSIM_loss))

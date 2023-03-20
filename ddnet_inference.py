@@ -1,13 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# @Time : 01/06/2022 1:43 PM
-# @Author : Ayush Chaturvedi
-# @E-mail : ayushchatur@vt.edu
-# @Site :
-# @File : sparse_ddnet.py
-# @Software: PyCharm
-# from apex import amp
-# import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -15,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
-import torch.jit
 
 from PIL import Image
 import os
@@ -24,7 +13,6 @@ import numpy as np
 import re
 
 from matplotlib import pyplot as plt
-from torch import jit
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
@@ -33,186 +21,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
-# from dataload import CTDataset
-# from dataload_optimization import CTDataset
-
-
-# vizualize_folder = "./visualize"
-# loss_folder = "./loss"
-# reconstructed_images = "reconstructed_images"
-
-
 INPUT_CHANNEL_SIZE = 1
-
-def prune_thresh(item, amount):
-
-    w = item.weight
-    b = item.bias
-    w_s = w.size()
-    b_s = b.size()
-    b_flat = torch.flatten(b)
-    w_flat = torch.flatten(w)
-
-    w_numpy = w_flat.clone().cpu().detach().numpy()
-    b_numpy = b_flat.clone().cpu().detach().numpy()
-
-    w_threshold = np.percentile(np.abs(w_numpy), amount*100)
-    b_threshold = np.percentile(np.abs(w_numpy), amount*100)
-
-    # pp = torch.where(w_flat > threshold, w_flat, float(0))
-    w_numpy_new = w_numpy[  (w_threshold <= w_numpy)  | (w_numpy <= (-1*w_threshold))]
-
-    b_numpy_new = b_numpy[ (b_threshold <= b_numpy)  | (b_threshold <= (-1*b_numpy))]
-
-    w_tensor = torch.from_numpy(w_numpy_new)
-    b_tensor = torch.from_numpy(b_numpy_new)
-
-
-    # top_k_w = torch.topk(w_flat,int(w_flat.size().numel() * amount))
-    # top_k_b = torch.topk(b_flat, int(b_flat.size().numel() * amount))
-    # pp = torch.zeros_like(w)
-    sparse_tensor_w = torch.zeros_like(w_flat)
-    sparse_tensor_b = torch.zeros_like(b_flat)
-    sparse_tensor_w[:len(w_tensor)] = w_tensor
-    sparse_tensor_b[:len(b_tensor)] = b_tensor
-    # print(pp)
-    item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
-    item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
-def prune_weNb(item, amount):
-
-    w = item.weight
-    b = item.bias
-    w_s = w.size()
-    b_s = b.size()
-    b_flat = torch.flatten(b)
-    w_flat = torch.flatten(w)
-    top_k_w = torch.topk(w_flat,int(w_flat.size().numel() * amount))
-    top_k_b = torch.topk(b_flat, int(b_flat.size().numel() * amount))
-    # pp = torch.zeros_like(w)
-    sparse_tensor_w = torch.zeros_like(w_flat)
-    sparse_tensor_b = torch.zeros_like(b_flat)
-    sparse_tensor_w[:int(w_flat.size().numel() * amount)] = top_k_w.values
-    sparse_tensor_b[:int(b_flat.size().numel() * amount)] = top_k_b.values
-    # print(pp)
-    item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
-    item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
-def mag_prune(model, amt):
-    for index, item in enumerate(model.children()):
-        if(type(item) == denseblock):
-            for index, items in enumerate(item.children()):
-                if hasattr(items, "weight"):
-                    # print('pruning :', items)
-                    prune_thresh(items, amt)
-                else:
-                    print("not pruning in dense block: ", items)
-        else:
-            if hasattr(item, "weight") and hasattr(item.weight, "requires_grad"):
-                # print('pruning :', item)
-                prune_thresh(item, amt)
-            else:
-                print('not pruning: ', item)
-
-# dir_pre="."
-def ln_struc_spar(model, amt):
-    parm = []
-    for name, module in model.named_modules():
-        if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                parm.append((module, "weight"))
-                # parm.append((module, "bias"))
-    for item in parm:
-        try:
-            prune.ln_structured(item[0], amount=amt, name="weight", n=1, dim=0)
-        except Exception as e:
-            print('Error pruning: ', item[1], "exception: ", e)
-    for module, name in parm:
-        try:
-            prune.remove(module, "weight")
-            prune.remove(module, "bias")
-        except  Exception as e:
-            print('error pruning weight/bias for ',name,  e)
-    print('pruning operation finished')
-
-def unstructured_sparsity(model, amt):
-    parm = []
-    for name, module in model.named_modules():
-        if ("conv" in name ) or ("batch" in name):
-            if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
-                parm.append((module, "weight"))
-                # parm.append((module, "bias"))
-
-    # layerwise_sparsity(model,0.3)
-
-    for item in parm:
-        try:
-            # prune.random_structured(item[0], amount=0.5, name="weight", dim=0)
-            prune.random_unstructured(item[0], amount=amt, name="weight")
-            # prune.random_unstructured(item[0], amount=amt, name="bias")
-
-        except Exception as e:
-            print('Error pruning: ', item[1], "exception: ", e)
-        try:
-            # prune.random_structured(item[0], amount=0.5, name="weight", dim=0)
-            # prune.random_unstructured(item[0], amount=amt, name="weight")
-            prune.random_unstructured(item[0], amount=amt, name="bias")
-
-        except Exception as e:
-            print('Error pruning: ', item[1], "exception: ", e)
-    for module, name in parm:
-        try:
-            prune.remove(module, "weight")
-            prune.remove(module, "bias")
-        except  Exception as e:
-            print('error pruning as ', e)
-
-def module_sparsity(module : nn.Module, usemasks = False):
-    z  =0.0
-    n  = 0
-    if usemasks == True:
-        for bname, bu in module.named_buffers():
-            if "weight_mask" in bname:
-                z += torch.sum(bu == 0).item()
-                n += bu.nelement()
-            if "bias_mask" in bname:
-                z += torch.sum(bu == 0).item()
-                n += bu.nelement()
-
-    else:
-        for name,p in module.named_parameters():
-            if "weight" in name :
-                z += torch.sum(p==0).item()
-                n += p.nelement()
-            if "bias" in name:
-                z+= torch.sum(p==0).item()
-                n += p.nelement()
-    return  n , z
-
-def calculate_global_sparsity(model: nn.Module):
-    total_zeros = 0.0
-    total_n = 0.0
-
-    # global_sparsity = 100 * total_n / total_nonzero
-    for name,m in model.named_modules():
-        n , z = module_sparsity(m)
-        total_zeros += z
-        total_n += n
-
-
-    global_sparsity = 100  * ( total_zeros  / total_n
-                               )
-
-
-    global_compression = 100 / (100 - global_sparsity)
-    print('global sparsity', global_sparsity, 'global compression: ',global_compression)
-    return global_sparsity, global_compression
-
-def count_parameters(model):
-    #print("Modules  Parameters")
-    total_params = 0
-    for name, parameter in model.named_parameters():
-        if not parameter.requires_grad: continue
-        param = parameter.numel()
-        total_params+=param
-    return total_params
 
 
 def gaussian(window_size, sigma):
@@ -512,9 +321,6 @@ class DD_net(nn.Module):
         self.batch13 = nn.BatchNorm2d(self.convT7.out_channels)
 
     # def Forward(self, inputs):
-
-
-    # @jit.script_method
     def forward(self, inputs):
         self.input = inputs
         # print("Size of input: ", inputs.size())
@@ -575,19 +381,6 @@ class DD_net(nn.Module):
         output = dc7_1
 
         return output
-
-
-
-
-
-
-# jy
-def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-
-    # initialize the process group
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
 def read_correct_image(path):
     offset = 0
     ct_org = None
@@ -665,297 +458,225 @@ class CTDataset(Dataset):
                   'max': maxs,
                   'min': mins}
         return sample
-def cleanup():
-    dist.destroy_process_group()
-from socket import gethostname
-# import nvidia_dlprof_pytorch_nvtx
-# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
-# from apex.contrib.sparsity import ASP
-def dd_train(args):
-    torch.manual_seed(111)
-    world_size =  int(os.environ["WORLD_SIZE"])
-    rank = int(os.environ["SLURM_PROCID"])
-    gpus_per_node = torch.cuda.device_count()
-    local_rank = rank - gpus_per_node * (rank // gpus_per_node)
-    # print("local rank: ", local_rank, " global rank:", rank)
 
-    print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
-          f" {gpus_per_node} allocated GPUs per node.", flush=True)
+def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
+    mapped_root = dir_pre + "/visualize/" + val_test + "/mapped/"
+    diff_target_out_root = dir_pre +"/visualize/" + val_test + "/diff_target_out/"
+    diff_target_in_root = dir_pre + "/visualize/" + val_test + "/diff_target_in/"
+    # ssim_root = dir_pre + "/visualize/" + val_test + "/ssim/"
+    out_root = dir_pre + "/visualize/" + val_test + "/"
+    in_img_root = dir_pre +  "/visualize/" + val_test + "/input/"
+    out_img_root = dir_pre + "/visualize/" + val_test + "/target/"
 
-    
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
-    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
-    if rank == 0: print(args)
-    batch = args.batch
-    epochs = args.epochs
-    retrain = args.retrain
-    prune_t = args.prune_t
-    prune_amt = args.prune_amt
-    # enable_gr = (args.enable_gr == "true")
-    gr_mode = args.gr_mode
-    gr_backend = args.gr_backend
-    amp_enabled = (args.amp == "enable")
+    # if not os.path.exists("./visualize"):
+    #     os.makedirs("./visualize")
+    # if not os.path.exists(out_root):
+    #    os.makedirs(out_root)
+    # if not os.path.exists(mapped_root):
+    #    os.makedirs(mapped_root)
+    # if not os.path.exists(diff_target_in_root):
+    #    os.makedirs(diff_target_in_root)
+    # if not os.path.exists(diff_target_out_root):
+    #    os.makedirs(diff_target_out_root)
+    # if not os.path.exists(in_img_root):
+    #    os.makedirs(in_img_root)
+    # if not os.path.exists(out_img_root):
+    #    os.makedirs(out_img_root)
+
+    MSE_loss_out_target = []
+    MSE_loss_in_target = []
+    MSSSIM_loss_out_target = []
+    MSSSIM_loss_in_target = []
+
+    outputs_size = list(outputs.size())
+    # num_img = outputs_size[0]
+    (num_img, channel, height, width) = outputs.size()
+    for i in range(num_img):
+        # output_img = outputs[i, 0, :, :].cpu().detach().numpy()
+        output_img = outputs[i, 0, :, :].cpu().detach().numpy()
+        target_img = targets[i, 0, :, :].cpu().numpy()
+        input_img = inputs[i, 0, :, :].cpu().numpy()
+
+        output_img_mapped = (output_img * (maxs[i].item() - mins[i].item())) + mins[i].item()
+        target_img_mapped = (target_img * (maxs[i].item() - mins[i].item())) + mins[i].item()
+        input_img_mapped = (input_img * (maxs[i].item() - mins[i].item())) + mins[i].item()
+
+        # target_img = targets[i, 0, :, :].cpu().numpy()
+        # input_img = inputs[i, 0, :, :].cpu().numpy()
+
+        file_name = file_names[i]
+        file_name = file_name.replace(".IMA", ".tif")
+        im = Image.fromarray(target_img_mapped)
+        im.save(out_img_root + file_name)
+
+        file_name = file_names[i]
+        file_name = file_name.replace(".IMA", ".tif")
+        im = Image.fromarray(input_img_mapped)
+        im.save(in_img_root + file_name)
+        # jy
+        # im.save(folder_ori_HU+'/'+file_name)
+
+        file_name = file_names[i]
+        file_name = file_name.replace(".IMA", ".tif")
+        im = Image.fromarray(output_img_mapped)
+        im.save(mapped_root + file_name)
+        # jy
+        # im.save(folder_enh_HU+'/'+file_name)
+
+        difference_target_out = (target_img - output_img)
+        difference_target_out = np.absolute(difference_target_out)
+        fig = plt.figure()
+        plt.imshow(difference_target_out)
+        plt.colorbar()
+        plt.clim(0, 0.2)
+        plt.axis('off')
+        file_name = file_names[i]
+        file_name = file_name.replace(".IMA", ".tif")
+        fig.savefig(diff_target_out_root + file_name)
+        plt.clf()
+        plt.close()
+
+        difference_target_in = (target_img - input_img)
+        difference_target_in = np.absolute(difference_target_in)
+        fig = plt.figure()
+        plt.imshow(difference_target_in)
+        plt.colorbar()
+        plt.clim(0, 0.2)
+        plt.axis('off')
+        file_name = file_names[i]
+        file_name = file_name.replace(".IMA", ".tif")
+        fig.savefig(diff_target_in_root + file_name)
+        plt.clf()
+        plt.close()
+
+        output_img = torch.reshape(outputs[i, 0, :, :], (1, 1, height, width))
+        target_img = torch.reshape(targets[i, 0, :, :], (1, 1, height, width))
+        input_img = torch.reshape(inputs[i, 0, :, :], (1, 1, height, width))
+
+        MSE_loss_out_target.append(nn.MSELoss()(output_img, target_img))
+        MSE_loss_in_target.append(nn.MSELoss()(input_img, target_img))
+        MSSSIM_loss_out_target.append(1 - MSSSIM()(output_img, target_img))
+        MSSSIM_loss_in_target.append(1 - MSSSIM()(input_img, target_img))
+
+    with open(out_root + "msssim_loss_target_out", 'a') as f:
+        for item in MSSSIM_loss_out_target:
+            f.write("%f\n" % item)
+
+    with open(out_root + "msssim_loss_target_in", 'a') as f:
+        for item in MSSSIM_loss_in_target:
+            f.write("%f\n" % item)
+
+    with open(out_root + "mse_loss_target_out", 'a') as f:
+        for item in MSE_loss_out_target:
+            f.write("%f\n" % item)
+
+    with open(out_root + "mse_loss_target_in", 'a') as f:
+        for item in MSE_loss_in_target:
+            f.write("%f\n" % item)
+
+def main(args):
+    if args.filepath is None:
+        print("filepath not given")
+        return
+
     global dir_pre
     dir_pre = args.out_dir
-    num_w = args.num_w
-    en_wan = args.wan
-
-
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
-    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
-    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
-    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
+    print("dir prefix: " + dir_pre)
+    batch= args.batch
+    epochs = args.epochs
+    rank = 0
+    world_size = 1
+    model_path = args.filepath
+    model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+    file_m = model_path + "/" + model_file
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
-
-    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
-    testset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
-    valset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
-    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
-    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
-    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
-
-    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=world_size, rank=rank)
+    testset = testset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
-    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=world_size, rank=rank)
-    # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=test_sampler)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=train_sampler)
-    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,
-                             pin_memory=False, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=val_sampler)
-
-    dist.barrier()
     model = DD_net()
-    model.to(local_rank)
-
-    if gr_mode != "none":
-        model = DDP(model, device_ids=[local_rank])
-        model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
-
-    else:
-        model = DDP(model, device_ids=[local_rank])
-    learn_rate = 0.0001
-    epsilon = 1e-8
-
-    # criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    decayRate = 0.95
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
-    train_MSE_loss = [0]
-    train_MSSSIM_loss = [0]
-    train_total_loss = [0]
-    val_MSE_loss = [0]
-    val_MSSSIM_loss = [0]
-    val_total_loss = [0]
-    test_MSE_loss = [0]
+    model.to(rank)
+    model = DDP(model, device_ids=[rank])
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
+    test_MSE_loss =[0]
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
-    model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+    model.load_state_dict(torch.load(file_m, map_location=map_location))
+    for batch_index, batch_samples in enumerate(test_loader):
+        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                batch_samples['max'], batch_samples['min']
+        inputs = LQ_img.to(rank)
+        targets = HQ_img.to(rank)
+        outputs = model(inputs)
+        MSE_loss = nn.MSELoss()(outputs, targets)
+        MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+        # loss = nn.MSELoss()(outputs , targets_test) + 0.1*(1-MSSSIM()(outputs,targets_test))
+        loss = MSE_loss + 0.1 * (MSSSIM_loss)
+        # loss = MSE_loss
+        print("MSE_loss", MSE_loss.item())
+        print("MSSSIM_loss", MSSSIM_loss.item())
+        print("Total_loss", loss.item())
+        print("====================================")
+        test_MSE_loss.append(MSE_loss.item())
+        test_MSSSIM_loss.append(MSSSIM_loss.item())
+        test_total_loss.append(loss.item())
+        outputs_np = outputs.cpu().detach().numpy()
+        print('testing: ', outputs.size())
+        (batch_size, channel, height, width) = outputs.size()
+        for m in range(batch_size):
+            file_name1 = file_name[m]
+            file_name1 = file_name1.replace(".IMA", ".tif")
+            im = Image.fromarray(outputs_np[m, 0, :, :])
+            im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
+        #         outputs.cpu()
+        #         targets_test[l_map:l_map+batch, :, :, :].cpu()
+        #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
+        #         gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
+        gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
+    # torch.save(model.state_dict(), model_file)
+    try:
+        print('serializing test losses')
+        np.save(dir_pre + '/loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
+        #            np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
+        #            np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
+        np.save(dir_pre + '/loss/test_total_loss_' + str(rank), np.array(test_total_loss))
+        np.save(dir_pre + '/loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
+    #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
+    except Exception as e:
+        print('error serializing: ', e)
 
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
-    if en_wan > 0:
-        wandb.watch(model, log_freq=100)
-    # dist.barrier()
-    if (not (path.exists(model_file))):
-        print('model file not found')
+    print("testing end")
+    print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
 
+    #     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
+    #     print("size of out target: " + str(data2.shape))
 
-        train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler)
-        print("train end")
-        serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
-                              val_MSSSIM_loss, val_total_loss)
-    dist.barrier()
-    dist.destroy_process_group()
-        # psnr_calc(test_MSE_loss)
+    # print("size of append target: " + str(data3.shape))
+    with open(dir_pre + "/myfile.txt", "w") as file1:
+        s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: " + str(np.std(test_MSE_loss))
+        file1.write(s1)
+        s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
+            np.std(test_MSSSIM_loss))
+        file1.write(s2)
 
+    #     print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
+    # #     generate_plots(epochs)
+    # psnr_calc(test_MSE_loss)
 
-
-
-def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                     train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler):
-    start = datetime.now()
-    scaler = amp.GradScaler()
-    sparsified = False
-    densetime=0
-    for k in range(epochs + retrain):
-        # train_sampler.set_epoch(epochs + retrain)
-        print("Training for Epocs: ", epochs)
-        print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',train_MSSSIM_loss[k])
-        train_sampler.set_epoch(k)
-        for batch_index, batch_samples in enumerate(train_loader):
-            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                batch_samples['max'], batch_samples['min']
-
-            
-            targets = HQ_img.to(local_rank, non_blocking=True, memory_fomat=torch.channels_last)
-            inputs = LQ_img.to(local_rank,non_blocking=True,  memory_fomat=torch.channels_last)
-            with amp.autocast(enabled= amp_enabled):
-                outputs = model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                # print(loss)
-#             print('calculating loss')
-            train_MSE_loss.append(MSE_loss.item())
-            train_MSSSIM_loss.append(MSSSIM_loss.item())
-            train_total_loss.append(loss.item())
-                # model.zero_grad()
-            optimizer.zero_grad(set_to_none=True)
-            #BW pass
-            if amp_enabled:
-                # print('bw pass')
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-            else:
-#                 print('loss_bacl')
-                loss.backward()
-#                 print('optimia')
-                optimizer.step()
-                
-            if(en_wan > 0):
-                wandb.log({"loss": loss})
-        print("schelud")
-        scheduler.step()
-        print("Validation")
-        for batch_index, batch_samples in enumerate(val_loader):
-            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                batch_samples['max'], batch_samples['min']
-            inputs = LQ_img.to(local_rank)
-            targets = HQ_img.to(local_rank)
-            with amp.autocast(enabled= amp_enabled):
-                outputs = model(inputs)
-                # outputs = model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-
-            val_MSE_loss.append(MSE_loss.item())
-            val_total_loss.append(loss.item())
-            val_MSSSIM_loss.append(MSSSIM_loss.item())
-            if (k == (epochs + retrain - 1)):
-                if (rank == 0):
-                    print("Training complete in: " + str(datetime.now() - start))
-
-        if sparsified == False and retrain > 0 and k == (epochs-1) :
-            densetime = str(datetime.now()- start)
-            print('pruning model on epoch: ', k)
-            if prune_t == "mag":
-                print("pruning model by top k with %: ", prune_amt)
-                mag_prune(model,prune_amt)
-            elif prune_t == "l1_struc":
-                print("pruning model by L1 structured with %: ", prune_amt)
-                ln_struc_spar(model, prune_amt)
-            else:
-                print("pruning model by random unstructured with %: ", prune_amt)
-                unstructured_sparsity(model, prune_amt)
-
-            sparsified = True
-    print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
-
-def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
-                          val_MSSSIM_loss, val_total_loss):
-    if (rank == 0):
-        print("Saving model parameters")
-        torch.save(model.state_dict(), dir_pre + "/" + model_file)
-        with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
-            for item in train_MSE_loss:
-                f.write("%f " % item)
-        with open(dir_pre + '/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in train_MSSSIM_loss:
-                f.write("%f " % item)
-        with open(dir_pre + '/loss/train_total_loss_' + str(rank), 'w') as f:
-            for item in train_total_loss:
-                f.write("%f " % item)
-        with open(dir_pre + '/loss/val_MSE_loss_' + str(rank), 'w') as f:
-            for item in val_MSE_loss:
-                f.write("%f " % item)
-        with open(dir_pre + '/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-            for item in val_MSSSIM_loss:
-                f.write("%f " % item)
-        with open(dir_pre + '/loss/val_total_loss_' + str(rank), 'w') as f:
-            for item in val_total_loss:
-                f.write("%f " % item)
-
-
-
-
-def psnr_calc(mse_t):
-    psnr = []
-    for i in range(len(mse_t)):
-        #     x = read_correct_image(pa +"/"+ ll[i])
-        mse_sqrt = pow(mse_t[i], 0.5)
-        psnr_ = 20 * np.log10(1 / mse_sqrt)
-        psnr.insert(i, psnr_)
-    print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
-
-def main():
-    parser = argparse.ArgumentParser()
-    # parser.add_argument('-nr', '--nr', default=0, type=int,
-    #                    help='ranking within the nodes')
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
-                        help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='b',
-                        help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
-    parser.add_argument('--amp', default="disable", type=str, metavar='m',
-                        help='mixed precision')
-    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
-                        help='default directory to output files')
-    parser.add_argument('--num_w', default=1, type=int, metavar='w',
-                        help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='p',
-                        help='new data loader')
-    parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
-                        help='prune amount ')
-    # options mag/l1_struc/random_unstru
-    parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_mode', default="none", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_backend', default="inductor", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='enable wandb configuration')
-
-    args = parser.parse_args()
-    # args.world_size = args.gpus * args.nodes
-    # init_env_variable()
-    # args.nr = int(os.environ['SLURM_PROCID'])
-    if(args.wan > 0):
-        import wandb
-        wandb.init()
-    # print("SLURM_PROCID: " + str(args.nr))
-    # world_size = 4
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_ADDR'] = '10.21.10.4'
-    # os.environ['MASTER_PORT'] = '12355'
-    # os.environ['MASTER_PORT'] = '8888'
-    dd_train(args)
 
 
 if __name__ == '__main__':
-    # def __main__():
-
-    ####################DATA DIRECTORY###################
-    # jy
-    # global root
-
-    # if not os.path.exists("./loss"):
-    #    os.makedirs("./loss")
-    # if not os.path.exists("./reconstructed_images/val"):
-    #    os.makedirs("./reconstructed_images/val")
-    # if not os.path.exists("./reconstructed_images/test"):
-    #    os.makedirs("./reconstructed_images/test")
-    # if not os.path.exists("./reconstructed_images"):
-    #    os.makedirs("./reconstructed_images")
-
-    main();
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--filepath', type=str, metavar='e',
+                        help='model file path')
+    parser.add_argument('--out_dir', default=".", type=str, metavar='e',
+                        help='model file path')
+    parser.add_argument('--batch', default=1, type=int, metavar='b',
+                        help='model file path')
+    parser.add_argument('--epochs', default=50, type=int, metavar='b',
+                        help='model file path')
+    args = parser.parse_args()
+    main(args)
     exit()
-

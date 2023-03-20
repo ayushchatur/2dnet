@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --nodes=2                # node count
-#SBATCH --ntasks-per-node=2      # total number of tasks per node= gpus per node
+#SBATCH --nodes=1               # node count
+#SBATCH --ntasks-per-node=8      # total number of tasks per node= gpus per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem=128G                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gres=gpu:2             #GPU per node 
+#SBATCH --gres=gpu:8             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
-#SBATCH --time=16:00:00          # time limit
+#SBATCH --time=4:00:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
@@ -115,5 +115,13 @@ fi
 
 
 echo "cmd: $CMD"
-srun $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
+
+if [ "$inferonly" = "false" ]; then
+
+  srun $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
+  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $SLURM_JOBID --out_dir $SLURM_JOBID --epochs ${epochs} --batch ${batch_size}
+else
+  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $1 --out_dir $1 --epochs ${epochs} --batch ${batch_size}
+
+fi
 #sgather $TMPDIR/myexec.out myexec.out

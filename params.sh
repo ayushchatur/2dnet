@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 #options: ver1/ver2
@@ -25,7 +26,7 @@ export prune_amt="0.5"
 export mp="disable"
 #pytorch version 1 or version 2(with new graph support)
 
-
+export inferonly="false"
 echo "batch : $batch_size"
 echo "retrain : $retrain"
 echo "epochs : $epochs"
