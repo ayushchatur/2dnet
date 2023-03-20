@@ -23,6 +23,7 @@ import os
 from os import path
 from PIL import Image
 
+# +
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -33,6 +34,14 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
+
+# The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+# in PyTorch 1.12 and later.
+# torch.backends.cuda.matmul.allow_tf32 = True
+
+# The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+# torch.backends.cudnn.allow_tf32 = True
+# -
 
 
 # vizualize_folder = "./visualize"
