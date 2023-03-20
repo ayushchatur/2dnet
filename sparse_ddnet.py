@@ -832,7 +832,7 @@ def dd_train(gpu, args):
     # val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False)
 
     model = DD_net()
-
+    model = torch.compile(model, mode="max-autotune")
     # torch.cuda.set_device(rank)
     # model.cuda(rank)
     model.to(gpu)
@@ -895,7 +895,7 @@ def dd_train(gpu, args):
         print("Loading model parameters")
         model.load_state_dict(torch.load(model_file, map_location=map_location))
         calculate_global_sparsity(model)
-        mag_prune(list(model.children())[0], 0.1)
+        mag_prune(list(model.children())[0], 0.5)
         calculate_global_sparsity(model)
         train_eval_ddnet(retrain, 0, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_sampler, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,

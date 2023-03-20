@@ -66,31 +66,33 @@ echo "working directory = "$SLURM_SUBMIT_DIR
 # module load  apps  site/infer/easybuild/setup
 # module load PyTorch/1.7.1-fosscuda-2020b
 module reset
-module load Anaconda3 cuda-latest/toolkit/11.2.0 cuda-latest/nsight
+module load Anaconda3
 module list
 nvidia-smi
-export batch_size=1
-export epochs=35
-export retrain=3
-export prune_epoch=30
+export batch_size=32
+export epochs=30
+export retrain=5
 export num_data_w=4
+export mp="enable"
 echo "batch : $batch_size"
 
 echo "retrain : $retrain"
 
 echo "epochs : $epochs"
 # cd ~
-#conda activate test
+conda init
+source ~/.bashrc
+conda activate py_latest
 # cd -
 #cd /projects/synergy_lab/garvit*/sc*/batch_16*
-imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-module load containers/singularity
+#imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+#module load containers/singularity
 ### the command to run
 #nsys profile -t cuda,osrt,nvtx,cudnn,cublas -y 60 -d 300 -o baseline -f true -w true python train_main2_jy.py -n 1 -g 4 --batch $batch_size --epochs $epochs
-#time python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain
-echo "current dir: $PWD"
-chmod 755 * -R  
-echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
+srun  python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID
+#echo "current dir: $PWD"
+#chmod 755 * -R  
+#echo "cmd singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size     --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --amp enable"
 
-singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --prune_epoch $prune_epoch  --num_w $num_data_w
+#singularity exec --nv --writable-tmpfs --bind=${dest_dir}:/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python sparse_ddnet.py -n 1 -g 1 --batch $batch_size --epochs $epochs --retrain $retrain --out_dir $SLURM_JOBID --amp $mp
 #sbatch --nodes=1 --ntasks-per-node=8 --gres=gpu:1 --partition=normal_q -t 1600:00 ./batch_job.sh
