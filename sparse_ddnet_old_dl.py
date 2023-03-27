@@ -9,6 +9,7 @@
 # from apex import amp
 # import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
+import parser_util as prs
 from datetime import datetime
 import torch
 import torch.nn as nn
@@ -36,6 +37,8 @@ import torch.cuda.amp as amp
 # from dataload import CTDataset
 # from dataload_optimization import CTDataset
 
+# torch.backends.cuda.matmul.allow_tf32 = True
+# torch.backends.cudnn.allow_tf32 = True
 
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
@@ -587,7 +590,7 @@ def setup(rank, world_size):
     os.environ['MASTER_PORT'] = '12355'
 
     # initialize the process group
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 def read_correct_image(path):
     offset = 0
     ct_org = None
@@ -677,13 +680,12 @@ def dd_train(args):
     rank = int(os.environ["SLURM_PROCID"])
     gpus_per_node = torch.cuda.device_count()
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
-    # print("local rank: ", local_rank, " global rank:", rank)
-
-    print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
-          f" {gpus_per_node} allocated GPUs per node.", flush=True)
 
     
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    print(
+        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are" \
+        f" {gpus_per_node} allocated GPUs per node.", flush=True)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
     batch = args.batch
@@ -720,10 +722,10 @@ def dd_train(args):
     val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=world_size, rank=rank)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
 
-    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=train_sampler)
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=True, sampler=train_sampler)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,
-                             pin_memory=False, sampler=test_sampler)
-    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=val_sampler)
+                             pin_memory=True, sampler=test_sampler)
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=True, sampler=val_sampler)
 
     dist.barrier()
     model = DD_net()
@@ -735,12 +737,12 @@ def dd_train(args):
 
     else:
         model = DDP(model, device_ids=[local_rank])
-    learn_rate = 0.0001
+    learn_rate = args.lr
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    decayRate = 0.95
+    decayRate = args.dr
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
     train_MSE_loss = [0]
     train_MSSSIM_loss = [0]
@@ -791,8 +793,8 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
                 batch_samples['max'], batch_samples['min']
 
             
-            targets = HQ_img.to(local_rank, non_blocking=True, memory_fomat=torch.channels_last)
-            inputs = LQ_img.to(local_rank,non_blocking=True,  memory_fomat=torch.channels_last)
+            targets = HQ_img.to(local_rank, non_blocking=True)
+            inputs = LQ_img.to(local_rank,non_blocking=True)
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -895,67 +897,16 @@ def psnr_calc(mse_t):
     print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
 
 def main():
-    parser = argparse.ArgumentParser()
-    # parser.add_argument('-nr', '--nr', default=0, type=int,
-    #                    help='ranking within the nodes')
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
-                        help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='b',
-                        help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
-    parser.add_argument('--amp', default="disable", type=str, metavar='m',
-                        help='mixed precision')
-    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
-                        help='default directory to output files')
-    parser.add_argument('--num_w', default=1, type=int, metavar='w',
-                        help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='p',
-                        help='new data loader')
-    parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
-                        help='prune amount ')
-    # options mag/l1_struc/random_unstru
-    parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_mode', default="none", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_backend', default="inductor", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='enable wandb configuration')
-
+    parser = prs.get_parser()
     args = parser.parse_args()
-    # args.world_size = args.gpus * args.nodes
-    # init_env_variable()
-    # args.nr = int(os.environ['SLURM_PROCID'])
+
     if(args.wan > 0):
         import wandb
         wandb.init()
-    # print("SLURM_PROCID: " + str(args.nr))
-    # world_size = 4
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_ADDR'] = '10.21.10.4'
-    # os.environ['MASTER_PORT'] = '12355'
-    # os.environ['MASTER_PORT'] = '8888'
     dd_train(args)
 
 
 if __name__ == '__main__':
-    # def __main__():
-
-    ####################DATA DIRECTORY###################
-    # jy
-    # global root
-
-    # if not os.path.exists("./loss"):
-    #    os.makedirs("./loss")
-    # if not os.path.exists("./reconstructed_images/val"):
-    #    os.makedirs("./reconstructed_images/val")
-    # if not os.path.exists("./reconstructed_images/test"):
-    #    os.makedirs("./reconstructed_images/test")
-    # if not os.path.exists("./reconstructed_images"):
-    #    os.makedirs("./reconstructed_images")
-
-    main();
+    main()
     exit()
 

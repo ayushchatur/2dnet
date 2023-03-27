@@ -11,6 +11,7 @@ import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
+import parser_util as prs
 import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
@@ -708,58 +709,67 @@ import nvidia_dlprof_pytorch_nvtx
 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 def cleanup():
     dist.destroy_process_group()
-
+from socket import gethostname
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
-def dd_train(gpu, args):
-    rank = args.nr * args.gpus + gpu
-    dist.init_process_group("gloo", rank=rank, world_size=args.world_size)
+def dd_train(args):
+    torch.manual_seed(111)
+    world_size = int(os.environ["WORLD_SIZE"])
+    rank = int(os.environ["SLURM_PROCID"])
+    gpus_per_node = torch.cuda.device_count()
+    local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    print(
+        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are" \
+        f" {gpus_per_node} allocated GPUs per node.", flush=True)
+    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
+    if rank == 0: print(args)
     batch = args.batch
-    print(args)
     epochs = args.epochs
     retrain = args.retrain
     prune_t = args.prune_t
     prune_amt = args.prune_amt
-    enable_gr = (args.enable_gr == "true")
-    gr_mode = args.graph_mode
-    gr_backend = args.backend
+    # enable_gr = (args.enable_gr == "true")
+    gr_mode = args.gr_mode
+    gr_backend = args.gr_backend
     amp_enabled = (args.amp == "enable")
     global dir_pre
     dir_pre = args.out_dir
     num_w = args.num_w
     en_wan = args.wan
 
-
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
-    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
-    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
-    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
-    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
-    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
+    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ"
+    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ"
+    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ"
+    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ"
+    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
+    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"
     from data_loader.custom_load import CTDataset
-    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
-    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
-    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
+    train_loader = CTDataset(root_train_h, root_train_l, 5120, local_rank, batch)
+    test_loader = CTDataset(root_test_h, root_test_l, 784, local_rank, batch)
+    val_loader = CTDataset(root_val_h, root_val_l, 784, local_rank, batch)
+    dist.barrier()
 
 
 
 
     model = DD_net()
-    model.to(gpu)
+    model.to(local_rank)
 
     if gr_mode != "none":
-        model = DDP(model, device_ids=[gpu])
+        model = DDP(model, device_ids=[local_rank])
         model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
 
     else:
-        model = DDP(model, device_ids=[gpu])
-    learn_rate = 0.0001
+        model = DDP(model, device_ids=[local_rank])
+    learn_rate = args.lr
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    decayRate = 0.95
+    decayRate = args.dr
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
 
@@ -1014,76 +1024,16 @@ def psnr_calc(mse_t):
     print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
 
 def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
-    parser.add_argument('-g', '--gpus', default=1, type=int,
-                        help='number of gpus per node')
-    # parser.add_argument('-nr', '--nr', default=0, type=int,
-    #                    help='ranking within the nodes')
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
-                        help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='b',
-                        help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
-    parser.add_argument('--amp', default="disable", type=str, metavar='m',
-                        help='mixed precision')
-    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
-                        help='default directory to output files')
-    parser.add_argument('--num_w', default=1, type=int, metavar='w',
-                        help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='p',
-                        help='new data loader')
-    parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
-                        help='prune amount ')
-    # options mag/l1_struc/random_unstru
-    parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_mode', default="reduced-overhead", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_backend', default="inductor", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='enable wandb configuration')
-
+    parser = prs.get_parser()
     args = parser.parse_args()
-    args.world_size = args.gpus * args.nodes
-    # init_env_variable()
-    args.nr = int(os.environ['SLURM_PROCID'])
+
     if(args.wan > 0):
         import wandb
         wandb.init()
-    print("SLURM_PROCID: " + str(args.nr))
-    # world_size = 4
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_ADDR'] = '10.21.10.4'
-    # os.environ['MASTER_PORT'] = '12355'
-    # os.environ['MASTER_PORT'] = '8888'
-    mp.spawn(dd_train,
-             args=(args,),
-             nprocs=args.gpus,
-             join=True)
-
+    dd_train(args)
 
 if __name__ == '__main__':
-    # def __main__():
 
-    ####################DATA DIRECTORY###################
-    # jy
-    # global root
-
-    # if not os.path.exists("./loss"):
-    #    os.makedirs("./loss")
-    # if not os.path.exists("./reconstructed_images/val"):
-    #    os.makedirs("./reconstructed_images/val")
-    # if not os.path.exists("./reconstructed_images/test"):
-    #    os.makedirs("./reconstructed_images/test")
-    # if not os.path.exists("./reconstructed_images"):
-    #    os.makedirs("./reconstructed_images")
-
-    main();
+    main()
     exit()
 

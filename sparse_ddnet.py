@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 import numpy as np
-
+import parser_util as prs
 import os
 from os import path
 from PIL import Image
@@ -29,6 +29,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
+from apex.contrib.sparsity import ASP
 # from dataload import CTDataset
 # from dataload_optimization import CTDataset
 
@@ -704,16 +705,16 @@ from socket import gethostname
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
 def dd_train(args):
-    torch.manual_seed(111)
+    torch.manual_seed(torch.initial_seed())
     world_size =  int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["SLURM_PROCID"])
     gpus_per_node  = torch.cuda.device_count()
-
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
-    print(f"Hello from local_rank: {local_rank} and global rank {rank} of {world_size} on {gethostname()} where there are" \
+
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are" \
         f" {gpus_per_node} allocated GPUs per node.", flush=True)
-    torch.cuda.set_device(local_rank)
+    # torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
     batch = args.batch
@@ -755,12 +756,12 @@ def dd_train(args):
 
     else:
         model = DDP(model, device_ids=[local_rank])
-    learn_rate = 0.0001
+    learn_rate = args.lr
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    decayRate = 0.95
+    decayRate = args.dr
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
 
@@ -786,33 +787,21 @@ def dd_train(args):
         print('model file not found')
 
 
-        train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss,train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
+        train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss,train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, batch)
         print("train end")
         serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
 
-    else:
-        print("Loading model parameters")
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
-        calculate_global_sparsity(model)
-
-    if rank == 0:
-        print("testing~~~~~~~~~~~~~")
-        test_ddnet(rank, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss)
-        print("testing end")
-        print("everything complete.......")
-        print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
-        print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-        # psnr_calc(test_MSE_loss)
-        dist.destroy_process_group()
+    dist.barrier()
+    dist.destroy_process_group()
 
 
 
 
 def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt):
-    start = datetime.now()
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, batch_size):
+
     scaler = amp.GradScaler()
     sparsified = False
     densetime=0
@@ -823,10 +812,33 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
               train_MSSSIM_loss[k])
 #         train_sampler.set_epoch(epochs + prune_ep)
         #list of indexes
-        train_index_list = np.random.default_rng(seed=22).permutation(range(int(len(train_loader) / world_size)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(int (len(val_loader) / world_size)))
 
-        for idx in train_index_list:
+        if rank ==0:
+            train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+            val_index_list = np.random.default_rng(seed=22).permutation(range( len(val_loader)))
+        else:
+            train_index_list = np.ones(len(train_loader) )
+            val_index_list = np.ones(len(val_loader) )
+
+        dist.broadcast_object_list(train_index_list, src=0)
+        dist.broadcast_object_list(val_index_list, src=0)
+
+        q_fact_train  = len(train_loader) // world_size
+        q_fact_val = len(val_loader) // world_size
+
+        if rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
+
+
+        train_index_list = train_index_list[rank*q_fact_train : (rank*q_fact_train + q_fact_train)]
+        val_index_list = val_index_list[rank*q_fact_val : (rank*q_fact_val + q_fact_val)]
+        print(f"rank {rank} index list: {train_index_list}")
+
+        train_index_list = [int(x) for x in train_index_list]
+        val_index_list = [int(x) for x in val_index_list]
+
+        # dist.barrier()
+        start = datetime.now()
+        for idx in list(train_index_list):
             sample_batched = train_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
@@ -862,7 +874,7 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
         print("schelud")
         scheduler.step()
         print("Validation")
-        for idx in val_index_list:
+        for idx in list(val_index_list):
             sample_batched = val_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
@@ -1001,54 +1013,17 @@ def psnr_calc(mse_t):
     print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
 
 def main():
-    parser = argparse.ArgumentParser()
 
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
-                        help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='b',
-                        help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
-    parser.add_argument('--amp', default="disable", type=str, metavar='m',
-                        help='mixed precision')
-    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
-                        help='default directory to output files')
-    parser.add_argument('--num_w', default=1, type=int, metavar='w',
-                        help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='p',
-                        help='new data loader')
-    parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
-                        help='prune amount ')
-    # options mag/l1_struc/random_unstru
-    parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_mode', default="none", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--gr_backend', default="inductor", type=str, metavar='t',
-                        help='pruning type')
-    parser.add_argument('--wan', default=-1, type=int, metavar='w',
-                        help='enable wandb configuration')
-
+    parser = prs.get_parser()
     args = parser.parse_args()
+
+    if(args.wan > 0):
+        import wandb
+        wandb.init()
     dd_train(args)
 
 
 if __name__ == '__main__':
-    # def __main__():
-
-    ####################DATA DIRECTORY###################
-    # jy
-    # global root
-
-    # if not os.path.exists("./loss"):
-    #    os.makedirs("./loss")
-    # if not os.path.exists("./reconstructed_images/val"):
-    #    os.makedirs("./reconstructed_images/val")
-    # if not os.path.exists("./reconstructed_images/test"):
-    #    os.makedirs("./reconstructed_images/test")
-    # if not os.path.exists("./reconstructed_images"):
-    #    os.makedirs("./reconstructed_images")
-
-    main();
+    main()
     exit()
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --nodes=1               # node count
-#SBATCH --ntasks-per-node=8      # total number of tasks per node= gpus per node
+#SBATCH --nodes=4               # node count
+#SBATCH --ntasks-per-node=1      # total number of tasks per node= gpus per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem=128G                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gres=gpu:8             #GPU per node
+#SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
+#SBATCH --gres=gpu:1             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
-#SBATCH --time=4:00:00          # time limit
+#SBATCH --time=1:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
@@ -87,7 +87,7 @@ export profile_prefix="dlprof --output_path=${SLURM_JOBID}_profile --profile_nam
 
 if [ "$enable_profile" = "true" ]; then
 #  if [ "" ]
-  export file="../sparse_ddnet_pro.py"
+  export file="sparse_ddnet_pro.py"
   export CMD="${profile_prefix} ${CMD}"
 else
   if [ "$new_load" = "true" ];then
@@ -100,7 +100,7 @@ fi
 
 
 
-export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb"
+export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr}"
 
 
 
@@ -113,6 +113,8 @@ else
   export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
 fi
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+#BIND_CMD="./bind.sh --cpu=./cpu_bind.sh --mem=./cpu_bind.sh"
 
 echo "cmd: $CMD"
 
