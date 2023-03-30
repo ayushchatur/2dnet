@@ -809,7 +809,7 @@ def dd_train(args):
         with torch.autograd.profiler.emit_nvtx(enabled= True):
             train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader, val_total_loss,
-                             amp_enabled, retrain, en_wan, prune_t, prune_amt, batch, start_fn, stop_fn)
+                             amp_enabled, retrain, en_wan, prune_t, prune_amt, batch, start_profiler_handle, stop_profiler_handle)
 
         stop_profiler_handle()
         print("train end")
