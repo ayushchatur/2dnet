@@ -705,8 +705,16 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
-import nvidia_dlprof_pytorch_nvtx
-nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+# import nvidia_dlprof_pytorch_nvtx
+# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+
+from ctypes import cdll
+libcudart = cdll.LoadLibrary('libcudart.so')
+def cudaProfilerStart():
+    libcudart.cudaProfilerStart()
+def cudaProfilerStop():
+    libcudart.cudaProfilerStop()
+
 def cleanup():
     dist.destroy_process_group()
 from socket import gethostname
@@ -751,11 +759,14 @@ def dd_train(args):
     train_loader = CTDataset(root_train_h, root_train_l, 5120, local_rank, batch)
     test_loader = CTDataset(root_test_h, root_test_l, 784, local_rank, batch)
     val_loader = CTDataset(root_val_h, root_val_l, 784, local_rank, batch)
-    model = DD_net()
 
-    # torch.cuda.set_device(rank)
-    # model.cuda(rank)
-    model.to(local_rank)
+    model = DD_net()
+    device = torch.device("cuda", local_rank)
+    torch.cuda.manual_seed(1111)
+    # necessary for AMP to work
+    torch.cuda.set_device(device)
+    model.to(device)
+
     model = DDP(model, device_ids=[local_rank])
     learn_rate = 0.0001;
     epsilon = 1e-8
@@ -778,6 +789,15 @@ def dd_train(args):
     test_MSE_loss = [0]
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
+
+    num_profile_step_size = int(1. / 0.2)
+    profile_rank_list = list(range(0, world_size, num_profile_step_size))
+    if rank in profile_rank_list:
+        start_profiler_handle = cudaProfilerStart
+        stop_profiler_handle = cudaProfilerStop
+    else:
+        start_profiler_handle = None
+        stop_profiler_handle = None
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 

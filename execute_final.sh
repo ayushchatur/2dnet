@@ -29,6 +29,7 @@ fi
 
 # profiling prefix
 if [ "$enable_profile" = "true" ]; then
+  # shellcheck disable=SC1072
   if [ "$WORLD_SIZE" -ge 4]; then
     for i in $arr
     do
@@ -44,9 +45,9 @@ fi
 
 
 if [ "$enable_profile" = "true" ] && [ "${new_load}" == "true"]; then
-  export file="sparse_ddnet_pro_ndl.py"
-elif [ "$enable_profile" = "true" ]; then
   export file="sparse_ddnet_pro.py"
+elif [ "$enable_profile" = "true" ]; then
+  export file="sparse_ddnet_pp.py"
 fi
 
 export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback}"

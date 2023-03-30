@@ -729,7 +729,11 @@ def dd_train(args):
 
     dist.barrier()
     model = DD_net()
-    model.to(local_rank)
+    device = torch.device("cuda", local_rank)
+    torch.cuda.manual_seed(1111)
+    # necessary for AMP to work
+    torch.cuda.set_device(device)
+    model.to(device)
 
     if gr_mode != "none":
         model = DDP(model, device_ids=[local_rank])

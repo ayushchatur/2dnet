@@ -732,6 +732,12 @@ def dd_train(args):
     num_w = args.num_w
     en_wan = args.wan
 
+    model = DD_net()
+    device = torch.device("cuda", local_rank)
+    torch.cuda.manual_seed(1111)
+    # necessary for AMP to work
+    torch.cuda.set_device(device)
+    model.to(device)
 
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ"
@@ -747,8 +753,6 @@ def dd_train(args):
 
 
 
-    model = DD_net()
-    model.to(local_rank)
 
     if gr_mode != "none":
         model = DDP(model, device_ids=[local_rank])
