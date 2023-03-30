@@ -949,7 +949,7 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
                     print("Training complete in: " + str(datetime.now() - start))
         nvtx.range_pop()
 
-        if k > 5 and stop_fn is not None:
+        if k == 1 and stop_fn is not None:
             stop_fn()
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)

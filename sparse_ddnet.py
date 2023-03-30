@@ -8,6 +8,8 @@
 # @Software: PyCharm
 # from apex import amp
 # import torch.cuda.nvtx as nvtx
+from importlib.resources import read_text
+
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -809,20 +811,22 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
     scaler = amp.GradScaler()
     sparsified = False
     densetime=0
+    # list of random indexes
+    if rank == 0:
+        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+    else:
+        train_index_list = np.ones(len(train_loader))
+        val_index_list = np.ones(len(val_loader))
+
     for k in range(epochs + retrain):
         # train_sampler.set_epoch(epochs + retrain)
-        print("Training for Epocs: ", epochs)
-        print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
-              train_MSSSIM_loss[k])
+        print("Training for Epocs: ", epochs+retrain)
+        print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',train_MSSSIM_loss[k])
 #         train_sampler.set_epoch(epochs + prune_ep)
-        #list of indexes
 
-        if rank ==0:
-            train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-            val_index_list = np.random.default_rng(seed=22).permutation(range( len(val_loader)))
-        else:
-            train_index_list = np.ones(len(train_loader) )
-            val_index_list = np.ones(len(val_loader) )
+
+
 
         dist.broadcast_object_list(train_index_list, src=0)
         dist.broadcast_object_list(val_index_list, src=0)
@@ -852,7 +856,7 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
             
             print('indexes: ', idx)
             print('shape: ', HQ_img.shape)
-            print('shape: ', HQ_img.get_device())
+            print('device: ', HQ_img.get_device())
 
             targets = HQ_img
             inputs = LQ_img
@@ -862,7 +866,7 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
                 # print(loss)
-#             print('calculating loss')
+            print('calculating backpass')
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())

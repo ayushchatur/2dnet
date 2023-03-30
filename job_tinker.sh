@@ -82,8 +82,21 @@ echo "BASE: ${BASE}"
 echo "current dir: $PWD"
 chmod 755 * -R
 
+if [ "$pytor" = "ver1" ]; then
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+else
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
+  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
+fi
 
 export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true -c cudaProfilerApi --kill none  --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --python-backtrace=cuda --reports=all --delay 180 --duration 120"
+
+if [ "$pytor" = "ver1" ]; then
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+else
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
+  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
+fi
 
 
 if [ "$inferonly" = "false" ]; then
