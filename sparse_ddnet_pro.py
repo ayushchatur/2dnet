@@ -718,8 +718,7 @@ def cudaProfilerStop():
 def cleanup():
     dist.destroy_process_group()
 from socket import gethostname
-# import nvidia_dlprof_pytorch_nvtx
-# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+
 # from apex.contrib.sparsity import ASP
 def dd_train(args):
     torch.manual_seed(111)
@@ -807,10 +806,12 @@ def dd_train(args):
 
     if (not (path.exists(model_file))):
         print('model file not found')
-        with torch.autograd.profiler.emit_nvtx():
+        with torch.autograd.profiler.emit_nvtx(enabled= True):
             train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader, val_total_loss,
-                             amp_enabled, retrain, en_wan, prune_t, prune_amt, batch)
+                             amp_enabled, retrain, en_wan, prune_t, prune_amt, batch, start_fn, stop_fn)
+
+        stop_profiler_handle()
         print("train end")
         serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss,
                               val_MSE_loss,
@@ -843,11 +844,13 @@ def dd_train(args):
 
 def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, batch_size):
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, batch_size, start_fn, stop_fn):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
     densetime=0
+    if start_fn is not None:
+        start_fn()
     for k in range(epochs + retrain):
         # train_sampler.set_epoch(epochs + retrain)
         print("Training for Epocs: ", epochs)
@@ -945,6 +948,9 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
         nvtx.range_pop()
+
+        if k > 5 and stop_fn is not None:
+            stop_fn()
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
             print('pruning model on epoch: ', k)
