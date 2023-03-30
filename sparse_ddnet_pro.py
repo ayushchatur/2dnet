@@ -723,7 +723,8 @@ def dd_train(args):
 
     dist.init_process_group(distback, rank=rank, world_size=world_size)
     print(
-        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are  {gpus_per_node} allocated GPUs per node.", flush=True)
+        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are  {gpus_per_node} allocated GPUs per node.",
+        flush=True)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
     batch = args.batch
@@ -739,37 +740,32 @@ def dd_train(args):
     dir_pre = args.out_dir
     num_w = args.num_w
     en_wan = args.wan
+    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
+    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
+    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
+    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
+    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
+    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ"
-    root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ"
-    root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ"
-    root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ"
-    root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ"
-    root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ"
     from data_loader.custom_load import CTDataset
     train_loader = CTDataset(root_train_h, root_train_l, 5120, local_rank, batch)
     test_loader = CTDataset(root_test_h, root_test_l, 784, local_rank, batch)
     val_loader = CTDataset(root_val_h, root_val_l, 784, local_rank, batch)
-    dist.barrier()
-
-
-
-
     model = DD_net()
+
+    # torch.cuda.set_device(rank)
+    # model.cuda(rank)
     model.to(local_rank)
-
-    if gr_mode != "none":
-        model = DDP(model, device_ids=[local_rank])
-        model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
-
-    else:
-        model = DDP(model, device_ids=[local_rank])
-    learn_rate = args.lr
+    model = DDP(model, device_ids=[local_rank])
+    learn_rate = 0.0001;
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
-    decayRate = args.dr
+    # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
+    # model = DDP(model)
+
+    decayRate = 0.95
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
 
@@ -783,20 +779,21 @@ def dd_train(args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
 
-
-
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
     if en_wan > 0:
         wandb.watch(model, log_freq=100)
 
     if (not (path.exists(model_file))):
         print('model file not found')
         with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, gpu, model, optimizer, rank,scheduler,train_MSE_loss, train_MSSSIM_loss,train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt)
+            train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                             train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader, val_total_loss,
+                             amp_enabled, retrain, en_wan, prune_t, prune_amt, batch)
         print("train end")
-        serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
+        serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss,
+                              val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
 
     else:
@@ -824,9 +821,9 @@ def dd_train(args):
 
 
 
-def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt):
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, batch_size):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
@@ -836,10 +833,30 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
         print("Training for Epocs: ", epochs)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-#         train_sampler.set_epoch(epochs + prune_ep)
-        #list of indexes
-        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+
+        if rank == 0:
+            train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+            val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+        else:
+            train_index_list = np.ones(len(train_loader))
+            val_index_list = np.ones(len(val_loader))
+
+        dist.broadcast_object_list(train_index_list, src=0)
+        dist.broadcast_object_list(val_index_list, src=0)
+
+        q_fact_train = len(train_loader) // world_size
+        q_fact_val = len(val_loader) // world_size
+
+        if rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
+
+        train_index_list = train_index_list[rank * q_fact_train: (rank * q_fact_train + q_fact_train)]
+        val_index_list = val_index_list[rank * q_fact_val: (rank * q_fact_val + q_fact_val)]
+        print(f"rank {rank} index list: {train_index_list}")
+
+        train_index_list = [int(x) for x in train_index_list]
+        val_index_list = [int(x) for x in val_index_list]
+        # train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
+        # val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
 
         for idx in train_index_list:
             sample_batched = train_loader.get_item(idx)
@@ -852,9 +869,11 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             nvtx.range_push("Forward pass")
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)
+                nvtx.range_push("Loss calculation")
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                nvtx.range_pop()
                 print(loss)
 #             print('calculating loss')
             nvtx.range_pop()
@@ -926,25 +945,25 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
                           val_MSSSIM_loss, val_total_loss):
     if (rank == 0):
         print("Saving model parameters")
-        torch.save(model.state_dict(), model_file)
-    with open('./loss/train_MSE_loss_' + str(rank), 'w') as f:
-        for item in train_MSE_loss:
-            f.write("%f " % item)
-    with open('./loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in train_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('./loss/train_total_loss_' + str(rank), 'w') as f:
-        for item in train_total_loss:
-            f.write("%f " % item)
-    with open('./loss/val_MSE_loss_' + str(rank), 'w') as f:
-        for item in val_MSE_loss:
-            f.write("%f " % item)
-    with open('./loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in val_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('./loss/val_total_loss_' + str(rank), 'w') as f:
-        for item in val_total_loss:
-            f.write("%f " % item)
+        torch.save(model.state_dict(), dir_pre + "/" + model_file)
+        with open(dir_pre + '/loss/train_MSE_loss_' + str(rank), 'w') as f:
+            for item in train_MSE_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/train_MSSSIM_loss_' + str(rank), 'w') as f:
+            for item in train_MSSSIM_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/train_total_loss_' + str(rank), 'w') as f:
+            for item in train_total_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_MSE_loss_' + str(rank), 'w') as f:
+            for item in val_MSE_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_MSSSIM_loss_' + str(rank), 'w') as f:
+            for item in val_MSSSIM_loss:
+                f.write("%f " % item)
+        with open(dir_pre + '/loss/val_total_loss_' + str(rank), 'w') as f:
+            for item in val_total_loss:
+                f.write("%f " % item)
 
 
 def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):

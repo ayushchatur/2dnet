@@ -681,10 +681,25 @@ def dd_train(args):
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
 
-    from data_loader.custom_load import CTDataset
-    train_loader = CTDataset(root_train_h,root_train_l,5120,gpu,batch)
-    test_loader = CTDataset(root_test_h,root_test_l,784,gpu,batch)
-    val_loader = CTDataset(root_val_h,root_val_l,784,gpu,batch)
+    trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
+    testset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=784)
+    valset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
+    # trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=32)
+    # testset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=16)
+    # valset = CTDataset(root_dir_h=root_test_h, root_dir_l=root_test_l, length=16)
+
+    train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=world_size, rank=rank)
+    test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
+    val_sampler = torch.utils.data.distributed.DistributedSampler(valset, num_replicas=world_size, rank=rank)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+
+    train_loader = DataLoader(trainset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=True, sampler=train_sampler)
+    test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,
+                             pin_memory=True, sampler=test_sampler)
+    val_loader = DataLoader(valset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=True, sampler=val_sampler)
+
+    dist.barrier()
+
     model = DD_net()
 
     # torch.cuda.set_device(rank)
@@ -731,7 +746,7 @@ def dd_train(args):
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
+    map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
 
     if (not (path.exists(model_file))):
         with torch.autograd.profiler.emit_nvtx():
