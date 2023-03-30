@@ -646,6 +646,7 @@ torch.backends.cudnn.benchmark=True
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
+from socket import gethostname
 def dd_train(args):
     torch.manual_seed(111)
     world_size = int(os.environ["WORLD_SIZE"])
