@@ -75,7 +75,7 @@ else
   module load containers/singularity
   export BASE="singularity"
 fi
-
+echo "BASE: ${BASE}"
 
 # export gpu=$(nvidia-smi -L | wc -l)
 

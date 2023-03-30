@@ -712,7 +712,7 @@ def dd_train(args):
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
     distback = args.distback
     dist.init_process_group(distback, rank=rank, world_size=world_size)
-    print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are" \
+    print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of world with size: {dist.get_world_size()} on {gethostname()} where there are" \
         f" {gpus_per_node} allocated GPUs per node.", flush=True)
     # torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
@@ -838,16 +838,23 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
         print(f"rank {rank} index list: {train_index_list}")
 
         train_index_list = [int(x) for x in train_index_list]
+        train_index_list = [list(train_index_list[i:i + batch_size]) for i in range(0, len(train_index_list), batch_size)]
         val_index_list = [int(x) for x in val_index_list]
+        val_index_list = [list(val_index_list[i:i + batch_size]) for i in range(0, len(val_index_list), batch_size)]
+
 
         # dist.barrier()
         start = datetime.now()
-        for idx in list(train_index_list):
+        for idx in train_index_list:
             sample_batched = train_loader.get_item(idx)
             HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
                                                         sample_batched['max'], sample_batched['min'], sample_batched['vol']
             
-            targets = HQ_img 
+            print('indexes: ', idx)
+            print('shape: ', HQ_img.shape)
+            print('shape: ', HQ_img.get_device())
+
+            targets = HQ_img
             inputs = LQ_img
             with amp.autocast(enabled= amp_enabled):
                 outputs = model(inputs)

@@ -33,15 +33,16 @@ class CTDataset(object):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, tensor_list: list, batch_size: int, is_tensor: bool, device="cpu"):
+    def create_batch(self, index_list: list, item_list: list, is_tensor: bool, device="cpu"):
         batch_list = []
         if is_tensor:
-            for x in self.batch(tensor_list, batch_size):
-                batch_list.append(torch.stack(x).to(device))
+            for x in index_list:
+                batch_list.append(self.item_list[x])
+            return torch.stack(batch_list).to(device)
         else:
-            for x in self.batch(tensor_list, batch_size):
-                batch_list.append(x)
-        return batch_list
+            for x in index_list:
+                batch_list.append(self.item_list[x])
+            return batch_list
     def __len__(self):
         return len(self.ba_tensor_list_fname)
 
@@ -93,20 +94,25 @@ class CTDataset(object):
             self.tensor_list_lq.append(inputs)
             self.tensor_list_maxs.append(maxs)
             self.tensor_list_mins.append(mins)
-        self.ba_tensor_list_hq = self.create_batch(self.tensor_list_hq,self.batch_size,True,self.device)
-        self.ba_tensor_list_lq = self.create_batch(self.tensor_list_lq,self.batch_size,True,self.device)
-        self.ba_tensor_list_maxs = self.create_batch(self.tensor_list_maxs,self.batch_size,False)
-        self.ba_tensor_list_mins = self.create_batch(self.tensor_list_mins,self.batch_size,False)
-        self.ba_tensor_list_fname = self.create_batch(self.tensor_list_fname,self.batch_size,False)
+        # self.ba_tensor_list_hq = self.create_batch(self.tensor_list_hq,self.batch_size,True,self.device)
+        # self.ba_tensor_list_lq = self.create_batch(self.tensor_list_lq,self.batch_size,True,self.device)
+        # self.ba_tensor_list_maxs = self.create_batch(self.tensor_list_maxs,self.batch_size,False)
+        # self.ba_tensor_list_mins = self.create_batch(self.tensor_list_mins,self.batch_size,False)
+        # self.ba_tensor_list_fname = self.create_batch(self.tensor_list_fname,self.batch_size,False)
 
         print("done staging data to GPU")
 
-    def get_item(self, idx):
-        hq = self.ba_tensor_list_hq[idx]
-        lq = self.ba_tensor_list_lq[idx]
-        mins = self.ba_tensor_list_mins[idx]
-        maxs = self.ba_tensor_list_maxs[idx]
-        vol = self.ba_tensor_list_fname[idx]
+    def get_item(self, index_list):
+
+        hq = self.create_batch(index_list, self.tensor_list_hq, True, self.device)
+        lq = self.create_batch(index_list, self.tensor_list_lq, True, self.device)
+        mins = self.create_batch(index_list, self.tensor_list_mins, False, self.device)
+        maxs = self.create_batch(index_list, self.tensor_list_maxs,  False, self.device)
+        vol = self.create_batch(index_list, self.tensor_list_fname, False, self.device)
+        # lq = self.ba_tensor_list_lq[idx]
+        # mins = self.ba_tensor_list_mins[idx]
+        # maxs = self.ba_tensor_list_maxs[idx]
+        # vol = self.ba_tensor_list_fname[idx]
         sample = {
             'vol': vol,
             'HQ': hq,
