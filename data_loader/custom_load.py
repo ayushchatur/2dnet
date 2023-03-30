@@ -37,11 +37,11 @@ class CTDataset(object):
         batch_list = []
         if is_tensor:
             for x in index_list:
-                batch_list.append(self.item_list[x])
+                batch_list.append(item_list[x])
             return torch.stack(batch_list).to(device)
         else:
             for x in index_list:
-                batch_list.append(self.item_list[x])
+                batch_list.append(item_list[x])
             return batch_list
     def __len__(self):
         return len(self.tensor_list_fname)
