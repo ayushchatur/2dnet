@@ -44,7 +44,7 @@ class CTDataset(object):
                 batch_list.append(self.item_list[x])
             return batch_list
     def __len__(self):
-        return len(self.ba_tensor_list_fname)
+        return len(self.tensor_list_fname)
 
     def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333):
         self.batch_size = batch_size

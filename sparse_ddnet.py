@@ -718,7 +718,7 @@ def dd_train(args):
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
     batch = args.batch
-    print(args)
+    # print(args)
     epochs = args.epochs
     retrain = args.retrain
     prune_t = args.prune_t
