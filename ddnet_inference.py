@@ -604,62 +604,63 @@ def main(args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
     model.load_state_dict(torch.load(file_m, map_location=map_location))
-    for batch_index, batch_samples in enumerate(test_loader):
-        file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                                                batch_samples['max'], batch_samples['min']
-        inputs = LQ_img.to(rank)
-        targets = HQ_img.to(rank)
-        outputs = model(inputs)
-        MSE_loss = nn.MSELoss()(outputs, targets)
-        MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-        # loss = nn.MSELoss()(outputs , targets_test) + 0.1*(1-MSSSIM()(outputs,targets_test))
-        loss = MSE_loss + 0.1 * (MSSSIM_loss)
-        # loss = MSE_loss
-        print("MSE_loss", MSE_loss.item())
-        print("MSSSIM_loss", MSSSIM_loss.item())
-        print("Total_loss", loss.item())
-        print("====================================")
-        test_MSE_loss.append(MSE_loss.item())
-        test_MSSSIM_loss.append(MSSSIM_loss.item())
-        test_total_loss.append(loss.item())
-        outputs_np = outputs.cpu().detach().numpy()
-        print('testing: ', outputs.size())
-        (batch_size, channel, height, width) = outputs.size()
-        for m in range(batch_size):
-            file_name1 = file_name[m]
-            file_name1 = file_name1.replace(".IMA", ".tif")
-            im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
-        #         outputs.cpu()
-        #         targets_test[l_map:l_map+batch, :, :, :].cpu()
-        #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
-        #         gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
-        gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
-    # torch.save(model.state_dict(), model_file)
-    try:
-        print('serializing test losses')
-        np.save(dir_pre + '/loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
-        #            np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
-        #            np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
-        np.save(dir_pre + '/loss/test_total_loss_' + str(rank), np.array(test_total_loss))
-        np.save(dir_pre + '/loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
-    #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
-    except Exception as e:
-        print('error serializing: ', e)
+    with torch.no_grad():
+        for batch_index, batch_samples in enumerate(test_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                                                    batch_samples['max'], batch_samples['min']
+            inputs = LQ_img.to(rank)
+            targets = HQ_img.to(rank)
+            outputs = model(inputs)
+            MSE_loss = nn.MSELoss()(outputs, targets)
+            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+            # loss = nn.MSELoss()(outputs , targets_test) + 0.1*(1-MSSSIM()(outputs,targets_test))
+            loss = MSE_loss + 0.1 * (MSSSIM_loss)
+            # loss = MSE_loss
+            print("MSE_loss", MSE_loss.item())
+            print("MSSSIM_loss", MSSSIM_loss.item())
+            print("Total_loss", loss.item())
+            print("====================================")
+            test_MSE_loss.append(MSE_loss.item())
+            test_MSSSIM_loss.append(MSSSIM_loss.item())
+            test_total_loss.append(loss.item())
+            outputs_np = outputs.cpu().detach().numpy()
+            print('testing: ', outputs.size())
+            (batch_size, channel, height, width) = outputs.size()
+            for m in range(batch_size):
+                file_name1 = file_name[m]
+                file_name1 = file_name1.replace(".IMA", ".tif")
+                im = Image.fromarray(outputs_np[m, 0, :, :])
+                im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
+            #         outputs.cpu()
+            #         targets_test[l_map:l_map+batch, :, :, :].cpu()
+            #         inputs_test[l_map:l_map+batch, :, :, :].cpu()
+            #         gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
+            gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
+        # torch.save(model.state_dict(), model_file)
+        try:
+            print('serializing test losses')
+            np.save(dir_pre + '/loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
+            #            np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
+            #            np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
+            np.save(dir_pre + '/loss/test_total_loss_' + str(rank), np.array(test_total_loss))
+            np.save(dir_pre + '/loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
+        #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
+        except Exception as e:
+            print('error serializing: ', e)
 
-    print("testing end")
-    print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
+        print("testing end")
+        print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    #     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
-    #     print("size of out target: " + str(data2.shape))
+        #     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
+        #     print("size of out target: " + str(data2.shape))
 
-    # print("size of append target: " + str(data3.shape))
-    with open(dir_pre + "/myfile.txt", "w") as file1:
-        s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: " + str(np.std(test_MSE_loss))
-        file1.write(s1)
-        s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
-            np.std(test_MSSSIM_loss))
-        file1.write(s2)
+        # print("size of append target: " + str(data3.shape))
+        with open(dir_pre + "/myfile.txt", "w") as file1:
+            s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: " + str(np.std(test_MSE_loss))
+            file1.write(s1)
+            s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
+                np.std(test_MSSSIM_loss))
+            file1.write(s2)
 
     #     print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
     # #     generate_plots(epochs)
@@ -677,6 +678,10 @@ if __name__ == '__main__':
                         help='model file path')
     parser.add_argument('--epochs', default=50, type=int, metavar='b',
                         help='model file path')
+    parser.add_argument('--lr', default=0.0001, type=float, metavar='l',
+                        help='enable wandb configuration')
+    parser.add_argument('--dr', default=0.95, type=float, metavar='d',
+                        help='enable wandb configuration')
     args = parser.parse_args()
     main(args)
     exit()

@@ -646,20 +646,33 @@ torch.backends.cudnn.benchmark=True
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
-def dd_train(local_rank, args):
-    gloabl_rank = args.nr * args.gpus + local_rank
-    dist.init_process_group("gloo", rank=gloabl_rank, world_size=args.world_size)
+def dd_train(args):
+    torch.manual_seed(111)
+    world_size = int(os.environ["WORLD_SIZE"])
+    rank = int(os.environ["SLURM_PROCID"])
+    gpus_per_node = torch.cuda.device_count()
+    local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+    distback = args.distback
+
+    dist.init_process_group(distback, rank=rank, world_size=world_size)
+    print(
+        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are  {gpus_per_node} allocated GPUs per node.",
+        flush=True)
+    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
+    if rank == 0: print(args)
     batch = args.batch
     epochs = args.epochs
     retrain = args.retrain
+    prune_t = args.prune_t
+    prune_amt = args.prune_amt
+    # enable_gr = (args.enable_gr == "true")
+    gr_mode = args.gr_mode
+    gr_backend = args.gr_backend
     amp_enabled = (args.amp == "enable")
-    new_loader = (args.new_load == 'enable')
     global dir_pre
     dir_pre = args.out_dir
     num_w = args.num_w
     en_wan = args.wan
-    print('amp: ', amp_enabled)
-    print('num of workers: ', num_w)
     root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"

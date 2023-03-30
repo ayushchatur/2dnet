@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --nodes=4               # node count
-#SBATCH --ntasks-per-node=1      # total number of tasks per node= gpus per node
+#SBATCH --nodes=1               # node count
+#SBATCH --ntasks-per-node=2      # total number of tasks per node= gpus per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gres=gpu:1             #GPU per node
+#SBATCH --gres=gpu:2             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
 #SBATCH --time=1:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
@@ -83,47 +83,15 @@ echo "current dir: $PWD"
 chmod 755 * -R
 
 
-export profile_prefix="dlprof --output_path=${SLURM_JOBID}_profile --profile_name=${SLURM_JOBID}_profile --dump_model_data=true --mode=pytorch --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --gpuctxsw=true\" -f true --reports=all --delay 180 --duration 60"
+export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true -c cudaProfilerApi --kill none  --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --python-backtrace=cuda --reports=all --delay 180 --duration 120"
 
-if [ "$enable_profile" = "true" ]; then
-#  if [ "" ]
-  export file="sparse_ddnet_pro.py"
-  export CMD="${profile_prefix} ${CMD}"
-else
-  if [ "$new_load" = "true" ];then
-    export file="sparse_ddnet.py"
-  else
-    export file="sparse_ddnet_old_dl.py"
-  fi
-
-fi
-
-
-
-export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr}"
-
-
-
-
-
-if [ "$pytor" = "ver1" ]; then
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-else
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
-  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
-fi
-
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-#BIND_CMD="./bind.sh --cpu=./cpu_bind.sh --mem=./cpu_bind.sh"
-
-echo "cmd: $CMD"
 
 if [ "$inferonly" = "false" ]; then
 
-  srun $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile $CMD
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $SLURM_JOBID --out_dir $SLURM_JOBID --epochs ${epochs} --batch ${batch_size}
+  srun ./execute_final.sh
+  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $SLURM_JOBID --out_dir $SLURM_JOBID --epochs ${epochs} --batch ${batch_size} --lr ${lr} --dr ${dr}
 else
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $1 --out_dir $1 --epochs ${epochs} --batch ${batch_size}
+  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared $imagefile python ddnet_inference.py --filepath $1 --out_dir $1 --epochs ${epochs} --batch ${batch_size} --lr ${lr} --dr ${dr}
 
 fi
 #sgather $TMPDIR/myexec.out myexec.out

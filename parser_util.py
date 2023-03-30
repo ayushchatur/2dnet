@@ -33,6 +33,8 @@ def get_parser():
                         help='enable wandb configuration')
     parser.add_argument('--dr', default=0.95, type=float, metavar='d',
                         help='enable wandb configuration')
+    parser.add_argument('--distback', default="gloo", type=str, metavar='k',
+                        help='enable wandb configuration')
 
 
     return parser

@@ -719,11 +719,11 @@ def dd_train(args):
     rank = int(os.environ["SLURM_PROCID"])
     gpus_per_node = torch.cuda.device_count()
     local_rank = rank - gpus_per_node * (rank // gpus_per_node)
+    distback = args.distback
 
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    dist.init_process_group(distback, rank=rank, world_size=world_size)
     print(
-        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are" \
-        f" {gpus_per_node} allocated GPUs per node.", flush=True)
+        f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of {dist.get_world_size()} on {gethostname()} where there are  {gpus_per_node} allocated GPUs per node.", flush=True)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
     batch = args.batch
