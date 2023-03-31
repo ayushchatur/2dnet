@@ -741,7 +741,12 @@ def dd_train(args):
 
     else:
         model = DDP(model, device_ids=[local_rank])
+    global learn_rate
     learn_rate = args.lr
+    global target_lr
+    target_lr = world_size * learn_rate
+    global step_r
+    step_r = ( target_lr - learn_rate) / 5
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
@@ -758,6 +763,7 @@ def dd_train(args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     if en_wan > 0:
@@ -826,7 +832,11 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
             if(en_wan > 0):
                 wandb.log({"loss": loss})
         print("schelud")
-        scheduler.step()
+        if k >  5:
+            scheduler.step()
+        else:
+            for g in optimizer.param_groups:
+                g['lr'] = learn_rate + step_r
         print("Validation")
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
@@ -847,7 +857,7 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
             if (k == (epochs + retrain - 1)):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
-
+        # optimizer.param_groups
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
             print('pruning model on epoch: ', k)
