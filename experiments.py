@@ -8,9 +8,9 @@ import numpy as np
 import parser_util as prs
 import os
 from os import path
-from PIL import Image
+# from PIL import Image
 
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
@@ -19,7 +19,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
-from apex.contrib.sparsity import ASP
+# from apex.contrib.sparsity import ASP
 from socket import gethostname
 # from dataload import CTDataset
 # from dataload_optimization import CTDataset
@@ -268,6 +268,7 @@ class denseblock(nn.Module):
 
         return x
 
+INPUT_CHANNEL_SIZE = 1
 
 class DD_net(nn.Module):
     def __init__(self):
@@ -421,48 +422,19 @@ class CTDataset(Dataset):
         # print("Dataloader idx: ", idx)
         if torch.is_tensor(idx):
             idx = idx.tolist()
+        inputs_np = torch.randn((1,512,512))
+        targets_np = torch.randn((1,512,512))
 
-        inputs_np = None
-        targets_np = None
-        rmin = 0
-        rmax = 1
+        # inputs = torch.from_numpy(inputs_np)
+        # targets = torch.from_numpy(targets_np)
+        inputs = inputs_np.type(torch.FloatTensor)
+        targets = targets_np.type(torch.FloatTensor)
 
-        # print("HQ", self.data_root_h + self.img_list_h[idx])
-        # print("LQ", self.data_root_l + self.img_list_l[idx])
-        # image_target = read_correct_image("/groups/synergy_lab/garvit217/enhancement_data/train/LQ//BIMCV_139_image_65.tif")
-        # print("test")
-        # exit()
-        image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
-        image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
-
-        input_file = self.img_list_l[idx]
-        assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
-        assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
-        cmax1 = np.amax(image_target)
-        cmin1 = np.amin(image_target)
-        image_target = rmin + ((image_target - cmin1) / (cmax1 - cmin1) * (rmax - rmin))
-        assert ((np.amin(image_target) >= 0) and (np.amax(image_target) <= 1))
-        cmax2 = np.amax(image_input)
-        cmin2 = np.amin(image_input)
-        image_input = rmin + ((image_input - cmin2) / (cmax2 - cmin2) * (rmax - rmin))
-        assert ((np.amin(image_input) >= 0) and (np.amax(image_input) <= 1))
-        mins = ((cmin1 + cmin2) / 2)
-        maxs = ((cmax1 + cmax2) / 2)
-        image_target = image_target.reshape((1, 512, 512))
-        image_input = image_input.reshape((1, 512, 512))
-        inputs_np = image_input
-        targets_np = image_target
-
-        inputs = torch.from_numpy(inputs_np)
-        targets = torch.from_numpy(targets_np)
-        inputs = inputs.type(torch.FloatTensor)
-        targets = targets.type(torch.FloatTensor)
-
-        sample = {'vol': input_file,
+        sample = {'vol': 'qqq',
                   'HQ': targets,
                   'LQ': inputs,
-                  'max': maxs,
-                  'min': mins}
+                  'max': 1,
+                  'min': 0}
         return sample
 
 root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
@@ -492,10 +464,10 @@ val_loader = DataLoader(valset, batch_size=4, drop_last=False, shuffle=False, nu
                         sampler=val_sampler)
 
 model = DD_net()
-device = torch.device("cuda", 0)
+device = torch.device("cpu")
 torch.cuda.manual_seed(1111)
 # necessary for AMP to work
-torch.cuda.set_device(device)
+# torch.cuda.set_device(device)
 model.to(device)
 lr = 1e-3
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-8)  #######ADAM CHANGE
@@ -507,8 +479,8 @@ for k in range(2):
     for batch_index, batch_samples in enumerate(train_loader):
         file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
             batch_samples['max'], batch_samples['min']
-        targets = HQ_img.to(0, non_blocking=True)
-        inputs = LQ_img.to(0, non_blocking=True)
+        targets = HQ_img
+        inputs = LQ_img
         optimizer.zero_grad(set_to_none=True)
         with amp.autocast(enabled=amp_enabled):
 

@@ -707,14 +707,14 @@ def setup(rank, world_size):
 
 # import nvidia_dlprof_pytorch_nvtx
 # nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
-
+print ("hello")
 from ctypes import cdll
 libcudart = cdll.LoadLibrary('libcudart.so')
 def cudaProfilerStart():
     libcudart.cudaProfilerStart()
 def cudaProfilerStop():
     libcudart.cudaProfilerStop()
-
+print ("hello done")
 def cleanup():
     dist.destroy_process_group()
 from socket import gethostname
