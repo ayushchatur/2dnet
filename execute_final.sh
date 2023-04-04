@@ -39,7 +39,7 @@ else
 fi
 
 
-export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true -c cudaProfilerApi --kill none  --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose,mpi --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --delay 180 --duration 120 --stats=true"
+export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} --sample cpu -f true --export sqlite -c cudaProfilerApi --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose,mpi --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --delay 180 --duration 120 --stats=true --stop-on-exit true --capture-range cudaProfilerApi --capture-range-end stop --kill none"
 
 # profiling prefix
 

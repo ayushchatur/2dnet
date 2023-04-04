@@ -913,7 +913,7 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
         scheduler.step()
         # nvtx.range_pop()
         print("Validation")
-        nvtx.range_push("Validation epoch: ", str(k))
+        nvtx.range_push("Validation epoch: " + str(k))
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
