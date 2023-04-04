@@ -762,6 +762,7 @@ def dd_train(args):
 
     else:
         model = DDP(model, device_ids=[local_rank])
+    global learn_rate
     learn_rate = args.lr
     epsilon = 1e-8
 
@@ -802,7 +803,7 @@ def dd_train(args):
     dist.destroy_process_group()
 
 
-
+import math
 
 def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
@@ -812,12 +813,25 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
     sparsified = False
     densetime=0
     # list of random indexes
+    g = torch.Generator()
+    g.manual_seed(0)
+
+
     if rank == 0:
-        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
+        train_index_list = torch.randperm(len(train_loader), generator=g).tolist()
+        val_index_list = torch.randperm(len(val_loader), generator=g).tolist()
     else:
-        train_index_list = np.ones(len(train_loader))
-        val_index_list = np.ones(len(val_loader))
+        train_index_list = [0 for i in range(len(train_loader))]
+        val_index_list = [0 for i in range(len(val_loader))]
+
+    dist.broadcast_object_list(train_index_list, src=0)
+    dist.broadcast_object_list(val_index_list, src=0)
+
+    train_items_per_rank = math.ceil((len(train_loader) - world_size) / world_size)
+    val_items_per_rank = math.ceil((len(train_loader) - world_size) / world_size)
+
+    q_fact_train = len(train_loader) // world_size
+    q_fact_val = len(val_loader) // world_size
 
     for k in range(epochs + retrain):
         # train_sampler.set_epoch(epochs + retrain)
@@ -826,13 +840,6 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
 #         train_sampler.set_epoch(epochs + prune_ep)
 
 
-
-
-        dist.broadcast_object_list(train_index_list, src=0)
-        dist.broadcast_object_list(val_index_list, src=0)
-
-        q_fact_train  = len(train_loader) // world_size
-        q_fact_val = len(val_loader) // world_size
 
         if rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
 

@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
 #SBATCH --nodes=1               # node count
-#SBATCH --ntasks-per-node=1      # total number of tasks per node= gpus per node
+#SBATCH --ntasks-per-node=2      # total number of tasks per node= gpus per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gres=gpu:1             #GPU per node
+#SBATCH --gres=gpu:2             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
 #SBATCH --time=1:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
@@ -81,22 +81,6 @@ echo "BASE: ${BASE}"
 
 echo "current dir: $PWD"
 chmod 755 * -R
-
-if [ "$pytor" = "ver1" ]; then
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-else
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
-  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
-fi
-
-export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true -c cudaProfilerApi --kill none  --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --python-backtrace=cuda --reports=all --delay 180 --duration 120"
-
-if [ "$pytor" = "ver1" ]; then
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
-else
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
-  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
-fi
 
 
 if [ "$inferonly" = "false" ]; then

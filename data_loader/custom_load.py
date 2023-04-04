@@ -102,25 +102,32 @@ class CTDataset(object):
 
         print("done staging data to GPU")
 
-    def get_item(self, index_list):
-
-        hq = self.create_batch(index_list, self.tensor_list_hq, True, self.device)
-        lq = self.create_batch(index_list, self.tensor_list_lq, True, self.device)
-        mins = self.create_batch(index_list, self.tensor_list_mins, False, self.device)
-        maxs = self.create_batch(index_list, self.tensor_list_maxs,  False, self.device)
-        vol = self.create_batch(index_list, self.tensor_list_fname, False, self.device)
-        # lq = self.ba_tensor_list_lq[idx]
-        # mins = self.ba_tensor_list_mins[idx]
-        # maxs = self.ba_tensor_list_maxs[idx]
-        # vol = self.ba_tensor_list_fname[idx]
-        sample = {
-            'vol': vol,
-            'HQ': hq,
-            'LQ': lq,
-            'min': mins,
-            'max': maxs
-        }
-        return sample
+    def get_item(self, index_list, batch_size):
+        try:
+            assert (len(index_list) == batch_size)
+            hq = self.create_batch(index_list, self.tensor_list_hq, True, self.device)
+            lq = self.create_batch(index_list, self.tensor_list_lq, True, self.device)
+            mins = self.create_batch(index_list, self.tensor_list_mins, False, self.device)
+            maxs = self.create_batch(index_list, self.tensor_list_maxs,  False, self.device)
+            vol = self.create_batch(index_list, self.tensor_list_fname, False, self.device)
+            # lq = self.ba_tensor_list_lq[idx]
+            # mins = self.ba_tensor_list_mins[idx]
+            # maxs = self.ba_tensor_list_maxs[idx]
+            # vol = self.ba_tensor_list_fname[idx]
+            sample = {
+                'vol': vol,
+                'HQ': hq,
+                'LQ': lq,
+                'min': mins,
+                'max': maxs
+            }
+            return sample
+        except AssertionError as e:
+            print ("batch size and len mismatch", e)
+            return None
+        except Exception as ex:
+            print ("exception occured during fetching element", ex)
+            return None
 
 def main():
     print('hell')

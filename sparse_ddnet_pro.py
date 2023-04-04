@@ -767,7 +767,7 @@ def dd_train(args):
     model.to(device)
 
     model = DDP(model, device_ids=[local_rank])
-    learn_rate = 0.0001;
+    learn_rate = args.lr
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
@@ -775,7 +775,7 @@ def dd_train(args):
     # model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
     # model = DDP(model)
 
-    decayRate = 0.95
+    decayRate = args.dr
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
 
@@ -816,29 +816,6 @@ def dd_train(args):
         serialize_trainparams(model, model_file, local_rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss,
                               val_MSE_loss,
                               val_MSSSIM_loss, val_total_loss)
-
-    else:
-        print("Loading model parameters")
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
-        calculate_global_sparsity(model)
-
-    test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
-
-    print("testing end")
-    #with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-    #    for item in test_MSE_loss:
-    #        f.write("%f " % item)
-    #with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-    #    for item in test_MSSSIM_loss:
-    #        f.write("%f " % item)
-    #with open('loss/test_total_loss_' + str(rank), 'w') as f:
-    #    for item in test_total_loss:
-    #        f.write("%f " % item)
-    print("everything complete.......")
-
-    print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
-    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
-    # psnr_calc(test_MSE_loss)
 
 
 

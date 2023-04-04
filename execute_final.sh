@@ -12,12 +12,23 @@ echo "range : $range"
 export arr=$(shuf -i $min-$max -n $numprofileranks)
 
 
-# change file variable based on new data loader flag
-if [ "$new_load" = "true" ];then
-  export file="sparse_ddnet.py"
+if [ "$enable_profile" = "true" ];then
+  if [ "$new_load" = "true" ]; then
+    export file="sparse_ddnet_pro.py"
+  else
+    export file="sparse_ddnet_old_dl_profile.py"
+  fi
 else
-  export file="sparse_ddnet_old_dl.py"
+    if [ "$new_load" = "true" ]; then
+    export file="sparse_ddnet.py"
+  else
+    export file="sparse_ddnet_old_dl.py"
+  fi
 fi
+
+
+export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback}"
+
 
 # change base container image to graph is supported in pytorch 2.0
 if [ "$pytor" = "ver1" ]; then
@@ -27,29 +38,14 @@ else
   export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
 fi
 
+
+export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true -c cudaProfilerApi --kill none  --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --delay 180 --duration 120"
+
 # profiling prefix
+
 if [ "$enable_profile" = "true" ]; then
-  # shellcheck disable=SC1072
-  if [ "$WORLD_SIZE" -ge 4]; then
-    for i in $arr
-    do
-      echo "enabling profiling global rank: $i"
-      export CMD="${profile_prefix} ${CMD}"
-    done
-  else
-    export CMD="${profile_prefix} ${CMD}"
-  fi
-else
-  echo "no profiling"
+  export CMD="${profile_prefix} ${CMD}"
 fi
 
-
-if [ "$enable_profile" = "true" ] && [ "${new_load}" == "true"]; then
-  export file="sparse_ddnet_pro.py"
-elif [ "$enable_profile" = "true" ]; then
-  export file="sparse_ddnet_pp.py"
-fi
-
-export CMD="${CMD} python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback}"
 echo "procid: ${SLURM_PROCID} cmd: $CMD"
-$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,/localscratch $imagefile $CMD
+$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $CMD

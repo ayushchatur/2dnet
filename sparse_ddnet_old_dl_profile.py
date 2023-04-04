@@ -7,7 +7,7 @@
 # @File : train_main.py
 # @Software: PyCharm
 # from apex import amp
-# import torch.cuda.nvtx as nvtx
+import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -33,9 +33,15 @@ import torch.cuda.amp as amp
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
 # reconstructed_images = "reconstructed_images"
-
+from ctypes import cdll
+libcudart = cdll.LoadLibrary('libcudart.so')
+def cudaProfilerStart():
+    libcudart.cudaProfilerStart()
+def cudaProfilerStop():
+    libcudart.cudaProfilerStop()
 
 INPUT_CHANNEL_SIZE = 1
+# from socket import gethostname
 
 def ln_struc_spar(model):
     parm = []
@@ -787,7 +793,7 @@ def dd_train(args):
 
 
     model = DDP(model, device_ids=[local_rank])
-    learn_rate = 0.0001;
+    learn_rate = args.lr
     epsilon = 1e-8
 
     # criterion = nn.CrossEntropyLoss()
@@ -798,7 +804,7 @@ def dd_train(args):
     # optimizer2 = torch.optim.Adam(model.dnet2.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer3 = torch.optim.Adam(model.dnet3.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
     # optimizer4 = torch.optim.Adam(model.dnet4.parameters(), lr=learn_rate, eps=epsilon)     #######ADAM CHANGE
-    decayRate = 0.95
+    decayRate = args.dr
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=decayRate)
     # scheduler1 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer1, gamma=decayRate)
     # scheduler2 = torch.optim.lr_scheduler.ExponentialLR(optimizer=optimizer2, gamma=decayRate)
@@ -823,114 +829,76 @@ def dd_train(args):
     test_MSSSIM_loss = [0]
     test_total_loss = [0]
 
-
+    num_profile_step_size = int(1. / 0.2)
+    if world_size > 4:
+        profile_rank_list = list(range(0, world_size, num_profile_step_size))
+        if rank in profile_rank_list:
+            start_profiler_handle = cudaProfilerStart
+            stop_profiler_handle = cudaProfilerStop
+        else:
+            start_profiler_handle = None
+            stop_profiler_handle = None
+    else:
+        start_profiler_handle = cudaProfilerStart
+        stop_profiler_handle = cudaProfilerStop
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % local_rank}
 
     if (not (path.exists(model_file))):
-        with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                         train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                         val_total_loss, amp_enabled, retrain, en_wan)
+        with torch.autograd.profiler.emit_nvtx(enabled = True):
+            train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+                             train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
+                             val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler, start_profiler_handle, start_profiler_handle)
         print("train end")
-        serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
-                              val_MSSSIM_loss, val_total_loss)
-
-    else:
-        print("Loading model parameters")
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
-        calculate_global_sparsity(model)
-        if retrain > 0:
-            model.load_state_dict(torch.load(model_file, map_location=map_location))
-            print("sparifying the model....")
-            ln_struc_spar(model)
-            # ASP.prune_trained_model(model,optimizer)
-            print('weights updated and masks removed... Model is sucessfully pruned')
-            # create new OrderedDict that does not contain `module.`
-            calculate_global_sparsity(model)
-            print('fine tune retraining for ', retrain, ' epochs...')
-            # with torch.autograd.profiler.emit_nvtx():
-            train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
-                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                              val_total_loss, amp_enabled, retrain, en_wan)
-    test_ddnet(gpu, model, test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank)
-    print("testing end")
-    with open('loss/test_MSE_loss_' + str(rank), 'w') as f:
-        for item in test_MSE_loss:
-            f.write("%f " % item)
-    with open('loss/test_MSSSIM_loss_' + str(rank), 'w') as f:
-        for item in test_MSSSIM_loss:
-            f.write("%f " % item)
-    with open('loss/test_total_loss_' + str(rank), 'w') as f:
-        for item in test_total_loss:
-            f.write("%f " % item)
-    print("everything complete.......")
-
-    print("Final avergae MSE: ", np.average(test_MSE_loss), "std dev.: ", np.std(test_MSE_loss))
-    print("Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))), 'std dev : ', np.std(test_MSSSIM_loss))
+        stop_profiler_handle()
+        serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,val_MSSSIM_loss, val_total_loss)
     # psnr_calc(test_MSE_loss)
 
 
-import torch.cuda.nvtx as nvtx
-def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
+# import torch.cuda.nvtx as nvtx
+def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan):
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler, start_fn,stop_fn):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
+    if start_fn is not None:
+        start_fn()
     for k in range(epochs + retrain):
         print("Training for Epocs: ", epochs+retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
-#         train_sampler.set_epoch(epochs)
-        train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-        val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
-        nvtx.range_push("Training")
-        for idx in train_index_list:
-            
-            
-            sample_batched = train_loader.get_item(idx)
-            HQ_img, LQ_img, maxs, mins, file_name =  sample_batched['HQ'], sample_batched['LQ'], \
-                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
-#             maxs, mins =  batch_samples['max'], batch_samples['min']
-#             print(maxs)
-#             print(mins)
-            targets = HQ_img
-            inputs = LQ_img
-            if not sparsified:
-                nvtx.range_push("Batch: " + str(idx))
-            else:
-                nvtx.range_push("Sp-Batch: " + str(idx))
-
+        optimizer.zero_grad(set_to_none=True)
+        nvtx.range_push("Training epoch:", str(k)) # epoch
+        train_sampler.set_epoch(k)
+        for batch_index, batch_samples in enumerate(train_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                batch_samples['max'], batch_samples['min']
+            nvtx.range_push("Batch: " + str(batch_index)) # batch index
             with amp.autocast(enabled=amp_enabled):
-                nvtx.range_push("copy to device")
-#                 if not new_loader == True:
-#                     inputs = LQ_img.to(gpu)
-#                     targets = HQ_img.to(gpu)
-                
-#                 targets = HQ_img.to(gpu)
-                nvtx.range_pop()
+                nvtx.range_push("copy to device") # H2D
+                targets = HQ_img.to(local_rank, non_blocking=True)
+                inputs = LQ_img.to(local_rank, non_blocking=True)
+                nvtx.range_pop() # H2D
     
-                nvtx.range_push("forward pass,epoch:"+ str(k))
-
+                nvtx.range_push("forward pass,epoch:"+ str(k)) # FP
                 outputs = model(inputs)
+                nvtx.range_push("Loss calculation") # Loss
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                nvtx.range_pop()
+                nvtx.range_pop() #Loss
+                nvtx.range_pop() #FP
             # print(outputs.shape)
+            nvtx.range_pop() # batch index
 
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
-            optimizer.zero_grad(set_to_none=True)
-            # for param in model.parameters():
-            #     param.grad = 0
-            nvtx.range_push("backward pass")
-            # model.zero_grad()
 
+            nvtx.range_push("backward pass") #BP
             if amp_enabled:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -938,32 +906,21 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             else:
                 loss.backward()
                 optimizer.step()
-            nvtx.range_pop()
-            nvtx.range_pop()
-            
-            
-            # scaler.scale(loss).backward()
-            # scaler.step(optimizer)
-            # scaler.update()
-        # print('loss: ',loss, ' mse: ', mse
+            nvtx.range_pop() #BP
+        nvtx.range_pop() #epoch
+
         scheduler.step()
-        nvtx.range_pop()
+        # nvtx.range_pop()
         print("Validation")
-        nvtx.range_push("Validation")
-        for idx in val_index_list:
-            sample_batched = val_loader.get_item(idx)
-            HQ_img, LQ_img, maxs, mins, fname =  sample_batched['HQ'], sample_batched['LQ'], \
-                                                        sample_batched['max'], sample_batched['min'], sample_batched['vol']
-            inputs = LQ_img
-            targets = HQ_img
+        nvtx.range_push("Validation epoch: ", str(k))
+        for batch_index, batch_samples in enumerate(val_loader):
+            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+                batch_samples['max'], batch_samples['min']
+            inputs = LQ_img.to(local_rank)
+            targets = HQ_img.to(local_rank)
+
             with amp.autocast(enabled=amp_enabled):
-#                 if not new_loader == True:
-#                     inputs = LQ_img.to(gpu)
-#                     targets = HQ_img.to(gpu)
-#                 inputs = LQ_img.to(gpu)
-#                 targets = HQ_img.to(gpu)
                 outputs = model(inputs)
-                # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
@@ -972,21 +929,12 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             val_MSE_loss.append(MSE_loss.item())
             val_total_loss.append(loss.item())
             val_MSSSIM_loss.append(MSSSIM_loss.item())
-            # print(len(outputs_np))
-            # print("shape: ", outputs.shape)
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
-                # outputs_np = outputs.cpu().detach().numpy()
-                # (batch_size, channel, height, width) = outputs.size()
-                # for m in range(batch_size):
-                #     file_name1 = file_name[m]
-                #     file_name1 = file_name1.replace(".IMA", ".tif")
-                #     im = Image.fromarray(outputs_np[m, 0, :, :])
-                #     im.save('reconstructed_images/val/' + file_name1)
-                #     # gen_visualization_files(outputs, targets, inputs, val_files[l_map:l_map+batch], "val")
-                #     gen_visualization_files(outputs, targets, inputs, file_name, "val", maxs, mins)
         nvtx.range_pop()
+        if k == 1 and stop_fn is not None:
+            stop_fn()
         if  sparsified == False and retrain > 0 and k == (epochs-1) :
             print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
             print('pruning model')
@@ -994,7 +942,6 @@ def train_eval_ddnet(epochs, gpu, model, optimizer, rank, scheduler, train_MSE_l
             print("sparse retraining now starting")
             sparsified = True
             print('pruning model on epoch: ', k)
-        # sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
@@ -1065,64 +1012,17 @@ def psnr_calc(mse_t):
         psnr.insert(i, psnr_)
     print('psnr: ', np.mean(psnr), ' std dev', np.std(psnr))
 
+import parser_util as prs
 def main():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-n', '--nodes', default=1, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
-    parser.add_argument('-g', '--gpus', default=1, type=int,
-                        help='number of gpus per node')
-    # parser.add_argument('-nr', '--nr', default=0, type=int,
-    #                    help='ranking within the nodes')
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--epochs', default=2, type=int, metavar='e',
-                        help='number of total epochs to run')
-    parser.add_argument('--batch', default=2, type=int, metavar='b',
-                        help='number of batch per gpu')
-    parser.add_argument('--retrain', default=0, type=int, metavar='r',
-                        help='retrain epochs')
-    parser.add_argument('--amp', default="disable", type=str, metavar='m',
-                        help='mixed precision')
-    parser.add_argument('--out_dir', default=".", type=str, metavar='o',
-                        help='default directory to output files')
-    parser.add_argument('--num_w', default=1, type=int, metavar='w',
-                        help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='l',
-                        help='new data loader')
-    parser.add_argument('--wan', default=-1, type=int, metavar='h',
-                        help='enable wandb configuration')
-
+    parser = prs.get_parser()
     args = parser.parse_args()
-    args.world_size = args.gpus * args.nodes
-    # init_env_variable()
-    args.nr = int(os.environ['SLURM_PROCID'])
-    print("SLURM_PROCID: " + str(args.nr))
-    # world_size = 4
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_ADDR'] = '10.21.10.4'
-    # os.environ['MASTER_PORT'] = '12355'
-    # os.environ['MASTER_PORT'] = '8888'
-    mp.spawn(dd_train,
-             args=(args,),
-             nprocs=args.gpus,
-             join=True)
 
+    if(args.wan > 0):
+        import wandb
+        wandb.init()
+    dd_train(args)
 
 if __name__ == '__main__':
-    # def __main__():
 
-    ####################DATA DIRECTORY###################
-    # jy
-    # global root
-
-    # if not os.path.exists("./loss"):
-    #    os.makedirs("./loss")
-    # if not os.path.exists("./reconstructed_images/val"):
-    #    os.makedirs("./reconstructed_images/val")
-    # if not os.path.exists("./reconstructed_images/test"):
-    #    os.makedirs("./reconstructed_images/test")
-    # if not os.path.exists("./reconstructed_images"):
-    #    os.makedirs("./reconstructed_images")
-
-    main();
+    main()
     exit()
