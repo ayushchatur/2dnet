@@ -827,7 +827,9 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
     sparsified = False
     densetime=0
     if start_fn is not None:
+        print("initializing cudaProfilingApi")
         start_fn()
+        print("OK!!~~~~~~~~~initialized cudaProfilingApi~~~~~~~~~~")
     for k in range(epochs + retrain):
         # train_sampler.set_epoch(epochs + retrain)
         print("Training for Epocs: ", epochs)
@@ -927,6 +929,7 @@ def train_eval_ddnet(epochs, world_size, model, optimizer, rank, scheduler, trai
         nvtx.range_pop()
 
         if k == 1 and stop_fn is not None:
+            print("~~~~~~~~~ Terminating profiling~~~~~~~~~~")
             stop_fn()
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
@@ -968,73 +971,6 @@ def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_
             for item in val_total_loss:
                 f.write("%f " % item)
 
-
-def test_ddnet(gpu, model,test_loader, test_MSE_loss, test_MSSSIM_loss, test_total_loss, rank):
-    index_list = np.random.default_rng(seed=22).permutation(range(len(test_loader)))
-    for idx in index_list:
-        batch_samples = test_loader.get_item(idx)
-        HQ_img, LQ_img, maxs, mins, file_name = batch_samples['HQ'], batch_samples['LQ'], \
-                                                batch_samples['max'], batch_samples['min'], batch_samples['vol']
-        inputs = LQ_img
-        targets = HQ_img        
-        outputs = model(inputs)
-        MSE_loss = nn.MSELoss()(outputs, targets)
-        MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-        # loss = nn.MSELoss()(outputs , targets_test) + 0.1*(1-MSSSIM()(outputs,targets_test))
-        loss = MSE_loss + 0.1 * (MSSSIM_loss)
-        # loss = MSE_loss
-        print("MSE_loss", MSE_loss.item())
-        print("MSSSIM_loss", MSSSIM_loss.item())
-        print("Total_loss", loss.item())
-        print("====================================")
-        test_MSE_loss.append(MSE_loss.item())
-        test_MSSSIM_loss.append(MSSSIM_loss.item())
-        test_total_loss.append(loss.item())
-        outputs_np = outputs.cpu().detach().numpy()
-        print('testing: ', outputs.size())
-        (batch_size, channel, height, width) = outputs.size()
-        for m in range(batch_size):
-            file_name1 = file_name[m]
-            file_name1 = file_name1.replace(".IMA", ".tif")
-            im = Image.fromarray(outputs_np[m, 0, :, :])
-            im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
-#         outputs.cpu()
-#         targets_test[l_map:l_map+batch, :, :, :].cpu()
-#         inputs_test[l_map:l_map+batch, :, :, :].cpu()
-#         gen_visualization_files(outputs, targets, inputs, test_files[l_map:l_map+batch], "test" )
-        gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
-    if (rank == 0):
-        print("Saving model parameters")
-        # torch.save(model.state_dict(), model_file)
-        try:
-            print('serializing test losses')
-            np.save('loss/test_MSE_loss_' + str(rank), np.array(test_MSE_loss))
-#             np.save('loss/test_loss_b1_' + str(rank), np.array(test_loss_b1))
-#             np.save('loss/test_loss_b3_' + str(rank), np.array(test_loss_b3))
-            np.save('loss/test_total_loss_' + str(rank), np.array(test_total_loss))
-            np.save('loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
-#             np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
-        except Exception as e:
-            print('error serializing: ', e)
-
-    print("testing end")
-
-
-    print("~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~")
-
-#     data2 = np.loadtxt('./visualize/test/msssim_loss_target_out')
-#     print("size of out target: " + str(data2.shape))
-
-    # print("size of append target: " + str(data3.shape))
-    with open("myfile.txt", "w") as file1:
-        s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: "+ str(np.std(test_MSE_loss))
-        file1.write(s1)
-        s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss)))+ 'std dev : '+ str(np.std(test_MSSSIM_loss))
-        file1.write(s2)
-
-#     print("Final average SSIM LOSS: " + str(100 - (100 * np.average(test_SSIM_loss))),'std dev : ', np.std(test_SSIM_loss))
-# #     generate_plots(epochs)
-    psnr_calc(test_MSE_loss)
 
 def psnr_calc(mse_t):
     psnr = []

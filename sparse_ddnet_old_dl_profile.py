@@ -864,7 +864,9 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
     scaler = amp.GradScaler()
     sparsified = False
     if start_fn is not None:
+        print("initializing cudaProfilingApi")
         start_fn()
+        print("OK!!~~~~~~~~~initialized cudaProfilingApi~~~~~~~~~~")
     for k in range(epochs + retrain):
         print("Training for Epocs: ", epochs+retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -933,6 +935,8 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
                     print("Training complete in: " + str(datetime.now() - start))
         nvtx.range_pop()
         if k == 1 and stop_fn is not None:
+            print("~~~~~~~~~ Terminating profiling~~~~~~~~~~")
+
             stop_fn()
         if  sparsified == False and retrain > 0 and k == (epochs-1) :
             print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
