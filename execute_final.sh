@@ -48,5 +48,8 @@ if [ "$enable_profile" = "true" ]; then
   export CMD="${profile_prefix} ${CMD}"
 fi
 
-echo "procid: ${SLURM_PROCID} cmd: $CMD"
+echo "procid: ${SLURM_PROCID}"
+#echo "cmd: $CMD"
+echo "final command: $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $CMD"
 $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $CMD
+
