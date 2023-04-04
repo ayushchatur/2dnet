@@ -870,7 +870,7 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
         optimizer.zero_grad(set_to_none=True)
-        nvtx.range_push("Training epoch:", str(k)) # epoch
+        nvtx.range_push("Training epoch:" + str(k)) # epoch
         train_sampler.set_epoch(k)
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
