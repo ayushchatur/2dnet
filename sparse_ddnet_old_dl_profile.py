@@ -644,8 +644,7 @@ def setup(rank, world_size):
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
-import nvidia_dlprof_pytorch_nvtx
-nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+
 def read_correct_image(path):
     offset = 0
     ct_org = None
