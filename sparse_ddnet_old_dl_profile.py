@@ -831,15 +831,6 @@ def dd_train(args):
     num_profile_step_size = int(1. / 0.2)
     if world_size > 4:
         profile_rank_list = list(range(0, world_size, num_profile_step_size))
-        if rank in profile_rank_list:
-            start_profiler_handle = cudaProfilerStart
-            stop_profiler_handle = cudaProfilerStop
-        else:
-            start_profiler_handle = None
-            stop_profiler_handle = None
-    else:
-        start_profiler_handle = cudaProfilerStart
-        stop_profiler_handle = cudaProfilerStop
 
     model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
 
@@ -849,9 +840,8 @@ def dd_train(args):
         with torch.autograd.profiler.emit_nvtx(enabled = True):
             train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                              train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                             val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler, start_profiler_handle, start_profiler_handle)
+                             val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler)
         print("train end")
-        stop_profiler_handle()
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,val_MSSSIM_loss, val_total_loss)
     # psnr_calc(test_MSE_loss)
 
@@ -859,14 +849,10 @@ def dd_train(args):
 # import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
-                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler, start_fn,stop_fn):
+                     val_total_loss, amp_enabled, retrain, en_wan, prune_t, prune_amt, train_sampler):
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
-    if start_fn is not None:
-        print("initializing cudaProfilingApi")
-        start_fn()
-        print("OK!!~~~~~~~~~initialized cudaProfilingApi~~~~~~~~~~")
     for k in range(epochs + retrain):
         print("Training for Epocs: ", epochs+retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
@@ -934,17 +920,20 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
         nvtx.range_pop()
-        if k == 1 and stop_fn is not None:
-            print("~~~~~~~~~ Terminating profiling~~~~~~~~~~")
-
-            stop_fn()
-        if  sparsified == False and retrain > 0 and k == (epochs-1) :
-            print("dense training done for " + k + " epochs: " + " in : " , str(datetime.now()- start))
-            print('pruning model')
-            ln_struc_spar(model)
-            print("sparse retraining now starting")
-            sparsified = True
+        if sparsified == False and retrain > 0 and k == (epochs-1) :
+            densetime = str(datetime.now()- start)
             print('pruning model on epoch: ', k)
+            if prune_t == "mag":
+                print("pruning model by top k with %: ", prune_amt)
+                # mag_prune(model,prune_amt)
+            elif prune_t == "l1_struc":
+                print("pruning model by L1 structured with %: ", prune_amt)
+                ln_struc_spar(model, prune_amt)
+            else:
+                print("pruning model by random unstructured with %: ", prune_amt)
+                # unstructured_sparsity(model, prune_amt)
+
+            sparsified = True
 
 def serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,
                           val_MSSSIM_loss, val_total_loss):
