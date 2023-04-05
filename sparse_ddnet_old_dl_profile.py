@@ -845,7 +845,8 @@ def dd_train(args):
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,val_MSSSIM_loss, val_total_loss)
     # psnr_calc(test_MSE_loss)
 
-
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,

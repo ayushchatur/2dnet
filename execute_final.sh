@@ -39,9 +39,9 @@ else
 fi
 
 
-export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose,mpi --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --stats=true --duration 220 --delay 60"
+export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
 
-
+#export profile_prefix="nsys profile -o ${SLURM_JOBID}/profile_${SLURM_NODEID}_rank${SLURM_PROCID} -f true --trace=osrt,cuda,nvtx,cudnn,cublas,cusparse,cusparse-verbose,mpi --cuda-memory-usage=true --gpuctxsw=true --cudabacktrace=all --stats=true --duration 120 --delay 60"
 # profiling prefix
 
 if [ "$enable_profile" = "true" ]; then
