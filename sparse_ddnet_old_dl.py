@@ -734,13 +734,9 @@ def dd_train(args):
     # necessary for AMP to work
     torch.cuda.set_device(device)
     model.to(device)
-
+    model = DDP(model, device_ids=[local_rank])
     if gr_mode != "none":
-        model = DDP(model, device_ids=[local_rank])
         model = torch.compile(model, fullgraph=True, mode=gr_mode, backend=gr_backend)
-
-    else:
-        model = DDP(model, device_ids=[local_rank])
     global learn_rate
     learn_rate = args.lr
     global target_lr
