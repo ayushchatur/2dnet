@@ -33,12 +33,6 @@ import torch.cuda.amp as amp
 # vizualize_folder = "./visualize"
 # loss_folder = "./loss"
 # reconstructed_images = "reconstructed_images"
-from ctypes import cdll
-libcudart = cdll.LoadLibrary('libcudart.so')
-def cudaProfilerStart():
-    libcudart.cudaProfilerStart()
-def cudaProfilerStop():
-    libcudart.cudaProfilerStop()
 
 INPUT_CHANNEL_SIZE = 1
 # from socket import gethostname
@@ -726,8 +720,8 @@ class CTDataset(Dataset):
 def cleanup():
     dist.destroy_process_group()
 torch.backends.cudnn.benchmark=True
-# import nvidia_dlprof_pytorch_nvtx
-# nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+import nvidia_dlprof_pytorch_nvtx
+nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # from apex.contrib.sparsity import ASP
 from socket import gethostname
 def dd_train(args):
@@ -845,8 +839,6 @@ def dd_train(args):
         serialize_trainparams(model, model_file, rank, train_MSE_loss, train_MSSSIM_loss, train_total_loss, val_MSE_loss,val_MSSSIM_loss, val_total_loss)
     # psnr_calc(test_MSE_loss)
 
-import nvidia_dlprof_pytorch_nvtx
-nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
 # import torch.cuda.nvtx as nvtx
 def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, train_MSE_loss, train_MSSSIM_loss,
                      train_loader, train_total_loss, val_MSE_loss, val_MSSSIM_loss, val_loader,
