@@ -32,7 +32,7 @@ export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${
 
 # change base container image to graph is supported in pytorch 2.0
 if [ "$pytor" = "ver1" ]; then
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_21.12.sif
 else
   export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
   export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
