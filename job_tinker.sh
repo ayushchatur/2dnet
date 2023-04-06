@@ -1,5 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
+#SBATCH --nodes 1
+#SBATCH --ntasks-per-node 1
 #SBATCH --threads-per-core=1    # do not use hyperthreads (i.e. CPUs = physical cores below)
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
