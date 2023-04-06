@@ -40,7 +40,7 @@ echo "final command: $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_l
 if [ "$enable_profile" = "true" ]; then
 
   export imagefile=/home/ayushchatur/ondemand/dev/pytorch_21.12.sif
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" $CMD
+  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --dump_model_data=true --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --gpuctxsw=true " -f true --reports=all --delay 120 --duration 60 ${CMD}
 
 elif [ "$inferonly" = "false" ]; then
 
