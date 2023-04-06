@@ -12,7 +12,7 @@
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
-set | grep SLURM | while read line; do echo "# $line"; done
+
 
 export MASTER_PORT=$(comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
 echo "master port: $MASTER_PORT"
@@ -24,6 +24,8 @@ echo "WORLD_SIZE="$WORLD_SIZE
 echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
+set | grep SLURM | while read line; do echo "# $line"; done > slurm.txt
+env | grep -i -v slurm | sort > env.txt
 #cp ../sparse_ddnet.py .
 #cp ../sparse_ddnet_pp.py .
 
