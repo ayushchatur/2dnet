@@ -34,7 +34,7 @@ export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${
 if [ "$pytor" = "ver1" ]; then
   export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
 else
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_2.sif
+  export imagefile=/home/ayushchatur/ondemand/dev/pytorch2.sif
   export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
 fi
 
@@ -45,11 +45,11 @@ export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_
 # profiling prefix
 
 if [ "$enable_profile" = "true" ]; then
-  export CMD="${profile_prefix} ${CMD}"
+  export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
 fi
 
 echo "procid: ${SLURM_PROCID}"
 #echo "cmd: $CMD"
-echo "final command: $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $CMD"
-$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $CMD
+echo "final command: $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $profile_prefix $CMD"
+$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $profile_prefix $CMD
 
