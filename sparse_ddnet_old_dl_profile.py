@@ -7,7 +7,7 @@
 # @File : train_main.py
 # @Software: PyCharm
 # from apex import amp
-import torch.cuda.nvtx as nvtx
+# import torch.cuda.nvtx as nvtx
 import torch.nn.utils.prune as prune
 from datetime import datetime
 import torch
@@ -353,16 +353,16 @@ class denseblock(nn.Module):
         #    conv = self.conv2[i](conv)      ######CHANGE
         #    conv = F.leaky_relu(conv)
         #    x = torch.cat((x, conv),dim=1)
-        nvtx.range_push("dense block 1 forward")
+        torch.cuda.nvtx.range_push("dense block 1 forward")
         conv_1 = self.batch_norm1_0(x)
         conv_1 = self.conv1_0(conv_1)
         conv_1 = F.leaky_relu(conv_1)
         conv_2 = self.batch_norm2_0(conv_1)
         conv_2 = self.conv2_0(conv_2)
         conv_2 = F.leaky_relu(conv_2)
-        nvtx.range_pop()
+        torch.cuda. nvtx.range_pop()
 
-        nvtx.range_push("dense block 2 forward")
+        torch.cuda. nvtx.range_push("dense block 2 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_1(x)
         conv_1 = self.conv1_1(conv_1)
@@ -370,9 +370,9 @@ class denseblock(nn.Module):
         conv_2 = self.batch_norm2_1(conv_1)
         conv_2 = self.conv2_1(conv_2)
         conv_2 = F.leaky_relu(conv_2)
-        nvtx.range_pop()
-        
-        nvtx.range_push("dense block 1 forward")
+        torch.cuda.nvtx.range_pop()
+
+        torch.cuda.nvtx.range_push("dense block 1 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_2(x)
         conv_1 = self.conv1_2(conv_1)
@@ -380,9 +380,9 @@ class denseblock(nn.Module):
         conv_2 = self.batch_norm2_2(conv_1)
         conv_2 = self.conv2_2(conv_2)
         conv_2 = F.leaky_relu(conv_2)
-        nvtx.range_pop()
+        torch.cuda.nvtx.range_pop()
 
-        nvtx.range_push("dense block 1 forward")
+        torch.cuda.nvtx.range_push("dense block 1 forward")
         x = torch.cat((x, conv_2), dim=1)
         conv_1 = self.batch_norm1_3(x)
         conv_1 = self.conv1_3(conv_1)
@@ -391,7 +391,7 @@ class denseblock(nn.Module):
         conv_2 = self.conv2_3(conv_2)
         conv_2 = F.leaky_relu(conv_2)
         x = torch.cat((x, conv_2), dim=1)
-        nvtx.range_pop()
+        torch.cuda.nvtx.range_pop()
 
         return x
 
@@ -719,9 +719,12 @@ class CTDataset(Dataset):
 
 def cleanup():
     dist.destroy_process_group()
+
 torch.backends.cudnn.benchmark=True
+
 import nvidia_dlprof_pytorch_nvtx
 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
+
 # from apex.contrib.sparsity import ASP
 from socket import gethostname
 def dd_train(args):
@@ -846,39 +849,41 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
     start = datetime.now()
     scaler = amp.GradScaler()
     sparsified = False
+    # torch.cuda.cudart().cudaProfilerStart()
     for k in range(epochs + retrain):
+        train_sampler.set_epoch(k)
         print("Training for Epocs: ", epochs+retrain)
         print('epoch: ', k, ' train loss: ', train_total_loss[k], ' mse: ', train_MSE_loss[k], ' mssi: ',
               train_MSSSIM_loss[k])
+
         optimizer.zero_grad(set_to_none=True)
-        nvtx.range_push("Training epoch:" + str(k)) # epoch
-        train_sampler.set_epoch(k)
         for batch_index, batch_samples in enumerate(train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                batch_samples['max'], batch_samples['min']
-            nvtx.range_push("Batch: " + str(batch_index)) # batch index
+                                                    batch_samples['max'], batch_samples['min']
+
             with amp.autocast(enabled=amp_enabled):
-                nvtx.range_push("copy to device") # H2D
+                torch.cuda.nvtx.range_push("copy to device") # H2D
                 targets = HQ_img.to(local_rank, non_blocking=True)
                 inputs = LQ_img.to(local_rank, non_blocking=True)
-                nvtx.range_pop() # H2D
-    
-                nvtx.range_push("forward pass,epoch:"+ str(k)) # FP
+                torch.cuda.nvtx.range_pop() # H2D
+
+                torch.cuda.nvtx.range_push("forward pass,epoch:"+ str(k)) # FP
                 outputs = model(inputs)
-                nvtx.range_push("Loss calculation") # Loss
+                torch.cuda.nvtx.range_push("Loss calculation") # Loss
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                nvtx.range_pop() #Loss
-                nvtx.range_pop() #FP
+                torch.cuda.nvtx.range_pop() #Loss
+
+                torch.cuda.nvtx.range_pop() #FP
             # print(outputs.shape)
-            nvtx.range_pop() # batch index
+
 
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
 
-            nvtx.range_push("backward pass") #BP
+            torch.cuda.nvtx.range_push("backward pass") #BP
             if amp_enabled:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -886,16 +891,16 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
             else:
                 loss.backward()
                 optimizer.step()
-            nvtx.range_pop() #BP
-        nvtx.range_pop() #epoch
+            torch.cuda.nvtx.range_pop() #BP
+
 
         scheduler.step()
         # nvtx.range_pop()
         print("Validation")
-        nvtx.range_push("Validation epoch: " + str(k))
+        torch.cuda.nvtx.range_push("Validation epoch: " + str(k))
         for batch_index, batch_samples in enumerate(val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
-                batch_samples['max'], batch_samples['min']
+                                                    batch_samples['max'], batch_samples['min']
             inputs = LQ_img.to(local_rank)
             targets = HQ_img.to(local_rank)
 
@@ -912,7 +917,11 @@ def train_eval_ddnet(epochs, local_rank, model, optimizer, rank, scheduler, trai
             if (k == epochs - 1):
                 if (rank == 0):
                     print("Training complete in: " + str(datetime.now() - start))
-        nvtx.range_pop()
+        torch.cuda.nvtx.range_pop()
+        # if k == 2:
+        #     print("stopping profile")
+        #     torch.cuda.cudart().cudaProfilerStop()
+
         if sparsified == False and retrain > 0 and k == (epochs-1) :
             densetime = str(datetime.now()- start)
             print('pruning model on epoch: ', k)

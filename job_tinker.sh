@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
 #SBATCH --nodes 1
-#SBATCH --ntasks-per-node 1
 #SBATCH --threads-per-core=1    # do not use hyperthreads (i.e. CPUs = physical cores below)
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
@@ -21,6 +20,7 @@ export MASTER_ADDR=$master_addr
 echo "MASTER_ADDR="$MASTER_ADDR
 export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
 echo "WORLD_SIZE="$WORLD_SIZE
+export WORLD_SIZE=1
 echo "slurm job: $SLURM_JOBID"
 #expor job_id=$SLURM_JOBID
 mkdir -p $SLURM_JOBID;cd $SLURM_JOBID
@@ -52,7 +52,7 @@ echo "Staging full data per node"
 
 #cd $TMPDIR/tmpfs
 export dest_dir=$TMPDIR/tmpfs
-cp -r /projects/synergy_lab/garvit217/enhancement_data $dest_dir
+#cp -r /projects/synergy_lab/garvit217/enhancement_data $dest_dir
 echo "Staged full data per node on $dest_dir"
 echo "SLURM_JOBID="$SLURM_JOBID
 echo "SLURM_JOB_NODELIST=$SLURM_JOB_NODELIST"
@@ -119,19 +119,6 @@ fi
 
 
 echo "procid: ${SLURM_PROCID}"
-#echo "cmd: $CMD"
-echo "final command: $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $profile_prefix $CMD"
 
-
-if [ "$enable_profile" = "true" ]; then
-
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_21.12.sif
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --dump_model_data=true --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --gpuctxsw=true " -f true --reports=all --delay 120 --duration 60 ${CMD}
-
-elif [ "$inferonly" = "false" ]; then
-
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile $profile_prefix $CMD
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile python ddnet_inference.py --filepath $SLURM_JOBID --out_dir $SLURM_JOBID --epochs ${epochs} --batch ${batch_size} --lr ${lr} --dr ${dr}
-else
-  $BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile python ddnet_inference.py --filepath $1 --out_dir $1 --epochs ${epochs} --batch ${batch_size} --lr ${lr} --dr ${dr}
-fi
+export imagefile=/home/ayushchatur/ondemand/dev/pytorch_21.12.sif
+$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
