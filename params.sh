@@ -2,10 +2,10 @@
 #!/bin/bash
 
 #options: ver1/ver2
-export pytor="ver2"
+export pytor="ver1"
 #to enable graph change pytorch version above otherwise the below two parameters wont be respected
 
-export graph_mode="reduce-overhead"
+export gr_mode="reduce-overhead"
 export gr_back="aot-eager"
 
 export enable_profile="false"

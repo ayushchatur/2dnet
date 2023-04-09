@@ -4,7 +4,8 @@
 #SBATCH --threads-per-core=1    # do not use hyperthreads (i.e. CPUs = physical cores below)
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=16384                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gpus-per-node 1             #GPU per node
+#SBATCH --ntasks-per-node 4
+#SBATCH --gpus-per-node 4             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
 #SBATCH --time=1:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
@@ -64,26 +65,10 @@ echo "working directory = "$SLURM_SUBMIT_DIR
 module reset
 module list
 
-if [[ "$SLURM_JOB_PARTITION" == *"dgx"* ]]; then
-  module load containers/apptainer
-  export BASE="apptainer"
-else
-  module load containers/singularity
-  export BASE="singularity"
-fi
-echo "BASE: ${BASE}"
 
 echo "current dir: $PWD"
 chmod 755 * -R
 
-#: "${NEXP:=1}"
-#for _experiment_index in $(seq 1 "${NEXP}"); do
-#    (
-#        echo "Beginning trial ${_experiment_index} of ${NEXP}"
-#        srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none --ntasks "${WORLD_SIZE}"  ./execute_final.sh
-#    )
-#done
-#wait
 
 
 if [ "$enable_profile" = "true" ];then
@@ -104,21 +89,28 @@ fi
 export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback}"
 
 
+module load Anaconda3
+conda init
+source ~/.bashrc
+conda activate tttt
 # change base container image to graph is supported in pytorch 2.0
 if [ "$pytor" = "ver1" ]; then
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch_22.04.sif
+  conda activate pytorch_night
 else
-  export imagefile=/home/ayushchatur/ondemand/dev/pytorch2.sif
-  export CMD="${CMD} --gr_mode $graph_mode --gr_backend $gr_back"
+  conda activate tttt
+  export CMD="${CMD} --gr_mode ${gr_mode} --gr_backend ${gr_back}"
 fi
 
 
 #export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
-
+conda list | grep dlpro
 #export profile_prefix="nsys profile -t cuda,nvtx,cudnn,cublas --show-output=true --force-overwrite=true --delay=60 --duration=220 --export=sqlite -o ${SLURM_JOBID}/profile_rank${SLURM_PROCID}_node_${SLURM_NODEID}"
-
-
 echo "procid: ${SLURM_PROCID}"
-
-export imagefile=/home/ayushchatur/ondemand/dev/pytorch_21.12.sif
-$BASE exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared:/cm/shared,$TMPFS $imagefile dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
+: "${NEXP:=1}"
+for _experiment_index in $(seq 1 "${NEXP}"); do
+  (
+	echo "Beginning trial ${_experiment_index} of ${NEXP}"
+	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f t    rue --reports=all --delay 60 --duration 60 ${CMD}
+  )
+done
+wait
