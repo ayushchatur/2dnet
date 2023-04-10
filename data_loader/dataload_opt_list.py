@@ -3,9 +3,9 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from math import exp
 import numpy as np
-from nvidia.dali import pipeline_def
-import nvidia.dali.fn as fn
-import nvidia.dali.types as types
+# from nvidia.dali import pipeline_def
+# import nvidia.dali.fn as fn
+# import nvidia.dali.types as types
 import os
 from os import path
 from PIL import Image
