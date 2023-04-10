@@ -106,6 +106,9 @@ class Sparseddnet(object):
             val_index_list = [int(x) for x in val_index_list]
             val_index_list = [list(val_index_list[i:i + self.batch_size]) for i in range(0, len(val_index_list), self.batch_size)]
 
+            print(f"rank {global_rank} val_index_list list: {val_index_list}")
+
+
             if enable_profile:
                 import nvidia_dlprof_pytorch_nvtx
                 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
