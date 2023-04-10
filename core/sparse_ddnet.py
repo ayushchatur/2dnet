@@ -163,7 +163,7 @@ class Sparseddnet(object):
         val_MSE_loss = []
         val_MSSSIM_loss = []
         for idx in train_index_list:
-            sample_batched = self.train_loader.get_item(idx)
+            sample_batched = self.train_loader.get_item(idx, self.batch_size)
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             # print('indexes: ', idx)
