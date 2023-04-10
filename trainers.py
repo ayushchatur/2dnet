@@ -248,10 +248,14 @@ def dd_train(args):
         print('model file not found')
 
     if new_load:
+        print("initializing training with new loader")
         from core import Sparseddnet
         trainer = Sparseddnet(epochs,retrain, batch,model,optimizer, scheduler,world_size, prune_t, prune_amt,dir_pre, amp_enabled)
+        print("initializing training with new loader")
+
         trainer.trainer_new(rank,local_rank,enable_profile=enable_prof)
     else:
+        print("initiating training")
         from core import SpraseDDnetOld
         trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre, amp=amp_enabled)
         trainer.train_ddnet(rank,local_rank, enable_profile=enable_prof)

@@ -162,6 +162,8 @@ class SpraseDDnetOld(object):
         densetime=0
         train_total_loss, train_MSSSIM_loss, train_MSE_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss = init_loss_params()
         start = datetime.now()
+        print("beginning training epochs")
+        print(f'profiling: {enable_profile}')
         for k in range(self.epochs + self.retrain):
             # train_sampler.set_epoch(epochs + retrain)
             # print("Training for Epocs: ", self.epochs + self.retrain)
@@ -204,6 +206,8 @@ class SpraseDDnetOld(object):
                     unstructured_sparsity(self.model, self.prune_amt)
 
                 sparsified = True
+
+        torch.cuda.current_stream().synchronize()
         print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
         serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)

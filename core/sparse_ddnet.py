@@ -89,9 +89,11 @@ class Sparseddnet(object):
         train_total_loss, train_MSSSIM_loss, train_MSE_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss = init_loss_params()
 
         #         train_sampler.set_epoch(epochs + prune_ep)
-
-
+        print("beginning training epochs")
+        print(f'profiling: {enable_profile}')
+        dist.barrier()
         for k in range(self.epochs + self.retrain):
+            print(f"epoch: {k}")
             if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
 
             train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
