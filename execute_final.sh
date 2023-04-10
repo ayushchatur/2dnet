@@ -17,11 +17,10 @@ source ~/.bashrc
 conda activate tttt
 
 # change base conda env to nightly pytorch
-if [ "$pytor" = "ver2" ]; then
+if [ "$enable_gr" = "true" ]; then
   conda activate pytorch_night
 else
   conda activate tttt
-  export CMD="${CMD} "
 fi
 
 if [ "$enable_profile" = "true" ];then
