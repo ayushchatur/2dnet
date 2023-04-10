@@ -199,7 +199,7 @@ class Sparseddnet(object):
         self.scheduler.step()
         print("Validation")
         for idx in list(val_index_list):
-            sample_batched = self.val_loader.get_item(idx)
+            sample_batched = self.val_loader.get_item(idx, self.batch_size)
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
@@ -226,7 +226,7 @@ class Sparseddnet(object):
         val_MSE_loss = [0]
         val_MSSSIM_loss = [0]
         for idx in train_index_list:
-            sample_batched = self.train_loader.get_item(idx)
+            sample_batched = self.train_loader.get_item(idx, self.batch_size)
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             self.optimizer.zero_grad(set_to_none=True)
@@ -264,7 +264,7 @@ class Sparseddnet(object):
         print("Validation")
         torch.cuda.nvtx.range_push("Validation " + str(idx))
         for idx in val_index_list:
-            sample_batched = self.val_loader.get_item(idx)
+            sample_batched = self.val_loader.get_item(idx, self.batch_size)
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
