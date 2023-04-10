@@ -16,7 +16,7 @@ def get_parser():
                         help='default directory to output files')
     parser.add_argument('--num_w', default=1, type=int, metavar='w',
                         help='num of data loader workers')
-    parser.add_argument('--new_load', default="disable", type=str, metavar='p',
+    parser.add_argument('--new_load', default="false", type=str, metavar='p',
                         help='new data loader')
     parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
                         help='prune amount ')
