@@ -200,8 +200,7 @@ class Sparseddnet(object):
         print("Validation")
         for idx in list(val_index_list):
             sample_batched = self.val_loader.get_item(idx, self.batch_size)
-            HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], \
-                sample_batched['max'], sample_batched['min'], sample_batched['vol']
+            HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
             targets = HQ_img
             with amp.autocast(enabled=self.amp_enabled):
