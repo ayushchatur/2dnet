@@ -2,7 +2,7 @@
 #!/bin/bash
 
 #options: ver1/ver2
-export pytor="ver1"
+export enable_gr="false"
 #to enable graph change pytorch version above otherwise the below two parameters wont be respected
 
 export gr_mode="reduce-overhead"
@@ -27,7 +27,7 @@ export distback="gloo"
 export prune_t="random_unstru"
 export prune_amt="0.5"
 #options enable/disable
-export mp="disable"
+export mp="false"
 #pytorch version 1 or version 2(with new graph support)
 
 export inferonly="false"

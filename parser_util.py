@@ -35,6 +35,12 @@ def get_parser():
                         help='enable wandb configuration')
     parser.add_argument('--distback', default="gloo", type=str, metavar='k',
                         help='enable wandb configuration')
+    parser.add_argument('--enable_profile', default="false", type=str, metavar='x',
+                        help='enable profiling ')
+    parser.add_argument('--do_infer', default="true", type=str, metavar='g',
+                        help='do inference after training')
+    parser.add_argument('--enable_gr', default="false", type=str, metavar='g',
+                        help='do inference after training')
 
 
     return parser

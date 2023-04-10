@@ -62,55 +62,17 @@ echo "SLURMTMPDIR=$SLURMTMPDIR"
 
 echo "working directory = "$SLURM_SUBMIT_DIR
 
-module reset
-module list
 
 
 echo "current dir: $PWD"
 chmod 755 * -R
 
-
-
-if [ "$enable_profile" = "true" ];then
-  if [ "$new_load" = "true" ]; then
-    export file="sparse_ddnet_pro.py"
-  else
-    export file="sparse_ddnet_old_dl_profile.py"
-  fi
-else
-    if [ "$new_load" = "true" ]; then
-    export file="sparse_ddnet.py"
-  else
-    export file="sparse_ddnet_old_dl.py"
-  fi
-fi
-
-
-export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir $SLURM_JOBID --amp ${mp} --num_w $num_data_w --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback}"
-
-
-module load Anaconda3
-conda init
-source ~/.bashrc
-conda activate tttt
-# change base container image to graph is supported in pytorch 2.0
-if [ "$pytor" = "ver1" ]; then
-  conda activate pytorch_night
-else
-  conda activate tttt
-  export CMD="${CMD} --gr_mode ${gr_mode} --gr_backend ${gr_back}"
-fi
-
-
-#export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
-conda list | grep dlpro
-#export profile_prefix="nsys profile -t cuda,nvtx,cudnn,cublas --show-output=true --force-overwrite=true --delay=60 --duration=220 --export=sqlite -o ${SLURM_JOBID}/profile_rank${SLURM_PROCID}_node_${SLURM_NODEID}"
 echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
 for _experiment_index in $(seq 1 "${NEXP}"); do
   (
 	echo "Beginning trial ${_experiment_index} of ${NEXP}"
-	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f t    rue --reports=all --delay 60 --duration 60 ${CMD}
+	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none ./execute_final.sh
   )
 done
 wait
