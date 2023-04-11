@@ -31,6 +31,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 from core import DD_net
+from core import test_ddnet
 # from dataload import CTDataset
 # from dataload_optimization import CTDataset
 
@@ -187,7 +188,7 @@ def dd_train(args):
     distback = args.distback
     dist.init_process_group(distback, rank=rank, world_size=world_size)
     print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of world with size: {dist.get_world_size()} on {gethostname()} where there are" \
-        f" {gpus_per_node} allocated GPUs per node.", flush=True)
+          f" {gpus_per_node} allocated GPUs per node.", flush=True)
     # torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
@@ -259,11 +260,15 @@ def dd_train(args):
         from core import SpraseDDnetOld
         trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre, amp=amp_enabled)
         trainer.train_ddnet(rank,local_rank, enable_profile=enable_prof)
+
+    if rank == 0:
+        print("saving model file")
+        torch.save(model.state_dict(), dir_pre + "/" + model_file)
+        if not inference:
+            print("not doing inference.. training only script")
     dist.barrier()
     dist.destroy_process_group()
 
-    if not inference:
-        print("not doing inference.. training only mode")
 
 def main():
 

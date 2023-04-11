@@ -19,7 +19,7 @@ module load Anaconda3
 conda init
 source ~/.bashrc
 conda activate tttt
-
+export infer_command="python ddnet_inference.py --filepath ${SLURM_PROCID} --batch ${batch_size} --epochs ${epochs} --lr ${lr} --dr ${dr}  --out_dir $SLURM_JOBID  --new_load ${new_load} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr}"
 # change base conda env to nightly pytorch
 if [ "$enable_gr" = "true" ]; then
   conda activate pytorch_night
@@ -27,9 +27,18 @@ else
   conda activate tttt
 fi
 
-if [ "$enable_profile" = "true" ];then
-  dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_{SLURM_PROCID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
+
+
+if [  "$inferonly"  == "true" ]; then
+  export filepath=$1
+  python ddnet_inference.py --filepath $1 --batch ${batch_size} --epochs ${epochs} --lr ${lr} --dr ${dr}  --out_dir $SLURM_JOBID  --new_load ${new_load} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr}
 else
-  $CMD
+  if [ "$enable_profile" = "true" ];then
+    dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_{SLURM_PROCID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
+  else
+    $CMD
+    $infer_command
+  fi
 fi
+
 
