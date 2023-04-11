@@ -116,7 +116,7 @@ class Sparseddnet(object):
                     self._epoch_profile(train_index_list,val_index_list)
                 train_total_loss[k] = train_total
                 train_MSE_loss[k] = train_mse
-                train_msi[k] = train_msi
+                train_MSSSIM_loss[k] = train_msi
 
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
@@ -126,7 +126,7 @@ class Sparseddnet(object):
                     self._epoch(train_index_list,val_index_list)
                 train_total_loss[k] = train_total
                 train_MSE_loss[k] = train_mse
-                train_msi[k] = train_msi
+                train_MSSSIM_loss[k] = train_msi
 
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse

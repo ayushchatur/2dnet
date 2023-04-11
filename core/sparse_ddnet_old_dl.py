@@ -175,7 +175,7 @@ class SpraseDDnetOld(object):
                    self._epoch_profile(local_rank)
                 train_total_loss[k] = train_total
                 train_MSE_loss[k] = train_mse
-                train_msi[k] = train_msi
+                train_MSSSIM_loss[k] = train_msi
 
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
@@ -186,7 +186,7 @@ class SpraseDDnetOld(object):
 
                 train_total_loss[k] = train_total
                 train_MSE_loss[k] = train_mse
-                train_msi[k] = train_msi
+                train_MSSSIM_loss[k] = train_msi
 
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
@@ -229,6 +229,7 @@ class SpraseDDnetOld(object):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
 
+            self.optimizer.zero_grad(set_to_none=True)
             targets = HQ_img.to(local_rank, non_blocking=True)
             inputs = LQ_img.to(local_rank, non_blocking=True)
             with amp.autocast(enabled=self.amp_enabled):
@@ -242,7 +243,6 @@ class SpraseDDnetOld(object):
             train_MSSSIM_loss.append(MSSSIM_loss.item())
             train_total_loss.append(loss.item())
             # model.zero_grad()
-            self.optimizer.zero_grad(set_to_none=True)
             # BW pass
             if self.amp_enabled:
                 # print('bw pass')
