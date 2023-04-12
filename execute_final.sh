@@ -28,10 +28,10 @@ else
 fi
 
 
-
+export filepath=${SLURM_PROCID}
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
-  python ddnet_inference.py --filepath $1 --batch ${batch_size} --epochs ${epochs} --lr ${lr} --dr ${dr}  --out_dir $SLURM_JOBID  --new_load ${new_load} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr}
+  python ddnet_inference.py --filepath ${SLURM_PROCID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}
 else
   if [ "$enable_profile" = "true" ];then
     dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_{SLURM_PROCID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
