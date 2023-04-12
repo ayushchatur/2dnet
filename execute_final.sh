@@ -19,7 +19,7 @@ module load Anaconda3
 conda init
 source ~/.bashrc
 conda activate tttt
-export infer_command="python ddnet_inference.py --filepath ${SLURM_PROCID} --batch ${batch_size} --epochs ${epochs} --lr ${lr} --dr ${dr}  --out_dir $SLURM_JOBID  --new_load ${new_load} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr}"
+export infer_command="python ddnet_inference.py filepath ${SLURM_PROCID} --batch ${batch_size} --epochs ${epochs} --out_dir $SLURM_JOBID"
 # change base conda env to nightly pytorch
 if [ "$enable_gr" = "true" ]; then
   conda activate pytorch_night

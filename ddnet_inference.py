@@ -220,7 +220,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         for item in MSE_loss_in_target:
             f.write("%f\n" % item)
 
-def test_ddnet(args):
+def main(args):
     if args.filepath is None:
         print("filepath not given")
         return
@@ -309,10 +309,6 @@ if __name__ == '__main__':
                         help='model file path')
     parser.add_argument('--epochs', default=50, type=int, metavar='b',
                         help='model file path')
-    parser.add_argument('--lr', default=0.0001, type=float, metavar='l',
-                        help='enable wandb configuration')
-    parser.add_argument('--dr', default=0.95, type=float, metavar='d',
-                        help='enable wandb configuration')
     args = parser.parse_args()
     main(args)
     exit()
