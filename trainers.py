@@ -31,7 +31,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 from core import DD_net
-from core import test_ddnet
+
 # from dataload import CTDataset
 # from dataload_optimization import CTDataset
 
