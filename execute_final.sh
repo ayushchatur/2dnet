@@ -34,7 +34,7 @@ if [  "$inferonly"  == "true" ]; then
   python ddnet_inference.py --filepath ${SLURM_PROCID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}
 else
   if [ "$enable_profile" = "true" ];then
-    dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_{SLURM_PROCID} --profile_name=dlpro_{SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
+    dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
   else
     $CMD
     $infer_command
