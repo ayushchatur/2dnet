@@ -297,7 +297,7 @@ class SpraseDDnetOld(object):
                 inputs = LQ_img.to(local_rank, non_blocking=True)
                 torch.cuda.nvtx.range_pop()  # H2D
 
-                torch.cuda.nvtx.range_push("forward pass,epoch:" + str(k))  # FP
+                torch.cuda.nvtx.range_push("forward pass, step:" + str(batch_index))  # FP
                 outputs = self.model(inputs)
                 torch.cuda.nvtx.range_push("Loss calculation")  # Loss
                 MSE_loss = nn.MSELoss()(outputs, targets)
@@ -324,11 +324,12 @@ class SpraseDDnetOld(object):
 
         self.scheduler.step()
         # nvtx.range_pop()
-        print("Validation")
-        torch.cuda.nvtx.range_push("Validation")
+        # print("Validation")
+
         for batch_index, batch_samples in enumerate(self.val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
+            torch.cuda.nvtx.range_push("Validation step: " + str(batch_index))
             inputs = LQ_img.to(local_rank)
             targets = HQ_img.to(local_rank)
 
@@ -342,6 +343,6 @@ class SpraseDDnetOld(object):
             val_MSE_loss.append(MSE_loss.item())
             val_total_loss.append(loss.item())
             val_MSSSIM_loss.append(MSSSIM_loss.item())
-        torch.cuda.nvtx.range_pop()
+            torch.cuda.nvtx.range_pop()
 
         return train_total_loss, train_MSE_loss, train_MSSSIM_loss, val_total_loss, val_MSE_loss, val_MSSSIM_loss
