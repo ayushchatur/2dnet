@@ -267,7 +267,7 @@ def dd_train(args):
         if not inference:
             print("not doing inference.. training only script")
     # dist.barrier()
-    # dist.destroy_process_group()
+    dist.destroy_process_group()
 
 
 def main():
