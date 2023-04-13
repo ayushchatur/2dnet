@@ -14,7 +14,7 @@ echo "CMD: ${CMD}"
 module load EasyBuild/4.6.1
 module use $EASYBUILD_INSTALLPATH_MODULES
 module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
-module load system/CUDA/11.7.0
+#module load system/CUDA/11.7.0
 
 module load Anaconda3
 conda init

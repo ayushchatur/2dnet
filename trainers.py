@@ -266,8 +266,8 @@ def dd_train(args):
         torch.save(model.state_dict(), dir_pre + "/" + model_file)
         if not inference:
             print("not doing inference.. training only script")
-    dist.barrier()
-    dist.destroy_process_group()
+    # dist.barrier()
+    # dist.destroy_process_group()
 
 
 def main():
