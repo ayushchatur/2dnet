@@ -20,7 +20,7 @@ export retrain=0
 export num_data_w=4
 export new_load="false"
 export wandb=-1
-export lr=0.0001
+export lr=0.001
 export dr=0.95
 export distback="gloo"
 # options mag/l1_struc or random_unstru will be set otherwise
