@@ -68,10 +68,16 @@ chmod 755 * -R
 
 echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
-for _experiment_index in $(seq 1 "${NEXP}"); do
-  (
-	echo "Beginning trial ${_experiment_index} of ${NEXP}"
-	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none ./execute_final.sh
-  )
-done
-wait
+
+if [  "$inferonly"  == "true" ]; then
+  export filepath=$1
+  python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
+else
+  for _experiment_index in $(seq 1 "${NEXP}"); do
+    (
+  	echo "Beginning trial ${_experiment_index} of ${NEXP}"
+  	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none ./execute_final.sh
+    )
+  done
+  wait
+fi

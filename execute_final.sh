@@ -28,20 +28,14 @@ else
   conda activate py_13_1_cuda11_7
 fi
 
-
-export filepath=${SLURM_JOBID}
-if [  "$inferonly"  == "true" ]; then
-  export filepath=$1
-  python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
+if [ "$enable_profile" = "true" ];then
+  dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
 else
-  if [ "$enable_profile" = "true" ];then
-    dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 60 ${CMD}
-  else
-    $CMD
-    export MASTER_PORT=$(comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-    echo "master port: $MASTER_PORT"
-    $infer_command
-  fi
+  $CMD
+  export MASTER_PORT=$(comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+  echo "master port: $MASTER_PORT"
+  $infer_command
 fi
+
 
 
