@@ -207,7 +207,7 @@ class SpraseDDnetOld(object):
 
                 sparsified = True
 
-        torch.cuda.current_stream().synchronize()
+        # torch.cuda.current_stream().synchronize()
         print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
         serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)
