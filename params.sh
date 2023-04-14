@@ -28,6 +28,7 @@ export prune_t="random_unstru"
 export prune_amt="0.5"
 #options enable/disable
 export mp="false"
+export schedtype="expo"
 #pytorch version 1 or version 2(with new graph support)
 
 export inferonly="false"

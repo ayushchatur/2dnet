@@ -41,6 +41,7 @@ def get_parser():
                         help='do inference after training')
     parser.add_argument('--enable_gr', default="false", type=str, metavar='g',
                         help='do inference after training')
-
+    parser.add_argument('--schedtype', default="expo", type=str, metavar='z',
+                        help='scheduler type')
 
     return parser
