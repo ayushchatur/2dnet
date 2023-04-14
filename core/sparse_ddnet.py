@@ -34,7 +34,7 @@ from ddnet_utils import serialize_loss_item
 INPUT_CHANNEL_SIZE = 1
 
 class Sparseddnet(object):
-    def __init__(self, epochs, retrain, batch,model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre=".", amp = False):
+    def __init__(self, epochs, retrain, batch,model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre=".", amp = False,  sched_type='expo'):
         self.epochs = epochs
         self.retrain = retrain
         self.batch_size = batch
@@ -47,6 +47,7 @@ class Sparseddnet(object):
         self.prune_amt = prune_amt
         self.output_path = dir_pre
         self.amp_enabled = amp
+        self.sched_type = sched_type
 
 
     def trainer_new(self, global_rank, local_rank, output_path=".", enable_profile=False):
@@ -199,7 +200,11 @@ class Sparseddnet(object):
                 #                 print('optimia')
                 self.optimizer.step()
         print("schelud")
-        self.scheduler.step()
+        if self.sched_type == "platu":
+            self.scheduler.step(loss)
+        else:
+            self.scheduler.step()
+
         print("Validation")
         for idx in list(val_index_list):
             sample_batched = self.val_loader.get_item(idx, self.batch_size)

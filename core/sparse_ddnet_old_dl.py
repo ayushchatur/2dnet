@@ -121,7 +121,7 @@ class CTDataset(Dataset):
 
 
 class SpraseDDnetOld(object):
-    def __init__(self, epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre=".", amp = False):
+    def __init__(self, epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre=".", amp = False, sched_type='expo'):
         self.epochs = epochs
         self.retrain = retrain
         self.batch_size = batch
@@ -134,6 +134,7 @@ class SpraseDDnetOld(object):
         self.prune_amt = prune_amt
         self.output_path = dir_pre
         self.amp_enabled = amp
+        self.sched_type = sched_type
 
     def init_dataset_dataloader(self, global_rank: int, num_workers: int = 1):
         root_train_h = "/projects/synergy_lab/garvit217/enhancement_data/train/HQ/"
