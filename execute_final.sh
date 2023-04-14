@@ -20,7 +20,7 @@ module load Anaconda3
 conda init
 source ~/.bashrc
 conda activate tttt
-export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+
 # change base conda env to nightly pytorch
 if [ "$enable_gr" = "true" ]; then
   conda activate pytorch_night
@@ -32,9 +32,6 @@ if [ "$enable_profile" = "true" ];then
   dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 120 ${CMD}
 else
   $CMD
-  export MASTER_PORT=$(comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
-  echo "master port: $MASTER_PORT"
-  $infer_command
 fi
 
 

@@ -68,7 +68,7 @@ chmod 755 * -R
 
 echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
-
+export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
   python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
@@ -80,4 +80,5 @@ else
     )
   done
   wait
+  $infer_command
 fi
