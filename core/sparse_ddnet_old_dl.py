@@ -256,7 +256,7 @@ class SpraseDDnetOld(object):
                 self.optimizer.step()
         # print("schelud")
 
-        self.scheduler.step()
+            self.scheduler.step()
         # print("Validation")
         for batch_index, batch_samples in enumerate(self.val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
