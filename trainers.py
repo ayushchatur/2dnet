@@ -97,7 +97,7 @@ def dd_train(args):
     # criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learn_rate, eps=epsilon)  #######ADAM CHANGE
     decayRate = args.dr
-    sched_type = args.sched_type
+    sched_type = args.schedtype
     if sched_type == "cos" :
         scheduler = CosineAnnealingWarmRestarts(optimizer=optimizer, T_0=10, T_mult=10,eta_min=0.0005)
     elif sched_type == "platu" :
