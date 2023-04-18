@@ -68,7 +68,7 @@ chmod 755 * -R
 
 echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
-export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+
 
 module load EasyBuild/4.6.1
 module use $EASYBUILD_INSTALLPATH_MODULES
@@ -100,6 +100,8 @@ else
   conda activate py_13_1_cuda11_7
 fi
 
+
+export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
