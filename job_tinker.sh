@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=ddnet
-#SBATCH --nodes 4
+#SBATCH --nodes 1
 #SBATCH --threads-per-core=1    # do not use hyperthreads (i.e. CPUs = physical cores below)
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem-per-cpu=8384                # total memory per node (4 GB per cpu-core is default)
-#SBATCH --ntasks-per-node 4
-#SBATCH --gpus-per-node 4             #GPU per node
+#SBATCH --ntasks-per-node 1
+#SBATCH --gpus-per-node 1             #GPU per node
 #SBATCH --partition=a100_normal_q # slurm partition
-#SBATCH --time=4:30:00          # time limit
+#SBATCH --time=24:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
@@ -70,10 +70,22 @@ echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
 export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 
-
 module load EasyBuild/4.6.1
 module use $EASYBUILD_INSTALLPATH_MODULES
-module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
+
+module load CUDA/11.7.0
+module load cuDNN/8.4.1.50-CUDA-11.7.0
+
+if [[ "$SLURM_JOB_PARTITION" =~ "v100" ]]; then
+  module load NCCL/2.10.3-GCCcore-11.2.0-CUDA-11.4.1
+else
+ module load NCCL/2.12.12-GCCcore-11.3.0-CUDA-11.7.0
+fi
+
+
+
+alias nsys=$CUDA_HOME/bin/nsys
+#module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
 #module load system/CUDA/11.7.0
 
 module load Anaconda3
