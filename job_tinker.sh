@@ -69,6 +69,26 @@ chmod 755 * -R
 echo "procid: ${SLURM_PROCID}"
 : "${NEXP:=1}"
 export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+
+
+module load EasyBuild/4.6.1
+module use $EASYBUILD_INSTALLPATH_MODULES
+module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
+#module load system/CUDA/11.7.0
+
+module load Anaconda3
+conda init
+source ~/.bashrc
+conda activate tttt
+
+# change base conda env to nightly pytorch
+if [ "$enable_gr" = "true" ]; then
+  conda activate pytorch_night
+else
+  conda activate py_13_1_cuda11_7
+fi
+
+
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
   python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
