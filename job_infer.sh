@@ -64,14 +64,16 @@ echo "custom module path: $EASYBUILD_INSTALLPATH_MODULES"
 
 
 echo "current dir: $PWD"
-chmod 755 * -R
+#chmod 755 * -R
 
 
 : "${NEXP:=1}"
 
+conda deactivate
 module reset
 module load EasyBuild/4.6.1
 module use $EASYBUILD_INSTALLPATH_MODULES
+
 
 module load Anaconda3
 conda init
