@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=8384                # total memory per node (4 GB per cpu-core is default)
 #SBATCH --ntasks-per-node 1
 #SBATCH --gpus-per-node 1             #GPU per node
-#SBATCH --partition=a100_normal_q # slurm partition
+#SBATCH --partition=v100_normal_q # slurm partition
 #SBATCH --time=24:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
 
@@ -28,7 +28,7 @@ set | grep SLURM | while read line; do echo "# $line"; done > slurm.txt
 env | grep -i -v slurm | sort > env.txt
 #cp ../sparse_ddnet.py .
 #cp ../sparse_ddnet_pp.py .
-
+export batch_size=4
 mkdir -p ./loss/
 mkdir -p ./reconstructed_images/
 mkdir -p ./reconstructed_images/val
