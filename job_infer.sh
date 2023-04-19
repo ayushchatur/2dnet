@@ -69,7 +69,6 @@ echo "current dir: $PWD"
 
 : "${NEXP:=1}"
 
-conda deactivate
 module reset
 module load EasyBuild/4.6.1
 module use $EASYBUILD_INSTALLPATH_MODULES
