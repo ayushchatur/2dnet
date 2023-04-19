@@ -70,11 +70,7 @@ echo "current dir: $PWD"
 : "${NEXP:=1}"
 
 module reset
-module load EasyBuild/4.6.1
-module use $EASYBUILD_INSTALLPATH_MODULES
-
-
-module load Anaconda3
+module restore cu117
 if [ "$enable_gr" = "true" ]; then
   export conda_env="pytorch_night"
 #  conda activate pytorch_night
@@ -84,20 +80,16 @@ else
 fi
 
 
-module load CUDA/11.7.0
-module load cuDNN/8.4.1.50-CUDA-11.7.0
-module load NCCL/2.10.3-GCCcore-11.2.0-CUDA-11.4.1
-
-
 module list
 
-alias nsys=$CUDA_HOME/bin/nsys
+
 #module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
 #module load system/CUDA/11.7.0
 
 echo "getting system info"
 conda info
 echo "cuda home: ${CUDA_HOME}"
+alias nsys=$CUDA_HOME/bin/nsys
 python --version
 nsys --version
 nvcc --version
