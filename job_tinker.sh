@@ -72,7 +72,7 @@ chmod 755 * -R
 
 
 if [ "$enable_gr" = "true" ]; then
-  export cond_env="pytorch_night"
+  export conda_env="pytorch_night"
 else
   export conda_env="py_13_1_cuda11_7"
 fi
