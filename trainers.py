@@ -47,8 +47,7 @@ def dd_train(args):
 
     distback = args.distback
     dist.init_process_group(distback, rank=rank, world_size=world_size)
-    print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of world with size: {dist.get_world_size()} on {gethostname()} where there are" \
-          f" {gpus_per_node} allocated GPUs per node.", flush=True)
+    print(f"Hello from local_rank: {local_rank} and global rank {dist.get_rank()} of world with size: {dist.get_world_size()} on {gethostname()} where there are {gpus_per_node} allocated GPUs per node.", flush=True)
     # torch.cuda.set_device(local_rank)
     if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
     if rank == 0: print(args)
