@@ -75,6 +75,7 @@ module list
 
 
 #module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
+#cuDNN/8.4.1.50-CUDA-11.7.0
 #module load system/CUDA/11.7.0
 
 echo "getting system info"
