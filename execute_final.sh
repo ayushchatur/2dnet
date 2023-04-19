@@ -1,17 +1,11 @@
 #!/bin/bash
 
-module reset
+#module reset
 #module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
 #module load system/CUDA/11.7.0
-module load Anaconda3
+#module load Anaconda3
 module list
 # change base conda env to nightly pytorch
-if [ "$enable_gr" = "true" ]; then
-  export cond_env="pytorch_night"
-else
-  export conda_env="py_13_1_cuda11_7"
-fi
-
 
 #export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
 
