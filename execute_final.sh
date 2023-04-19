@@ -1,18 +1,10 @@
 #!/bin/bash
 
 module reset
-module list
-
-
-
 #module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
 #module load system/CUDA/11.7.0
-
 module load Anaconda3
-conda init
-source ~/.bashrc
-conda activate tttt
-
+module list
 # change base conda env to nightly pytorch
 if [ "$enable_gr" = "true" ]; then
   export cond_env="pytorch_night"
@@ -33,7 +25,7 @@ echo "CMD: ${CMD}"
 if [ "$enable_profile" = "true" ];then
   module load CUDA/11.7.0
   echo "cuda home: ${CUDA_HOME}"
-  conda run -n ${conda_env} dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true --kill=none" -f true --reports=all --delay 60 --duration 120 ${CMD}
+  conda run -n ${conda_env} dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true" -f true --reports=all --delay 60 --duration 120 ${CMD}
 else
   $CMD
 fi

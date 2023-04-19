@@ -69,7 +69,18 @@ chmod 755 * -R
 
 : "${NEXP:=1}"
 
-export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+
+
+if [ "$enable_gr" = "true" ]; then
+  export cond_env="pytorch_night"
+else
+  export conda_env="py_13_1_cuda11_7"
+fi
+module reset
+module load Anaconda3
+
+export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+
 
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
