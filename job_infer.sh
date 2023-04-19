@@ -76,15 +76,12 @@ module use $EASYBUILD_INSTALLPATH_MODULES
 
 
 module load Anaconda3
-conda init
-source ~/.bashrc
-
 if [ "$enable_gr" = "true" ]; then
   export conda_env="pytorch_night"
-  conda activate pytorch_night
+#  conda activate pytorch_night
 else
   export conda_env="py_13_1_cuda11_7"
-  conda activate py_13_1_cuda11_7
+#  conda activate py_13_1_cuda11_7
 fi
 
 
