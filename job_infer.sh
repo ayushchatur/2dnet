@@ -69,7 +69,7 @@ echo "current dir: $PWD"
 
 : "${NEXP:=1}"
 module list
-module reset
+module purge
 module restore cu117
 module list
 
