@@ -2,6 +2,36 @@
 
 module reset
 module list
+module load EasyBuild/4.6.1
+module use $EASYBUILD_INSTALLPATH_MODULES
+
+module load CUDA/11.7.0
+module load cuDNN/8.4.1.50-CUDA-11.7.0
+
+if [[ "$SLURM_JOB_PARTITION" =~ "v100" ]]; then
+  module load NCCL/2.10.3-GCCcore-11.2.0-CUDA-11.4.1
+else
+ module load NCCL/2.12.12-GCCcore-11.3.0-CUDA-11.7.0
+fi
+
+
+
+alias nsys=$CUDA_HOME/bin/nsys
+#module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
+#module load system/CUDA/11.7.0
+
+module load Anaconda3
+conda init
+source ~/.bashrc
+conda activate tttt
+
+# change base conda env to nightly pytorch
+if [ "$enable_gr" = "true" ]; then
+  conda activate pytorch_night
+else
+  conda activate py_13_1_cuda11_7
+fi
+
 
 #export profile_prefix="dlprof --output_path=${SLURM_JOBID} --profile_name=dlpro_${SLURM_NODEID}_rank${SLURM_PROCID} --mode=pytorch -f true --reports=all -y 60 -d 120 --nsys_base_name=nsys_${SLURM_NODEID}_rank${SLURM_PROCID}  --nsys_opts=\"-t osrt,cuda,nvtx,cudnn,cublas\" "
 
