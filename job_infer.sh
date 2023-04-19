@@ -68,18 +68,9 @@ echo "current dir: $PWD"
 
 
 : "${NEXP:=1}"
-
+module list
 module reset
 module restore cu117
-if [ "$enable_gr" = "true" ]; then
-  export conda_env="pytorch_night"
-#  conda activate pytorch_night
-else
-  export conda_env="py_13_1_cuda11_7"
-#  conda activate py_13_1_cuda11_7
-fi
-
-
 module list
 
 
@@ -90,26 +81,43 @@ echo "getting system info"
 conda info
 echo "cuda home: ${CUDA_HOME}"
 alias nsys=$CUDA_HOME/bin/nsys
-python --version
 nsys --version
-nvcc --version
 whereis nsys
-whereis python
-conda run -n ${conda_env} python -c "import torch;print(f'cuDNN version: {torch.backends.cudnn.version()}')"
-conda run -n ${conda_env} python -c "import torch;print(f' NCCL version: {torch.cuda.nccl.version()}')"
-export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 
-
-if [  "$inferonly"  == "true" ]; then
-  export filepath=$1
-  python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
+if [ "$enable_gr" = "true" ]; then
+  export imagefile="${HOME}/ondemand/dev/pytorch_2.0.sif"
 else
-  for _experiment_index in $(seq 1 "${NEXP}"); do
-    (
-  	echo "Beginning trial ${_experiment_index} of ${NEXP}"
-  	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none ./execute_final.sh
-    )
-  done
-  wait
-  $infer_command
+  export imagefile="${HOME}/ondemand/dev/pytorch_22.04.sif"
 fi
+
+export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+export file="trainers.py"
+
+export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir ${SLURM_JOBID} --amp ${mp} --num_w $num_data_w  --new_load ${new_load} --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback} --enable_profile ${enable_profile} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr} --schedtype ${schedtype}"
+
+export BASE="singularity exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
+
+echo "CMD: ${BASE} ${CMD}"
+
+
+if [ "$enable_profile" = "true"  ];then
+  echo "cuda home: ${CUDA_HOME}"
+  srun $BASE dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true" -f true --reports=all --delay 60 --duration 120 ${CMD}
+else
+  if [  "$inferonly"  == "true" ]; then
+    export filepath=$1
+    $BASE python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
+  else
+    for _experiment_index in $(seq 1 "${NEXP}"); do
+      (
+    	echo "Beginning trial ${_experiment_index} of ${NEXP}"
+    	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none $BASE $CMD
+      )
+    done
+    wait
+    export infer_command="${BASE} ${infer_command}"
+    echo "infer command: ${infer_command}"
+    $infer_command
+  fi
+fi
+
