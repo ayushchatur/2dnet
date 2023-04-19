@@ -69,17 +69,17 @@ echo "current dir: $PWD"
 
 : "${NEXP:=1}"
 module list
-module purge
-module restore cu117
-module list
-
+module load site/infer-skylake_v100/easybuild/arc.arcadm
+module load EasyBuild/4.6.1
+module use $EASYBUILD_INSTALLPATH_MODULES
 
 #module load numlib/cuDNN/8.4.1.50-CUDA-11.7.0
-#cuDNN/8.4.1.50-CUDA-11.7.0
-#module load system/CUDA/11.7.0
+module load cuDNN/8.4.1.50-CUDA-11.7.0
+module load CUDA/11.7.0
+module load Anaconda3/2022.05
+module load containers/singularity/3.8.5
 
 echo "getting system info"
-conda info
 echo "cuda home: ${CUDA_HOME}"
 alias nsys=$CUDA_HOME/bin/nsys
 nsys --version
