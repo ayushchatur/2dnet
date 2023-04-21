@@ -56,7 +56,7 @@ def dd_train(args):
     epochs = args.epochs
     retrain = args.retrain
     prune_t = args.prune_t
-    prune_amt = args.prune_amt
+    prune_amt = float(args.prune_amt)
     # enable_gr = (args.enable_gr == "true")
     gr_mode = args.gr_mode
     gr_backend = args.gr_backend

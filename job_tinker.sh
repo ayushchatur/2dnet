@@ -77,7 +77,8 @@ else
   export conda_env="py_13_1_cuda11_7"
 fi
 module reset
-module load Anaconda3
+module load site/tinkercliffs/easybuild/arc.arcadm
+module load Anaconda3/2022.05
 
 export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 

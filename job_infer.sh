@@ -86,9 +86,9 @@ nsys --version
 whereis nsys
 
 if [ "$enable_gr" = "true" ]; then
-  export imagefile="${HOME}/ondemand/dev/pytorch_2.0.sif"
+  export imagefile="/projects/synergy_lab/ayush/containers/pytorch_2.0.sif"
 else
-  export imagefile="${HOME}/ondemand/dev/pytorch_22.04.sif"
+  export imagefile="/projects/synergy_lab/ayush/containers/pytorch_22.04.sif"
 fi
 
 export infer_command="python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
