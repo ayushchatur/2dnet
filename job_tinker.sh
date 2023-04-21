@@ -31,15 +31,8 @@ env | grep -i -v slurm | sort > env.txt
 
 mkdir -p ./loss/
 mkdir -p ./reconstructed_images/
-mkdir -p ./reconstructed_images/val
 mkdir -p ./reconstructed_images/test
 mkdir -p ./visualize
-mkdir -p ./visualize/val/
-mkdir -p ./visualize/val/mapped/
-mkdir -p ./visualize/val/diff_target_out/
-mkdir -p ./visualize/val/diff_target_in/
-mkdir -p ./visualize/val/input/
-mkdir -p ./visualize/val/target/
 mkdir -p ./visualize/test/
 mkdir -p ./visualize/test/mapped/
 mkdir -p ./visualize/test/diff_target_out/

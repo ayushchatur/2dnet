@@ -43,7 +43,7 @@ class Sparseddnet(object):
         self.scheduler = scheduler
         # self.scaler = grad_scaler
         self.world_size = world_size
-        self.prune_type = prune_t
+        self.prune_t = prune_t
         self.prune_amt = prune_amt
         self.output_path = dir_pre
         self.amp_enabled = amp
