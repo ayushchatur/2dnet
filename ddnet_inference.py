@@ -241,7 +241,7 @@ def main(args):
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=test_sampler)
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
-
+    list_of_imp_images = ['image_96.tif', 'sub-S04243_ses-E08488_acq-1_run-8_bp-chest_ct.nii0111.tif', 'sub-S04216_ses-E08457_run-3_bp-chest_ct.nii0284.tif', 'image_85.tif', 'image_192.tif']
     model = DD_net()
     model.to(rank)
     model = DDP(model, device_ids=[rank])
@@ -264,15 +264,8 @@ def main(args):
             test_MSSSIM_loss.append(MSSSIM_loss.item())
             test_total_loss.append(loss.item())
             outputs_np = outputs.cpu().detach().numpy()
-
-            (batch_size, channel, height, width) = outputs.size()
-            for m in range(batch_size):
-                file_name1 = file_name[m]
-                file_name1 = file_name1.replace(".IMA", ".tif")
-                im = Image.fromarray(outputs_np[m, 0, :, :])
-                im.save(dir_pre + '/reconstructed_images/test/' + file_name1)
-
-            gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
+            if file_name in list_of_imp_images:
+                gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
         # torch.save(model.state_dict(), model_file)
         try:
             print('serializing test losses')
