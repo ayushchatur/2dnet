@@ -263,7 +263,6 @@ def main(args):
             test_MSE_loss.append(MSE_loss.item())
             test_MSSSIM_loss.append(MSSSIM_loss.item())
             test_total_loss.append(loss.item())
-            outputs_np = outputs.cpu().detach().numpy()
             if file_name in list_of_imp_images:
                 gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
         # torch.save(model.state_dict(), model_file)
