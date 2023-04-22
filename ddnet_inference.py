@@ -182,9 +182,9 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
         MSSSIM_loss = 1 - MSSSIM()(output_img, target_img)
         total_loss = MSE_loss + 0.1 * (MSSSIM_loss)
         # MSE_loss_in_target.append(nn.MSELoss()(input_img, target_img))
-        MSE_loss_out_target.append(MSE_loss)
-        MSSSIM_loss_out_target.append(MSSSIM_loss)
-        Total_loss_out_target.append(total_loss)
+        MSE_loss_out_target.append(MSE_loss.item())
+        MSSSIM_loss_out_target.append(MSSSIM_loss.item())
+        Total_loss_out_target.append(total_loss.item())
 
         # MSSSIM_loss_in_target.append(1 - MSSSIM()(input_img, target_img))
 
@@ -244,6 +244,7 @@ def main(args):
             MSE_loss = nn.MSELoss()(outputs, targets)
             MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
             loss = MSE_loss + 0.1 * (MSSSIM_loss)
+
             test_MSE_loss.append(MSE_loss.item())
             test_MSSSIM_loss.append(MSSSIM_loss.item())
             test_total_loss.append(loss.item())

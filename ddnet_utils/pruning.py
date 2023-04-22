@@ -213,6 +213,7 @@ def count_parameters(model):
 
 def enable_cudnn_tensorcore(enable: bool):
     if enable and torch.backends.cudnn.allow_tf32 == False:
+        print('enabling tensor core mat mul')
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
 
