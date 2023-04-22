@@ -104,6 +104,12 @@ class CTDataset(Dataset):
                   'max': maxs,
                   'min': mins}
         return sample
+list_of_imp_images = ['image_96.tif', 'sub-S04243_ses-E08488_acq-1_run-8_bp-chest_ct.nii0111.tif', 'sub-S04216_ses-E08457_run-3_bp-chest_ct.nii0284.tif', 'image_85.tif', 'image_192.tif']
+
+MSE_loss_out_target = []
+# MSE_loss_in_target = []
+MSSSIM_loss_out_target = []
+Total_loss_out_target = []
 
 def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs, mins):
     mapped_root = dir_pre + "/visualize/" + val_test + "/mapped/"
@@ -114,25 +120,7 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
     in_img_root = dir_pre +  "/visualize/" + val_test + "/input/"
     out_img_root = dir_pre + "/visualize/" + val_test + "/target/"
 
-    # if not os.path.exists("./visualize"):
-    #     os.makedirs("./visualize")
-    # if not os.path.exists(out_root):
-    #    os.makedirs(out_root)
-    # if not os.path.exists(mapped_root):
-    #    os.makedirs(mapped_root)
-    # if not os.path.exists(diff_target_in_root):
-    #    os.makedirs(diff_target_in_root)
-    # if not os.path.exists(diff_target_out_root):
-    #    os.makedirs(diff_target_out_root)
-    # if not os.path.exists(in_img_root):
-    #    os.makedirs(in_img_root)
-    # if not os.path.exists(out_img_root):
-    #    os.makedirs(out_img_root)
 
-    MSE_loss_out_target = []
-    MSE_loss_in_target = []
-    MSSSIM_loss_out_target = []
-    MSSSIM_loss_in_target = []
 
     outputs_size = list(outputs.size())
     # num_img = outputs_size[0]
@@ -152,73 +140,69 @@ def gen_visualization_files(outputs, targets, inputs, file_names, val_test, maxs
 
         file_name = file_names[i]
         file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(target_img_mapped)
-        im.save(out_img_root + file_name)
+        if file_name in list_of_imp_images:
+            im = Image.fromarray(target_img_mapped)
+            im.save(out_img_root + file_name)
+            im = Image.fromarray(input_img_mapped)
+            im.save(in_img_root + file_name)
 
-        file_name = file_names[i]
-        file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(input_img_mapped)
-        im.save(in_img_root + file_name)
-        # jy
-        # im.save(folder_ori_HU+'/'+file_name)
+            im = Image.fromarray(output_img_mapped)
+            im.save(mapped_root + file_name)
+            difference_target_out = (target_img - output_img)
+            difference_target_out = np.absolute(difference_target_out)
+            fig = plt.figure()
+            plt.imshow(difference_target_out)
+            plt.colorbar()
+            plt.clim(0, 0.2)
+            plt.axis('off')
+            file_name = file_names[i]
+            file_name = file_name.replace(".IMA", ".tif")
+            fig.savefig(diff_target_out_root + file_name)
+            plt.clf()
+            plt.close()
 
-        file_name = file_names[i]
-        file_name = file_name.replace(".IMA", ".tif")
-        im = Image.fromarray(output_img_mapped)
-        im.save(mapped_root + file_name)
-        # jy
-        # im.save(folder_enh_HU+'/'+file_name)
-
-        difference_target_out = (target_img - output_img)
-        difference_target_out = np.absolute(difference_target_out)
-        fig = plt.figure()
-        plt.imshow(difference_target_out)
-        plt.colorbar()
-        plt.clim(0, 0.2)
-        plt.axis('off')
-        file_name = file_names[i]
-        file_name = file_name.replace(".IMA", ".tif")
-        fig.savefig(diff_target_out_root + file_name)
-        plt.clf()
-        plt.close()
-
-        difference_target_in = (target_img - input_img)
-        difference_target_in = np.absolute(difference_target_in)
-        fig = plt.figure()
-        plt.imshow(difference_target_in)
-        plt.colorbar()
-        plt.clim(0, 0.2)
-        plt.axis('off')
-        file_name = file_names[i]
-        file_name = file_name.replace(".IMA", ".tif")
-        fig.savefig(diff_target_in_root + file_name)
-        plt.clf()
-        plt.close()
+            difference_target_in = (target_img - input_img)
+            difference_target_in = np.absolute(difference_target_in)
+            fig = plt.figure()
+            plt.imshow(difference_target_in)
+            plt.colorbar()
+            plt.clim(0, 0.2)
+            plt.axis('off')
+            file_name = file_names[i]
+            file_name = file_name.replace(".IMA", ".tif")
+            fig.savefig(diff_target_in_root + file_name)
+            plt.clf()
+            plt.close()
 
         output_img = torch.reshape(outputs[i, 0, :, :], (1, 1, height, width))
         target_img = torch.reshape(targets[i, 0, :, :], (1, 1, height, width))
         input_img = torch.reshape(inputs[i, 0, :, :], (1, 1, height, width))
 
-        MSE_loss_out_target.append(nn.MSELoss()(output_img, target_img))
-        MSE_loss_in_target.append(nn.MSELoss()(input_img, target_img))
-        MSSSIM_loss_out_target.append(1 - MSSSIM()(output_img, target_img))
-        MSSSIM_loss_in_target.append(1 - MSSSIM()(input_img, target_img))
+        MSE_loss = nn.MSELoss()(output_img, target_img)
+        MSSSIM_loss = 1 - MSSSIM()(output_img, target_img)
+        total_loss = MSE_loss + 0.1 * (MSSSIM_loss)
+        # MSE_loss_in_target.append(nn.MSELoss()(input_img, target_img))
+        MSE_loss_out_target.append(MSE_loss)
+        MSSSIM_loss_out_target.append(MSSSIM_loss)
+        Total_loss_out_target.append(total_loss)
 
-    with open(out_root + "msssim_loss_target_out", 'a') as f:
-        for item in MSSSIM_loss_out_target:
-            f.write("%f\n" % item)
+        # MSSSIM_loss_in_target.append(1 - MSSSIM()(input_img, target_img))
 
-    with open(out_root + "msssim_loss_target_in", 'a') as f:
-        for item in MSSSIM_loss_in_target:
-            f.write("%f\n" % item)
-
-    with open(out_root + "mse_loss_target_out", 'a') as f:
-        for item in MSE_loss_out_target:
-            f.write("%f\n" % item)
-
-    with open(out_root + "mse_loss_target_in", 'a') as f:
-        for item in MSE_loss_in_target:
-            f.write("%f\n" % item)
+    # with open(out_root + "msssim_loss_target_out", 'a') as f:
+    #     for item in MSSSIM_loss_out_target:
+    #         f.write("%f\n" % item)
+    #
+    # with open(out_root + "msssim_loss_target_in", 'a') as f:
+    #     for item in MSSSIM_loss_in_target:
+    #         f.write("%f\n" % item)
+    #
+    # with open(out_root + "mse_loss_target_out", 'a') as f:
+    #     for item in MSE_loss_out_target:
+    #         f.write("%f\n" % item)
+    #
+    # with open(out_root + "mse_loss_target_in", 'a') as f:
+    #     for item in MSE_loss_in_target:
+    #         f.write("%f\n" % item)
 
 def main(args):
     if args.filepath is None:
@@ -241,7 +225,7 @@ def main(args):
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=test_sampler)
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
-    list_of_imp_images = ['image_96.tif', 'sub-S04243_ses-E08488_acq-1_run-8_bp-chest_ct.nii0111.tif', 'sub-S04216_ses-E08457_run-3_bp-chest_ct.nii0284.tif', 'image_85.tif', 'image_192.tif']
+
     model = DD_net()
     model.to(rank)
     model = DDP(model, device_ids=[rank])
@@ -252,7 +236,7 @@ def main(args):
     model.load_state_dict(torch.load(file_m, map_location=map_location))
     with torch.no_grad():
         for batch_index, batch_samples in enumerate(test_loader):
-            file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
+            file_names, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                                                     batch_samples['max'], batch_samples['min']
             inputs = LQ_img.to(rank)
             targets = HQ_img.to(rank)
@@ -263,8 +247,8 @@ def main(args):
             test_MSE_loss.append(MSE_loss.item())
             test_MSSSIM_loss.append(MSSSIM_loss.item())
             test_total_loss.append(loss.item())
-            if file_name in list_of_imp_images:
-                gen_visualization_files(outputs, targets, inputs, file_name, "test", maxs, mins)
+
+            gen_visualization_files(outputs, targets, inputs, file_names, "test", maxs, mins)
         # torch.save(model.state_dict(), model_file)
         try:
             print('serializing test losses')
@@ -272,6 +256,11 @@ def main(args):
             np.save(dir_pre + '/loss/test_total_loss_' + str(rank), np.array(test_total_loss))
             np.save(dir_pre + '/loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
         #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
+            np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(MSE_loss_out_target))
+            np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(MSSSIM_loss_out_target))
+            np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(Total_loss_out_target))
+
+
         except Exception as e:
             print('error serializing: ', e)
 
