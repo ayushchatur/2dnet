@@ -37,6 +37,7 @@ from core import denseblock,DD_net
 
 INPUT_CHANNEL_SIZE = 1
 
+
 def prune_thresh(item, amount):
 
     w = item.weight
@@ -90,6 +91,7 @@ def prune_weNb(item, amount):
     item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
     item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
 def mag_prune(model, amt):
+    enable_cudnn_tensorcore(True)
     for index, item in enumerate(model.children()):
         if(type(item) == denseblock):
             for index, items in enumerate(item.children()):
@@ -107,6 +109,7 @@ def mag_prune(model, amt):
 
 # dir_pre="."
 def ln_struc_spar(model, amt):
+    enable_cudnn_tensorcore(True)
     parm = []
     for name, module in model.named_modules():
         if hasattr(module, "weight") and hasattr(module.weight, "requires_grad"):
@@ -126,6 +129,7 @@ def ln_struc_spar(model, amt):
     print('pruning operation finished')
 
 def unstructured_sparsity(model, amt):
+    enable_cudnn_tensorcore(True)
     parm = []
     for name, module in model.named_modules():
         if ("conv" in name ) or ("batch" in name):
@@ -206,3 +210,9 @@ def count_parameters(model):
         param = parameter.numel()
         total_params+=param
     return total_params
+
+def enable_cudnn_tensorcore(enable: bool):
+    if enable and torch.backends.cudnn.allow_tf32 == False:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
