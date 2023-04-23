@@ -275,9 +275,14 @@ def main(args):
         with open(dir_pre + "/myfile.txt", "w") as file1:
             s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: " + str(np.std(test_MSE_loss))
             file1.write(s1)
-            s2 = "Final average MSSSIM LOSS: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
+            s2 = "Final average MS-SSIM: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
                 np.std(test_MSSSIM_loss))
-            file1.write(s2)
+            lm = [ (1-m)*100 for m in MSE_loss_out_target]
+            s3 = "calculation via single image avergae MSE: " + str(np.mean(lm)) + "std dev.: " + str(np.std(lm))
+            file1.write(s3)
+            lm = [(1 - m) * 100 for m in MSSSIM_loss_out_target]
+            s4 = "calculation via single image avergae MS-SSIM: " + str(np.mean(lm)) + "std dev.: " + str(np.std(lm))
+            file1.write(s4)
 
 
 
