@@ -258,8 +258,8 @@ def main(args):
             np.save(dir_pre + '/loss/test_loss_mssim_' + str(rank), np.array(test_MSSSIM_loss))
         #            np.save('loss/test_loss_ssim_'+ str(rank), np.array(test_SSIM_loss))
             np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(MSE_loss_out_target))
-            np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(MSSSIM_loss_out_target))
-            np.save(dir_pre + '/loss/test_MSE_loss_re' + str(rank), np.array(Total_loss_out_target))
+            np.save(dir_pre + '/loss/test_mssim_loss_re' + str(rank), np.array(MSSSIM_loss_out_target))
+            np.save(dir_pre + '/loss/test_total_loss_re' + str(rank), np.array(Total_loss_out_target))
 
 
         except Exception as e:
