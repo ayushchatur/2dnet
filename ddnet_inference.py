@@ -272,7 +272,7 @@ def main(args):
         #     print("size of out target: " + str(data2.shape))
 
         # print("size of append target: " + str(data3.shape))
-        with open(dir_pre + "/myfile.txt", "w") as file1:
+        with open(dir_pre + "/results.txt", "w") as file1:
             s1 = "Final avergae MSE: " + str(np.average(test_MSE_loss)) + "std dev.: " + str(np.std(test_MSE_loss))
             file1.write(s1)
             s2 = "Final average MS-SSIM: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
