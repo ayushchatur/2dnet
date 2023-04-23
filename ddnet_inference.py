@@ -277,6 +277,7 @@ def main(args):
             file1.write(s1)
             s2 = "Final average MS-SSIM: " + str(100 - (100 * np.average(test_MSSSIM_loss))) + 'std dev : ' + str(
                 np.std(test_MSSSIM_loss))
+            file1.write(s2)
             # lm = [ (1-m)*100 for m in MSE_loss_out_target]
             s3 = "calculation via single image avergae MSE: " + str(np.mean(MSE_loss_out_target)) + "std dev.: " + str(np.std(MSE_loss_out_target))
             file1.write(s3)
