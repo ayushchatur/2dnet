@@ -69,10 +69,10 @@ if [ "$enable_gr" = "true" ]; then
 else
   export conda_env="py_13_1_cuda11_7"
 fi
-module reset
-module load site/tinkercliffs/easybuild/arc.arcadm
-module load Anaconda3/2022.05
-
+#module reset
+#module load site/tinkercliffs/easybuild/arc.arcadm
+#module load Anaconda3/2022.05
+module restore cu117
 export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 
 
