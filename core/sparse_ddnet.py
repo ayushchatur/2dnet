@@ -109,7 +109,7 @@ class Sparseddnet(object):
             #
             # val_index_list = [list(val_index_list[i:i + self.batch_size]) for i in range(0, len(val_index_list), self.batch_size)]
 
-            print(f"rank {global_rank} val_index_list list: {val_index_list}")
+            # print(f"rank {global_rank} val_index_list list: {val_index_list}")
 
 
             if enable_profile:
@@ -214,11 +214,8 @@ class Sparseddnet(object):
         for index in range(0,len(val_index_list), self.batch_size):
             sample_batched = self.val_loader.get_item(val_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], sample_batched['min'], sample_batched['vol']
-            inputs = LQ_img
-            targets = HQ_img
             with amp.autocast(enabled=self.amp_enabled):
                 outputs = self.model(inputs)
-                # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))

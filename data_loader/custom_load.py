@@ -105,7 +105,7 @@ class CTDataset(object):
 
     def get_item(self, index_list):
         try:
-            assert (len(index_list) == self.batch_size)
+            # assert (len(index_list) == self.batch_size)
             hq = self.create_batch(index_list, self.tensor_list_hq, True)
             lq = self.create_batch(index_list, self.tensor_list_lq, True)
             mins = self.create_batch(index_list, self.tensor_list_mins, False)
