@@ -2,11 +2,12 @@ import torch
 from math import exp
 import torch
 import torch.nn.functional as F
+@torch.jit.script
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
     return gauss / gauss.sum()
 
-
+@torch.jit.script
 def create_window(window_size, channel=1):
     _1D_window = gaussian(window_size, 1.5).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
@@ -15,7 +16,7 @@ def create_window(window_size, channel=1):
 
 
 
-
+@torch.jit.ignore
 def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False, val_range=None):
     # Value range can be different from 255. Other common ranges are 1 (sigmoid) and 2 (tanh).
     if val_range is None:
@@ -67,7 +68,7 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False,
         return ret, cs
     return ret
 
-
+@torch.jit.ignore
 def msssim(img1, img2, window_size=11, size_average=True, val_range=None, normalize=None):
     device = img1.device
     weights = torch.FloatTensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333]).to(device)
@@ -125,6 +126,8 @@ class SSIM(torch.nn.Module):
         self.channel = 1
         self.window = create_window(window_size)
 
+
+    @torch.jit.ignore
     def forward(self, img1, img2):
         (_, channel, _, _) = img1.size()
 

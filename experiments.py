@@ -22,7 +22,11 @@ import torch.cuda.amp as amp
 # from apex.contrib.sparsity import ASP
 from socket import gethostname
 # from dataload import CTDataset
-# from dataload_optimization import CTDataset
+from data_loader import CTDataset
+
+
+
+
 
 from core import DD_net
 model = DD_net()

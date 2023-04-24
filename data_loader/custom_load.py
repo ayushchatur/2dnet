@@ -33,20 +33,21 @@ class CTDataset(object):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, index_list:list, item_list: list, is_tensor: bool, device="cpu"):
+    def create_batch(self, index_list, item_list, is_tensor: bool, device="cpu"):
         # batch_list = []
         if is_tensor:
             res_list = list(itemgetter(*index_list)(item_list))
-            return torch.stack(res_list).to(device)
+            return torch.stack(res_list)
         else:
             res_list = list(itemgetter(*index_list)(item_list))
             return res_list
     def __len__(self):
         return len(self.tensor_list_fname)
 
-    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333):
+    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.float64):
         self.batch_size = batch_size
         self.device = device
+        self.dtype = dtype
         data_root_l = root_dir_l + "/"
         data_root_h = root_dir_h + "/"
         img_list_l = os.listdir(data_root_l)
@@ -81,12 +82,11 @@ class CTDataset(object):
             maxs = ((cmax1 + cmax2) / 2)
             image_target = image_target.reshape((1, 512, 512))
             image_input = image_input.reshape((1, 512, 512))
-            inputs_np = image_input
-            targets_np = image_target
-            inputs = torch.from_numpy(inputs_np)
-            targets = torch.from_numpy(targets_np)
-            inputs = inputs.type(torch.FloatTensor)
-            targets = targets.type(torch.FloatTensor)
+
+            inputs = torch.from_numpy(image_input)
+            targets = torch.from_numpy(image_target)
+            inputs = inputs.to(self.device, dtype=self.dtype)
+            targets = targets.type(self.device, dtype=self.dtype)
             self.tensor_list_fname.append(input_file)
             self.tensor_list_hq.append(targets)
             self.tensor_list_lq.append(inputs)
