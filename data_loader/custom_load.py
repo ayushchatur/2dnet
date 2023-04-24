@@ -33,7 +33,7 @@ class CTDataset(object):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, index_list, item_list, is_tensor: bool, device="cpu"):
+    def create_batch(self, index_list, item_list, is_tensor: bool):
         # batch_list = []
         if is_tensor:
             res_list = list(itemgetter(*index_list)(item_list))
@@ -103,11 +103,11 @@ class CTDataset(object):
     def get_item(self, index_list):
         try:
             assert (len(index_list) == self.batch_size)
-            hq = self.create_batch(index_list, self.tensor_list_hq, True, self.device)
-            lq = self.create_batch(index_list, self.tensor_list_lq, True, self.device)
-            mins = self.create_batch(index_list, self.tensor_list_mins, False, self.device)
-            maxs = self.create_batch(index_list, self.tensor_list_maxs,  False, self.device)
-            vol = self.create_batch(index_list, self.tensor_list_fname, False, self.device)
+            hq = self.create_batch(index_list, self.tensor_list_hq, True)
+            lq = self.create_batch(index_list, self.tensor_list_lq, True)
+            mins = self.create_batch(index_list, self.tensor_list_mins, False)
+            maxs = self.create_batch(index_list, self.tensor_list_maxs,  False)
+            vol = self.create_batch(index_list, self.tensor_list_fname, False)
             # lq = self.ba_tensor_list_lq[idx]
             # mins = self.ba_tensor_list_mins[idx]
             # maxs = self.ba_tensor_list_maxs[idx]
