@@ -124,6 +124,7 @@ class SpraseDDnetOld(object):
     def __init__(self, epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre=".", amp = False, sched_type='expo'):
         self.epochs = epochs
         self.retrain = retrain
+        self.total_epoch = self.retrain + self.epochs
         self.batch_size = batch
         self.model = model
         self.optimizer = optimizer
@@ -165,7 +166,7 @@ class SpraseDDnetOld(object):
         start = datetime.now()
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
-        for k in range(self.epochs + self.retrain):
+        for k in range(1, self.total_epoch + 1):
             # train_sampler.set_epoch(epochs + retrain)
             # print("Training for Epocs: ", self.epochs + self.retrain)
             self.train_sampler.set_epoch(k)
@@ -193,7 +194,7 @@ class SpraseDDnetOld(object):
                 val_MSE_loss[k] = val_mse
                 val_MSSSIM_loss[k] = val_msi
             # optimizer.param_groups
-            if sparsified == False and self.retrain > 0 and k == (self.epochs-1) :
+            if sparsified == False and self.retrain > 0 and k == self.epochs:
                 densetime = str(datetime.now()- start)
                 print('pruning model on epoch: ', k)
                 if self.prune_t == "mag":
@@ -207,7 +208,12 @@ class SpraseDDnetOld(object):
                     unstructured_sparsity(self.model, self.prune_amt)
 
                 sparsified = True
-
+            if k % 5 ==0:
+                if k <= self.epochs:
+                    model_file = f"weights_dense_{k}_.pt"
+                else:
+                    model_file = f"weights_dense_{self.epochs}_sparse_{k-self.epochs}.pt"
+                torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
         # torch.cuda.current_stream().synchronize()
         print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
