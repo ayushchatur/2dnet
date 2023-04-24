@@ -124,7 +124,7 @@ class CTDataset(object):
             }
             return sample
         except AssertionError as e:
-            print ("batch size and len mismatch", e)
+            print (f"batch size: {self.batch_size} and len: {len(index_list)} mismatch", e)
             return None
         except Exception as ex:
             print ("exception occured during fetching element", ex)
