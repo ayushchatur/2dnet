@@ -75,15 +75,33 @@ fi
 module restore cu117
 export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
 
+export file="trainers.py"
+
+export CMD="python ${file} --batch ${batch_size} --epochs ${epochs} --retrain ${retrain} --out_dir ${SLURM_JOBID} --amp ${mp} --num_w $num_data_w  --new_load ${new_load} --prune_amt $prune_amt --prune_t $prune_t  --wan $wandb --lr ${lr} --dr ${dr} --distback ${distback} --enable_profile ${enable_profile} --gr_mode ${gr_mode} --gr_backend ${gr_back} --enable_gr=${enable_gr} --schedtype ${schedtype}"
+echo "CMD: ${CMD}"
+
+
+if [ "$enable_gr" = "true" ]; then
+  export imagefile="/projects/synergy_lab/ayush/containers/pytorch_2.0.sif"
+else
+  export imagefile="/projects/synergy_lab/ayush/containers/pytorch_22.04.sif"
+fi
+
+export BASE="apptainer exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
+
 
 if [  "$inferonly"  == "true" ]; then
   export filepath=$1
   python ddnet_inference.py --filepath ${filepath} --batch ${batch_size} --epochs ${epochs} --out_dir ${filepath}
+elif [ "$enable_profile" = "true" ];then
+#  module load CUDA/11.7.0
+  echo "cuda home: ${CUDA_HOME}"
+  srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none $BASE dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true" -f true --reports=all --delay 60 --duration 120 ${CMD}
 else
   for _experiment_index in $(seq 1 "${NEXP}"); do
     (
   	echo "Beginning trial ${_experiment_index} of ${NEXP}"
-  	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none ./execute_final.sh
+  	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none $BASE $CMD
     )
   done
   wait

@@ -20,9 +20,9 @@ echo "CMD: ${CMD}"
 if [ "$enable_profile" = "true" ];then
   module load CUDA/11.7.0
   echo "cuda home: ${CUDA_HOME}"
-  conda run -n ${conda_env} dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true" -f true --reports=all --delay 60 --duration 120 ${CMD}
+  dlprof --output_path=${SLURM_JOBID} --nsys_base_name=nsys_${SLURM_PROCID} --profile_name=dlpro_${SLURM_PROCID} --mode=pytorch --nsys_opts="-t osrt,cuda,nvtx,cudnn,cublas,cusparse,mpi, --cuda-memory-usage=true" -f true --reports=all --delay 60 --duration 120 ${CMD}
 else
-  conda run -n ${conda_env} $CMD
+  $CMD
 fi
 
 
