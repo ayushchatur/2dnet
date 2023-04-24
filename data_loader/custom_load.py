@@ -10,7 +10,7 @@ import os
 from os import path
 import numpy as np
 import re
-
+from operator import itemgetter
 def read_correct_image(path):
     offset = 0
     ct_org = None
@@ -33,16 +33,14 @@ class CTDataset(object):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, index_list: list, item_list: list, is_tensor: bool, device="cpu"):
-        batch_list = []
+    def create_batch(self, index_list:list, item_list: list, is_tensor: bool, device="cpu"):
+        # batch_list = []
         if is_tensor:
-            for x in index_list:
-                batch_list.append(item_list[x])
-            return torch.stack(batch_list).to(device)
+            res_list = list(itemgetter(*index_list)(item_list))
+            return torch.stack(res_list).to(device)
         else:
-            for x in index_list:
-                batch_list.append(item_list[x])
-            return batch_list
+            res_list = list(itemgetter(*index_list)(item_list))
+            return res_list
     def __len__(self):
         return len(self.tensor_list_fname)
 
@@ -102,9 +100,9 @@ class CTDataset(object):
 
         print("done staging data to GPU")
 
-    def get_item(self, index_list, batch_size):
+    def get_item(self, index_list):
         try:
-            assert (len(index_list) == batch_size)
+            assert (len(index_list) == self.batch_size)
             hq = self.create_batch(index_list, self.tensor_list_hq, True, self.device)
             lq = self.create_batch(index_list, self.tensor_list_lq, True, self.device)
             mins = self.create_batch(index_list, self.tensor_list_mins, False, self.device)
