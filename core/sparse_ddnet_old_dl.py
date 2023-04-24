@@ -208,14 +208,14 @@ class SpraseDDnetOld(object):
                     unstructured_sparsity(self.model, self.prune_amt)
 
                 sparsified = True
-            if k % 5 ==0:
-                if k <= self.epochs:
-                    model_file = f"weights_dense_{k}_.pt"
-                else:
-                    model_file = f"weights_dense_{self.epochs}_sparse_{k-self.epochs}.pt"
-                torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
+            # if k % 5 ==0:
+            #     if k <= self.epochs:
+            #         model_file = f"weights_dense_{k}_.pt"
+            #     else:
+            #         model_file = f"weights_dense_{self.epochs}_sparse_{k-self.epochs}.pt"
+            #     torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
         # torch.cuda.current_stream().synchronize()
-        print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
+        print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
         serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)
         serialize_loss_item(dir_pre,"train_mssim_loss",train_MSSSIM_loss,global_rank)

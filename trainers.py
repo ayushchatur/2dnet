@@ -119,7 +119,7 @@ def dd_train(args):
         print("initializing training with new loader")
         from core import Sparseddnet
         trainer = Sparseddnet(epochs,retrain, batch,model,optimizer, scheduler,world_size, prune_t, prune_amt,dir_pre, amp_enabled, sched_type=sched_type)
-        print("initializing training with new loader")
+        print(f"initializing training with new loader on rank {rank}")
 
         trainer.trainer_new(rank,local_rank,enable_profile=enable_prof)
     else:

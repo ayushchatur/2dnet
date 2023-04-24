@@ -80,9 +80,9 @@ class Sparseddnet(object):
         # share permuted list of index with all ranks
         dist.broadcast_object_list(train_index_list, src=0)
         dist.broadcast_object_list(val_index_list, src=0)
-
-        train_items_per_rank = math.ceil((len(self.train_loader) - self.world_size) / self.world_size)
-        val_items_per_rank = math.ceil((len(self.train_loader) - self.world_size) / self.world_size)
+        #
+        # train_items_per_rank = math.ceil((len(self.train_loader) - self.world_size) / self.world_size)
+        # val_items_per_rank = math.ceil((len(self.train_loader) - self.world_size) / self.world_size)
 
         q_fact_train = len(self.train_loader) // self.world_size
         q_fact_val = len(self.val_loader) // self.world_size
@@ -90,7 +90,7 @@ class Sparseddnet(object):
         train_total_loss, train_MSSSIM_loss, train_MSE_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss = init_loss_params()
 
         #         train_sampler.set_epoch(epochs + prune_ep)
-        print("beginning training epochs")
+        print(f"beginning training epochs on rank: {global_rank} ")
         print(f'profiling: {enable_profile}')
         dist.barrier()
         for k in range(self.epochs + self.retrain):
@@ -152,7 +152,7 @@ class Sparseddnet(object):
                     print("pruning model by random unstructured with %: ", self.prune_amt)
                     unstructured_sparsity(self.model, self.prune_amt)
                 sparsified = True
-        print("total timw : ", str(datetime.now() - start), ' dense time: ', densetime)
+        print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre, "train_mse_loss", train_MSE_loss, global_rank)
         serialize_loss_item(dir_pre, "train_total_loss", train_total_loss, global_rank)
         serialize_loss_item(dir_pre, "train_mssim_loss", train_MSSSIM_loss, global_rank)
@@ -168,7 +168,7 @@ class Sparseddnet(object):
         val_total_loss = []
         val_MSE_loss = []
         val_MSSSIM_loss = []
-        print("initating training")
+        print(f"initating training list len:{train_index_list}")
         for index in range(0,len(train_index_list), self.batch_size):
             # print(f"fetching first {self.batch_size} items from index: {index}: ")
             # print(f"fetching indices: {train_index_list[index: index+ self.batch_size]}")
