@@ -170,15 +170,15 @@ class Sparseddnet(object):
         val_MSSSIM_loss = []
         print("initating training")
         for index in range(0,len(train_index_list), self.batch_size):
-            print(f"fetching first {self.batch_size} items from index: {index}: ")
-            print(f"fetching indices: {train_index_list[index: index+ self.batch_size]}")
+            # print(f"fetching first {self.batch_size} items from index: {index}: ")
+            # print(f"fetching indices: {train_index_list[index: index+ self.batch_size]}")
             sample_batched = self.train_loader.get_item(train_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             # print('indexes: ', idx)
             # print('shape: ', HQ_img.shape)
             # print('device: ', HQ_img.get_device())
-            print("got items")
+            # print("got items")
             targets = HQ_img
             inputs = LQ_img
             with amp.autocast(enabled=self.amp_enabled):
