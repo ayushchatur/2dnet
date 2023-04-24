@@ -89,7 +89,7 @@ fi
 
 module list
 module load containers/apptainer
-export BASE="apptainer  exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
+export BASE="apptainer  exec --nv --writable-tmpfs --bind=/projects/synergy_lab,/cm/shared,${TMPFS} ${imagefile} "
 
 
 if [  "$inferonly"  == "true" ]; then
