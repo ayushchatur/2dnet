@@ -172,7 +172,7 @@ class Sparseddnet(object):
         for index in range(0,len(train_index_list), self.batch_size):
             print(f"fetching first {self.batch_size} items from index: {index}: ")
             print(f"fetching indices: {train_index_list[index, index+ self.batch_size]}")
-            sample_batched = self.train_loader.get_item(train_index_list[index, index+ self.batch_size])
+            sample_batched = self.train_loader.get_item(train_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             # print('indexes: ', idx)
@@ -212,7 +212,7 @@ class Sparseddnet(object):
 
         print("Validation")
         for index in range(0,len(val_index_list), self.batch_size):
-            sample_batched = self.val_loader.get_item(val_index_list[index, index+ self.batch_size])
+            sample_batched = self.val_loader.get_item(val_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
             targets = HQ_img
@@ -238,7 +238,7 @@ class Sparseddnet(object):
         val_MSE_loss = [0]
         val_MSSSIM_loss = [0]
         for index in range(0,len(train_index_list), self.batch_size):
-            sample_batched = self.train_loader.get_item(train_index_list[index, index+ self.batch_size])
+            sample_batched = self.train_loader.get_item(train_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             self.optimizer.zero_grad(set_to_none=True)
@@ -276,7 +276,7 @@ class Sparseddnet(object):
         print("Validation")
         torch.cuda.nvtx.range_push("Validation " + str(index))
         for index in range(0,len(val_index_list), self.batch_size):
-            sample_batched = self.val_loader.get_item(val_index_list[index, index+ self.batch_size])
+            sample_batched = self.val_loader.get_item(val_index_list[index: index+ self.batch_size])
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             inputs = LQ_img
