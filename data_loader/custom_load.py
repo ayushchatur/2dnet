@@ -44,7 +44,7 @@ class CTDataset(object):
     def __len__(self):
         return len(self.tensor_list_fname)
 
-    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.float64):
+    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.float32):
         self.batch_size = batch_size
         self.device = device
         self.dtype = dtype
