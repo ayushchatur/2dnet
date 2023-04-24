@@ -86,7 +86,7 @@ class CTDataset(object):
             inputs = torch.from_numpy(image_input)
             targets = torch.from_numpy(image_target)
             inputs = inputs.to(self.device, dtype=self.dtype)
-            targets = targets.type(self.device, dtype=self.dtype)
+            targets = targets.to(self.device, dtype=self.dtype)
             self.tensor_list_fname.append(input_file)
             self.tensor_list_hq.append(targets)
             self.tensor_list_lq.append(inputs)

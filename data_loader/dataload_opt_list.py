@@ -197,7 +197,7 @@ class CTDataset(Dataset):
             self.tensor_list_lq.append(inputs)
             self.tensor_list_maxs.append(maxs)
             self.tensor_list_mins.append(mins)
-        print("done staging data to GPU")
+        # print("done staging data to GPU")
             
     def __len__(self):
         return len(self.tensor_list_mins)
