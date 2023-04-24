@@ -87,7 +87,7 @@ else
   export imagefile="/projects/synergy_lab/ayush/containers/pytorch_22.04.sif"
 fi
 
-export BASE="apptainer exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
+export BASE="singularity exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
 
 
 if [  "$inferonly"  == "true" ]; then
