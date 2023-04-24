@@ -88,7 +88,8 @@ else
 fi
 
 module list
-export BASE="singularity exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
+module load containers/apptainer
+export BASE="apptainer  exec --nv --writable-tmpfs --bind=/projects/synergy_lab/garvit217,/cm/shared,${TMPFS} ${imagefile} "
 
 
 if [  "$inferonly"  == "true" ]; then
