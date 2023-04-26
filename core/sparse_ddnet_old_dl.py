@@ -166,7 +166,21 @@ class SpraseDDnetOld(object):
         start = datetime.now()
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
-        for k in range(1, self.total_epoch + 1):
+        for k in range(1, self.retrain + 1):
+            if sparsified == False and k <= 1:
+                densetime = str(datetime.now()- start)
+                print('pruning model on epoch: ', k)
+                if self.prune_t == "mag":
+                    print("pruning model by top k with %: ", self.prune_amt)
+                    mag_prune(self.model,self.prune_amt)
+                elif self.prune_t == "l1_struc":
+                    print("pruning model by L1 structured with %: ", self.prune_amt)
+                    ln_struc_spar(self.model, self.prune_amt)
+                else:
+                    print("pruning model by random unstructured with %: ", self.prune_amt)
+                    unstructured_sparsity(self.model, self.prune_amt)
+
+                sparsified = True
             # train_sampler.set_epoch(epochs + retrain)
             # print("Training for Epocs: ", self.epochs + self.retrain)
             self.train_sampler.set_epoch(k)
@@ -194,25 +208,9 @@ class SpraseDDnetOld(object):
                 val_MSE_loss[k] = val_mse
                 val_MSSSIM_loss[k] = val_msi
             # optimizer.param_groups
-            if sparsified == False and self.retrain > 0 and k == self.epochs:
-                densetime = str(datetime.now()- start)
-                print('pruning model on epoch: ', k)
-                if self.prune_t == "mag":
-                    print("pruning model by top k with %: ", self.prune_amt)
-                    mag_prune(self.model,self.prune_amt)
-                elif self.prune_t == "l1_struc":
-                    print("pruning model by L1 structured with %: ", self.prune_amt)
-                    ln_struc_spar(self.model, self.prune_amt)
-                else:
-                    print("pruning model by random unstructured with %: ", self.prune_amt)
-                    unstructured_sparsity(self.model, self.prune_amt)
 
-                sparsified = True
             if k % 5 ==0:
-                if k <= self.epochs:
-                    model_file = f"weights_dense_{k}_.pt"
-                else:
-                    model_file = f"weights_dense_{self.epochs}_sparse_{k-self.epochs}.pt"
+                model_file = f"weights_dense_{self.epochs}_sparse_{k}.pt"
                 torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
         # torch.cuda.current_stream().synchronize()
         print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
