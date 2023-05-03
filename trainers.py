@@ -118,18 +118,10 @@ def dd_train(args):
         print(f'loading model file: {model_file}')
         model.load_state_dict(torch.load(model_file, map_location=map_location))
 
-    if new_load:
-        print("initializing training with new loader")
-        from core import Sparseddnet
-        trainer = Sparseddnet(epochs,retrain, batch,model,optimizer, scheduler,world_size, prune_t, prune_amt,dir_pre, amp_enabled, sched_type=sched_type)
-        print(f"initializing training with new loader on rank {rank}")
-
-        trainer.trainer_new(rank,local_rank,enable_profile=enable_prof)
-    else:
-        print("initiating training")
-        from core import SpraseDDnetOld
-        trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre, amp=amp_enabled, sched_type=sched_type)
-        trainer.train_ddnet(rank,local_rank, enable_profile=enable_prof)
+    print("initiating training")
+    from core import SpraseDDnetOld
+    trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre, amp=amp_enabled, sched_type=sched_type)
+    trainer.train_ddnet(rank,local_rank, enable_profile=enable_prof)
 
     if rank == 0:
         print("saving model file")
