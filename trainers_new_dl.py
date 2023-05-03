@@ -239,11 +239,12 @@ def _epoch(model, train_index_list, val_index_list, train_loader, val_loader, sc
         val_total_loss = []
         val_MSE_loss = []
         val_MSSSIM_loss = []
-        print(f"initating training list len:{train_index_list}")
+        print(f"initating training with a list of lenght len:{len(train_index_list)}")
         for index in range(0,len(train_index_list),  batch_size):
             # print(f"fetching first { batch_size} items from index: {index}: ")
             # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
             sample_batched =  train_loader.get_item(train_index_list[index: index+  batch_size])
+            print(f"item recieved:  {sample_batched}")
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             # print('indexes: ', idx)
