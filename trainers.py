@@ -106,17 +106,22 @@ def dd_train(args):
     else:
         scheduler = ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
-    model_file = "1447477/weights_dense_" + str(epochs) + "_.pt"
+    model_file = "./dense_weights/weights_dense_" + str(epochs) + "_.pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     # if en_wan > 0:
     #     wandb.watch(model, log_freq=100)
     dist.barrier()
-    if (not (path.exists(model_file))):
-        print('model file not found')
-    else:
-        print(f'loading model file: {model_file}')
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
+    try:
+        if (not (path.exists(model_file))):
+            print('model file not found')
+        else:
+            print(f'loading model file: {model_file}')
+            model.load_state_dict(torch.load(model_file, map_location=map_location))
+    except FileNotFoundError as f:
+        print(f'model file not found: {f}')
+    except Exception as e:
+        print(f'error loading model from checkpoint {e}')
 
     print("initiating training")
     from core import SpraseDDnetOld

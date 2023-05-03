@@ -120,11 +120,16 @@ def dd_train(args):
     # if en_wan > 0:
     #     wandb.watch(model, log_freq=100)
     dist.barrier()
-    if (not (path.exists(model_file))):
-        print('model file not found')
-    else:
-        print(f'loading model file: {model_file}')
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
+    try:
+        if (not (path.exists(model_file))):
+            print('model file not found')
+        else:
+            print(f'loading model file: {model_file}')
+            model.load_state_dict(torch.load(model_file, map_location=map_location))
+    except FileNotFoundError as f:
+        print(f'model file not found: {f}')
+    except Exception as e:
+        print(f'error loading model from checkpoint {e}')
 
     trainer_new(model, world_size, rank, local_rank, scheduler, optimizer, sched_type, dir_pre, enable_prof )
     
