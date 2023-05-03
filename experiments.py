@@ -28,6 +28,7 @@ from data_loader import CTDataset
 
 
 
+
 from core import DD_net
 model = DD_net()
 lr = 8e-3

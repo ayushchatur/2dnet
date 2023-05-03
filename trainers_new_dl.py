@@ -175,6 +175,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
     print(f"beginning training epochs on rank: {global_rank} ")
     print(f'profiling: {enable_profile}')
     dist.barrier()
+    start = datetime.now()
     for k in range( epochs +  retrain):
         print(f"epoch: {k}")
         if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
@@ -200,16 +201,67 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
             val_MSE_loss[k] = val_mse
             val_MSSSIM_loss[k] = val_msi
         else:
-            train_total, train_mse, train_msi, val_total, val_mse, val_msi = \
-                 _epoch(model, train_index_list, val_index_list, train_loader, val_loader, scheduler, optimizer, scaler, sched_type)
-            train_total_loss[k] = train_total
-            train_MSE_loss[k] = train_mse
-            train_MSSSIM_loss[k] = train_msi
-            val_total_loss[k] = val_total
-            val_MSE_loss[k] = val_mse
-            val_MSSSIM_loss[k] = val_msi
+            print(f'length of training indices: {len(train_index_list)} for rank: {global_rank}')
+            for index in range(0, len(train_index_list), batch_size):
+                # print(f"fetching first { batch_size} items from index: {index}: ")
+                # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
+                sample_batched = train_loader.get_item(train_index_list[index: index + batch_size])
+                # print(f"item recieved:  {sample_batched}")
+                HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
+                    sample_batched['max'], sample_batched['min'], sample_batched['vol']
+                # print('indexes: ', idx)
+                # print('shape: ', HQ_img.shape)
+                # print('device: ', HQ_img.get_device())
+                # print("got items")
+                targets = HQ_img
+                inputs = LQ_img
+                with amp.autocast(enabled=amp_enabled):
+                    outputs = model(inputs)
+                    MSE_loss = nn.MSELoss()(outputs, targets)
+                    MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                    loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                    # print(loss)
+                # print('calculating backpass')
+                train_MSE_loss.append(MSE_loss.item())
+                train_MSSSIM_loss.append(MSSSIM_loss.item())
+                train_total_loss.append(loss.item())
+                # model.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
+                # BW pass
+                if amp_enabled:
+                    # print('bw pass')
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    #                 print('loss_bacl')
+                    loss.backward()
+                    #                 print('optimia')
+                    optimizer.step()
+            print("schelud")
+            if sched_type == "platu":
+                scheduler.step(loss)
+            else:
+                scheduler.step()
+
+            print("Validation")
+            for index in range(0, len(val_index_list), batch_size):
+                sample_batched = val_loader.get_item(val_index_list[index: index + batch_size])
+                HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], \
+                sample_batched['min'], sample_batched['vol']
+
+                with amp.autocast(enabled=amp_enabled):
+                    outputs = model(LQ_img)
+                    MSE_loss = nn.MSELoss()(outputs, HQ_img)
+                    MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
+                    # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                    loss = MSE_loss + 0.1 * (MSSSIM_loss)
+
+                val_MSE_loss.append(MSE_loss.item())
+                val_total_loss.append(loss.item())
+                val_MSSSIM_loss.append(MSSSIM_loss.item())
         # dist.barrier()
-        start = datetime.now()
+
         if sparsified == False and  retrain > 0 and k == ( epochs - 1):
             densetime = str(datetime.now() - start)
             print('pruning model on epoch: ', k)
@@ -240,63 +292,7 @@ def _epoch(model, train_index_list, val_index_list, train_loader, val_loader, sc
         val_MSE_loss = []
         val_MSSSIM_loss = []
         print(f"initating training with a list of lenght len:{len(train_index_list)}")
-        for index in range(0,len(train_index_list),  batch_size):
-            # print(f"fetching first { batch_size} items from index: {index}: ")
-            # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
-            sample_batched =  train_loader.get_item(train_index_list[index: index+  batch_size])
-            # print(f"item recieved:  {sample_batched}")
-            HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
-                sample_batched['max'], sample_batched['min'], sample_batched['vol']
-            # print('indexes: ', idx)
-            # print('shape: ', HQ_img.shape)
-            # print('device: ', HQ_img.get_device())
-            # print("got items")
-            targets = HQ_img
-            inputs = LQ_img
-            with amp.autocast(enabled= amp_enabled):
-                outputs =  model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                # print(loss)
-            # print('calculating backpass')
-            train_MSE_loss.append(MSE_loss.item())
-            train_MSSSIM_loss.append(MSSSIM_loss.item())
-            train_total_loss.append(loss.item())
-            # model.zero_grad()
-            optimizer.zero_grad(set_to_none=True)
-            # BW pass
-            if  amp_enabled:
-                # print('bw pass')
-                 scaler.scale(loss).backward()
-                 scaler.step( optimizer)
-                 scaler.update()
-            else:
-                #                 print('loss_bacl')
-                loss.backward()
-                #                 print('optimia')
-                optimizer.step()
-        print("schelud")
-        if  sched_type == "platu":
-            scheduler.step(loss)
-        else:
-            scheduler.step()
 
-        print("Validation")
-        for index in range(0,len(val_index_list),  batch_size):
-            sample_batched =  val_loader.get_item(val_index_list[index: index+  batch_size])
-            HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], sample_batched['min'], sample_batched['vol']
-
-            with amp.autocast(enabled= amp_enabled):
-                outputs =  model(LQ_img)
-                MSE_loss = nn.MSELoss()(outputs, HQ_img)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
-                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
-
-            val_MSE_loss.append(MSE_loss.item())
-            val_total_loss.append(loss.item())
-            val_MSSSIM_loss.append(MSSSIM_loss.item())
         return train_total_loss, train_MSE_loss, train_MSSSIM_loss, val_total_loss, val_MSE_loss, val_MSSSIM_loss
 
 
