@@ -214,10 +214,11 @@ def main(args):
     print("dir prefix: " + dir_pre)
     batch= args.batch
     epochs = args.epochs
+    retrain = args.retrain
     rank = 0
     world_size = 1
     model_path = args.filepath
-    model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+    model_file =  "weights_dense_" + epochs + "_sparse_" + retrain + ".pt"
     file_m = model_path + "/" + model_file
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
@@ -296,6 +297,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch', default=1, type=int, metavar='b',
                         help='model file path')
     parser.add_argument('--epochs', default=50, type=int, metavar='b',
+                        help='model file path')
+    parser.add_argument('--retrain', default=30, type=int, metavar='b',
                         help='model file path')
     args = parser.parse_args()
     main(args)
