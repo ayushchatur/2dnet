@@ -106,7 +106,7 @@ class CTDataset(object):
     def get_item(self, index_list):
         try:
             # assert (len(index_list) == self.batch_size)
-            print(f'creating batch for rank: {self.device} with index list: {index_list}')
+            # print(f'creating batch for rank: {self.device} with index list: {index_list}')
             hq = self.create_batch(index_list, self.tensor_list_hq, True)
             lq = self.create_batch(index_list, self.tensor_list_lq, True)
             mins = self.create_batch(index_list, self.tensor_list_mins, False)

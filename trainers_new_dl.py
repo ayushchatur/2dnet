@@ -154,35 +154,36 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
     # list of random indexes
     g = torch.Generator()
     g.manual_seed(0)
-    if global_rank == 0:
-        train_index_list = torch.randperm(len( train_loader), generator=g).tolist()
-        val_index_list = torch.randperm(len( val_loader), generator=g).tolist()
-    else:
-        train_index_list = [0 for i in range(len( train_loader))]
-        val_index_list = [0 for i in range(len( val_loader))]
-    # share permuted list of index with all ranks
-    dist.broadcast_object_list(train_index_list, src=0)
-    dist.broadcast_object_list(val_index_list, src=0)
-    #
-    # train_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
-    # val_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
-    q_fact_train = len( train_loader) //  world_size
-    q_fact_val = len( val_loader) //  world_size
+
     from ddnet_utils import init_loss_params
     train_total_loss, train_MSSSIM_loss, train_MSE_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss = init_loss_params()
 
         #         train_sampler.set_epoch(epochs + prune_ep)
     print(f"beginning training epochs on rank: {global_rank} ")
     print(f'profiling: {enable_profile}')
-    dist.barrier()
+    q_fact_train = len(train_loader) // world_size
+    q_fact_val = len(val_loader) // world_size
+    if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
     start = datetime.now()
     for k in range( epochs +  retrain):
         print(f"epoch: {k}")
-        if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
+        if global_rank == 0:
+            train_index_list = torch.randperm(len(train_loader), generator=g).tolist()
+            val_index_list = torch.randperm(len(val_loader), generator=g).tolist()
+        else:
+            train_index_list = [0 for i in range(len(train_loader))]
+            val_index_list = [0 for i in range(len(val_loader))]
+        # share permuted list of index with all ranks
+        dist.broadcast_object_list(train_index_list, src=0)
+        dist.broadcast_object_list(val_index_list, src=0)
+        #
+        # train_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
+        # val_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
         train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
         val_index_list = val_index_list[global_rank * q_fact_val: (global_rank * q_fact_val + q_fact_val)]
         train_index_list = [int(x) for x in train_index_list]
         val_index_list = [int(x) for x in val_index_list]
+        dist.barrier()
         # print(f"rank {global_rank} index list: {train_index_list}")
         # train_index_list = [list(train_index_list[i:i +  batch_size]) for i in
         #                     range(0, len(train_index_list),  batch_size)]
