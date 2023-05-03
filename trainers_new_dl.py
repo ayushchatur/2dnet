@@ -177,6 +177,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
         # share permuted list of index with all ranks
         dist.broadcast_object_list(train_index_list, src=0)
         dist.broadcast_object_list(val_index_list, src=0)
+        dist.barrier()
         #
         # train_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
         # val_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
@@ -184,7 +185,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
         val_index_list = val_index_list[global_rank * q_fact_val: (global_rank * q_fact_val + q_fact_val)]
         train_index_list = [int(x) for x in train_index_list]
         val_index_list = [int(x) for x in val_index_list]
-        dist.barrier()
+
         # print(f"rank {global_rank} index list: {train_index_list}")
         # train_index_list = [list(train_index_list[i:i +  batch_size]) for i in
         #                     range(0, len(train_index_list),  batch_size)]
