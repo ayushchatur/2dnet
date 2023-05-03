@@ -2,6 +2,7 @@ import torch
 from math import exp
 import torch
 import torch.nn.functional as F
+import torchvision
 @torch.jit.ignore
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
@@ -153,3 +154,91 @@ class MSSSIM(torch.nn.Module):
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize="simple")
         # return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
 
+class VGG16loss(torch.nn.Module):
+    def __init__(self, devc):
+        super(VGG16loss,self).__init__()
+        blocks = []
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[:5].eval()) # block 1
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[5:10].eval()) # block 2
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[10:17].eval()) # block 2
+        # blocks.append(torchvision.models.vgg19(pretrained=True).features[19:28].eval()) # block 4
+        for bl in blocks:
+            for p in bl.parameters():
+                p.requires_grad = False
+
+        self.blocks = torch.nn.ModuleList(blocks)
+        self.transform = torch.nn.functional.interpolate
+        self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406], device=devc).view(1, 3, 1, 1))
+        self.std = torch.nn.Parameter(torch.tensor([0.229, 0.224, 0.225], device=devc).view(1, 3, 1, 1))
+    def forward(self, output, target):
+        if output.shape[1] != 3:
+            output = output.repeat(1, 3, 1, 1)
+            target = target.repeat(1, 3, 1, 1)
+        output = (output - self.mean) / self.std
+        target = (target - self.mean) / self.std
+        if self.resize:
+            output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
+            target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
+        # y = target
+        # b1,b3
+        out_b1 = self.blocks[0](output)
+        out_b2 = self.blocks[1](out_b1)
+        out_b3 = self.blocks[2](out_b2)
+
+        tar_b1 = self.blocks[0](target)
+        tar_b2 = self.blocks[1](tar_b1)
+        tar_b3 = self.blocks[2](tar_b2)
+
+        # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
+        # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
+        assert(output.shape[0] == target.shape[0])
+        loss_value_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                     tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+        loss_value_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                     tar_b1)))
+        return loss_value_b1+ loss_value_b3
+
+class VGG19loss(torch.nn.Module):
+    def __init__(self, devc):
+        super(VGG19loss,self).__init__()
+        blocks = []
+        blocks.append(torchvision.models.vgg19(pretrained=True).features[:5].eval()) # block 1
+        blocks.append(torchvision.models.vgg19(pretrained=True).features[5:10].eval()) #block 2
+        blocks.append(torchvision.models.vgg19(pretrained=True).features[10:19].eval()) # block 3
+        # blocks.append(torchvision.models.vgg19(pretrained=True).features[19:28].eval()) # block 4
+        for bl in blocks:
+            for p in bl.parameters():
+                p.requires_grad = False
+
+        self.blocks = torch.nn.ModuleList(blocks)
+        self.transform = torch.nn.functional.interpolate
+        self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406], device=devc).view(1, 3, 1, 1))
+        self.std = torch.nn.Parameter(torch.tensor([0.229, 0.224, 0.225], device=devc).view(1, 3, 1, 1))
+    def forward(self, output, target):
+        if output.shape[1] != 3:
+            output = output.repeat(1, 3, 1, 1)
+            target = target.repeat(1, 3, 1, 1)
+        output = (output - self.mean) / self.std
+        target = (target - self.mean) / self.std
+        if self.resize:
+            output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
+            target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
+        # y = target
+        # b1,b3
+        out_b1 = self.blocks[0](output)
+        out_b2 = self.blocks[1](out_b1)
+        out_b3 = self.blocks[2](out_b2)
+
+        tar_b1 = self.blocks[0](target)
+        tar_b2 = self.blocks[1](tar_b1)
+        tar_b3 = self.blocks[2](tar_b2)
+
+        # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
+        # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
+        assert(output.shape[0] == target.shape[0])
+        loss_value_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                     tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+        loss_value_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                     tar_b1)))
+        return loss_value_b1+ loss_value_b3
+        # return out_b3, out_b1, tar_b3, tar_b1
