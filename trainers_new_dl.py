@@ -222,9 +222,9 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
                     loss = MSE_loss + 0.1 * (MSSSIM_loss)
                     # print(loss)
                 # print('calculating backpass')
-                train_MSE_loss.append(MSE_loss.item())
-                train_MSSSIM_loss.append(MSSSIM_loss.item())
-                train_total_loss.append(loss.item())
+                train_MSE_loss[k].append(MSE_loss.item())
+                train_MSSSIM_loss[k].append(MSSSIM_loss.item())
+                train_total_loss[k].append(loss.item())
                 # model.zero_grad()
                 optimizer.zero_grad(set_to_none=True)
                 # BW pass
@@ -257,9 +257,9 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
                     # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                     loss = MSE_loss + 0.1 * (MSSSIM_loss)
 
-                val_MSE_loss.append(MSE_loss.item())
-                val_total_loss.append(loss.item())
-                val_MSSSIM_loss.append(MSSSIM_loss.item())
+                val_MSE_loss[k].append(MSE_loss.item())
+                val_total_loss[k].append(loss.item())
+                val_MSSSIM_loss[k].append(MSSSIM_loss.item())
         # dist.barrier()
 
         if sparsified == False and  retrain > 0 and k == ( epochs - 1):
