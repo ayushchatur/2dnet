@@ -91,8 +91,10 @@ def prune_weNb(item, amount):
     item.weight.data = sparse_tensor_w.unflatten(dim=0,sizes=w_s)
     item.bias.data = sparse_tensor_b.unflatten(dim=0,sizes=b_s)
 def mag_prune(model, amt):
+    print(f"type of model: {model}")
     enable_cudnn_tensorcore()
     for index, item in enumerate(model.children()):
+        print(f"type of item: {item}")
         if(type(item) == denseblock):
             for index, items in enumerate(item.children()):
                 if hasattr(items, "weight"):
