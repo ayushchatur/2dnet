@@ -244,7 +244,7 @@ def _epoch(model, train_index_list, val_index_list, train_loader, val_loader, sc
             # print(f"fetching first { batch_size} items from index: {index}: ")
             # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
             sample_batched =  train_loader.get_item(train_index_list[index: index+  batch_size])
-            print(f"item recieved:  {sample_batched}")
+            # print(f"item recieved:  {sample_batched}")
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             # print('indexes: ', idx)
@@ -286,10 +286,11 @@ def _epoch(model, train_index_list, val_index_list, train_loader, val_loader, sc
         for index in range(0,len(val_index_list),  batch_size):
             sample_batched =  val_loader.get_item(val_index_list[index: index+  batch_size])
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], sample_batched['min'], sample_batched['vol']
+
             with amp.autocast(enabled= amp_enabled):
-                outputs =  model(inputs)
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                outputs =  model(LQ_img)
+                MSE_loss = nn.MSELoss()(outputs, HQ_img)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 loss = MSE_loss + 0.1 * (MSSSIM_loss)
 
