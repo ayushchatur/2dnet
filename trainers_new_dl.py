@@ -135,7 +135,7 @@ def dd_train(args):
     
     if rank == 0:
         print("saving model file")
-        model_file_string = dir_pre + "/" + "weights_dense_" + epochs + "_sparse_" + retrain +".pt"
+        model_file_string = dir_pre + "/" + "weights_dense_" + str(epochs) + "_sparse_" + str(retrain) +".pt"
         torch.save(model.state_dict(), model_file_string)
         if not inference:
             print("not doing inference.. training only script")

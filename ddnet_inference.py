@@ -218,7 +218,7 @@ def main(args):
     rank = 0
     world_size = 1
     model_path = args.filepath
-    model_file =  "weights_dense_" + epochs + "_sparse_" + retrain + ".pt"
+    model_file =  "weights_dense_" + str(epochs) + "_sparse_" + str(retrain) + ".pt"
     file_m = model_path + "/" + model_file
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
