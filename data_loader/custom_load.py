@@ -33,18 +33,20 @@ class CTDataset(object):
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, index_list, item_list, is_tensor: bool):
-        # batch_list = []
+    def create_batch(self, index_list: list, item_list: list, is_tensor: bool):
+        batch_list = []
         if is_tensor:
-            res_list = list(itemgetter(*index_list)(item_list))
-            return torch.stack(res_list)
+            for x in index_list:
+                batch_list.append(item_list[x])
+            return torch.stack(batch_list).to(self.device)
         else:
-            res_list = list(itemgetter(*index_list)(item_list))
-            return res_list
+            for x in index_list:
+                batch_list.append(item_list[x])
+            return batch_list
     def __len__(self):
-        return len(self.tensor_list_fname)
+        return len(self.tensor_list_hq)
 
-    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.float32):
+    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.FloatTensor):
         self.batch_size = batch_size
         self.device = device
         self.dtype = dtype
