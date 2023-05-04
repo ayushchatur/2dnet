@@ -87,8 +87,10 @@ class CTDataset(object):
             try:
                 inputs = torch.from_numpy(image_input)
                 targets = torch.from_numpy(image_target)
-                inputs = inputs.to(self.device, dtype=self.dtype)
-                targets = targets.to(self.device, dtype=self.dtype)
+                inputs = inputs.type(torch.FloatTensor)
+                targets = targets.type(torch.FloatTensor)
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
                 self.tensor_list_fname.append(input_file)
                 self.tensor_list_hq.append(targets)
                 self.tensor_list_lq.append(inputs)
