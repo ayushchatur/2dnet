@@ -255,8 +255,8 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
                 scheduler.step()
 
             print("Validation")
-            for index in range(0, len(val_index_list), batch_size):
-                sample_batched = val_loader.get_item(val_index_list[index: index + batch_size])
+            for idx in val_index_list:
+                sample_batched = val_loader.get_item(idx)
                 HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], \
                 sample_batched['min'], sample_batched['vol']
 
