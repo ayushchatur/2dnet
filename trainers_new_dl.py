@@ -174,23 +174,22 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
     for k in range( epochs +  retrain):
         print(f"epoch: {k}")
         if global_rank == 0:
-            train_index_list = np.random.default_rng(seed=22).permutation(range(len(train_loader)))
-            val_index_list = np.random.default_rng(seed=22).permutation(range(len(val_loader)))
-
+            train_index_list = torch.randperm(len(train_loader), generator=g).tolist()
+            val_index_list = torch.randperm(len(val_loader), generator=g).tolist()
         else:
             train_index_list = [0 for i in range(len(train_loader))]
             val_index_list = [0 for i in range(len(val_loader))]
         # share permuted list of index with all ranks
-        # dist.broadcast_object_list(train_index_list, src=0)
-        # dist.broadcast_object_list(val_index_list, src=0)
-        # dist.barrier()
+        dist.broadcast_object_list(train_index_list, src=0)
+        dist.broadcast_object_list(val_index_list, src=0)
+        dist.barrier()
         #
         # train_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
         # val_items_per_rank = math.ceil((len( train_loader) -  world_size) /  world_size)
-        # train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
-        # val_index_list = val_index_list[global_rank * q_fact_val: (global_rank * q_fact_val + q_fact_val)]
-        # train_index_list = [int(x) for x in train_index_list]
-        # val_index_list = [int(x) for x in val_index_list]
+        train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
+        val_index_list = val_index_list[global_rank * q_fact_val: (global_rank * q_fact_val + q_fact_val)]
+        train_index_list = [int(x) for x in train_index_list]
+        val_index_list = [int(x) for x in val_index_list]
 
         # print(f"rank {global_rank} index list: {train_index_list}")
         # train_index_list = [list(train_index_list[i:i +  batch_size]) for i in
@@ -211,11 +210,10 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
             val_MSSSIM_loss[k] = val_msi
         else:
             print(f'length of training indices: {len(train_index_list)} for rank: {global_rank}')
-            for idx in train_index_list:
-                sample_batched = train_loader.get_item(int(idx))
+            for index in range(0, len(train_index_list), batch_size):
                 # print(f"fetching first { batch_size} items from index: {index}: ")
                 # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
-                # sample_batched = train_loader.get_item(train_index_list[index: index + batch_size])
+                sample_batched = train_loader.get_item(train_index_list[index: index + batch_size])
                 # print(f"item recieved:  {sample_batched}")
                 HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                     sample_batched['max'], sample_batched['min'], sample_batched['vol']
@@ -255,8 +253,8 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
                 scheduler.step()
 
             print("Validation")
-            for idx in val_index_list:
-                sample_batched = val_loader.get_item(int(idx))
+            for index in range(0, len(val_index_list), batch_size):
+                sample_batched = val_loader.get_item(val_index_list[index: index + batch_size])
                 HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], \
                 sample_batched['min'], sample_batched['vol']
 
