@@ -212,7 +212,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
         else:
             print(f'length of training indices: {len(train_index_list)} for rank: {global_rank}')
             for idx in train_index_list:
-                sample_batched = train_loader.get_item(idx)
+                sample_batched = train_loader.get_item(int(idx))
                 # print(f"fetching first { batch_size} items from index: {index}: ")
                 # print(f"fetching indices: {train_index_list[index: index+  batch_size]}")
                 # sample_batched = train_loader.get_item(train_index_list[index: index + batch_size])
@@ -256,7 +256,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
 
             print("Validation")
             for idx in val_index_list:
-                sample_batched = val_loader.get_item(idx)
+                sample_batched = val_loader.get_item(int(idx))
                 HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], sample_batched['max'], \
                 sample_batched['min'], sample_batched['vol']
 
