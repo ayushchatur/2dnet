@@ -151,9 +151,9 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
     root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
     root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
     root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
-    from data_loader.custom_load_old import CTDatasetold
-    train_loader = CTDatasetold(root_train_h, root_train_l, 5120, local_rank,  batch_size)
-    val_loader = CTDatasetold(root_val_h, root_val_l, 784, local_rank,  batch_size)
+    from data_loader.custom_load import CTDataset
+    train_loader = CTDataset(root_train_h, root_train_l, 5120, local_rank,  batch_size)
+    val_loader = CTDataset(root_val_h, root_val_l, 784, local_rank,  batch_size)
     scaler = torch.cuda.amp.GradScaler()
     sparsified = False
     densetime = 0
