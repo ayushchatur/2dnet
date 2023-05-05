@@ -136,8 +136,8 @@ class CTDataset(object):
                 'HQ': hq,
                 'LQ': lq,
                 'min': mins,
-                'max': maxs,
-                'idx': index_list
+                'max': maxs
+                # 'idx': index_list
             }
             return sample
         except AssertionError as e:
