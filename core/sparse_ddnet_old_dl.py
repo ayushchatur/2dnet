@@ -207,11 +207,6 @@ class SpraseDDnetOld(object):
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
                 val_MSSSIM_loss[k] = val_msi
-            # optimizer.param_groups
-
-            if k % 5 ==0:
-                model_file = f"weights_dense_{self.epochs}_sparse_{k}.pt"
-                torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
         # torch.cuda.current_stream().synchronize()
         print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
