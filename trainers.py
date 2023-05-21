@@ -106,7 +106,7 @@ def dd_train(args):
     else:
         scheduler = ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
-    model_file = "./dense_weights/weights_dense_" + str(epochs) + "_.pt"
+    model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet/weights_dense_" + str(epochs) + "_.pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     # if en_wan > 0:
