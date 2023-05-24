@@ -458,12 +458,11 @@ def _epoch_vgg(model, train_index_list, val_index_list, train_loader, val_loader
         # print('shape: ', HQ_img.shape)
         # print('device: ', HQ_img.get_device())
         # print("got items")
-        targets = HQ_img
-        inputs = LQ_img
+
         with amp.autocast(enabled=amp_enabled):
-            outputs, out_b3, out_b1, tar_b3, tar_b1 = model(inputs)
-            MSE_loss = nn.MSELoss()(outputs, targets)
-            MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+            outputs, out_b3, out_b1, tar_b3, tar_b1 = model(LQ_img, HQ_img)
+            MSE_loss = nn.MSELoss()(outputs, HQ_img)
+            MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
             loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
                                                          tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
             loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
@@ -503,7 +502,7 @@ def _epoch_vgg(model, train_index_list, val_index_list, train_loader, val_loader
         sample_batched['min'], sample_batched['vol']
 
         with amp.autocast(enabled=amp_enabled):
-            outputs,out_b3, out_b1, tar_b3, tar_b1  = model(inputs)
+            outputs,out_b3, out_b1, tar_b3, tar_b1  = model(LQ_img, HQ_img)
             MSE_loss = nn.MSELoss()(outputs, HQ_img)
             MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
             # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
@@ -536,7 +535,7 @@ def _epoch_profile(model, train_index_list, val_index_list, train_loader, val_lo
             optimizer.zero_grad(set_to_none=True)
             targets = HQ_img
             inputs = LQ_img
-            torch.cuda.nvtx.range_push("Training loop:  " + str(index))
+            torch.cuda.nvtx.range_push("Training loop:  ")
             torch.cuda.nvtx.range_push("Forward pass")
             with amp.autocast(enabled= amp_enabled):
                 outputs =  model(inputs)
@@ -566,7 +565,7 @@ def _epoch_profile(model, train_index_list, val_index_list, train_loader, val_lo
         print("schelud")
         scheduler.step()
         print("Validation")
-        torch.cuda.nvtx.range_push("Validation " + str(index))
+        torch.cuda.nvtx.range_push("Validation ")
         for index in range(0,len(val_index_list),  batch_size):
             sample_batched =  val_loader.get_item(val_index_list[index: index+  batch_size])
             HQ_img, LQ_img, maxs, mins, fname = sample_batched['HQ'], sample_batched['LQ'], \

@@ -234,7 +234,7 @@ class SpraseDDnetOld(object):
             targets = HQ_img.to(local_rank, non_blocking=True)
             inputs = LQ_img.to(local_rank, non_blocking=True)
             with amp.autocast(enabled=self.amp_enabled):
-                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs)
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs, targets)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = MSE_loss + 0.1 * (MSSSIM_loss)
@@ -273,7 +273,7 @@ class SpraseDDnetOld(object):
             inputs = LQ_img.to(local_rank)
             targets = HQ_img.to(local_rank)
             with amp.autocast(enabled=self.amp_enabled):
-                outputs,out_b3, out_b1, tar_b3, tar_b1  = self.model(inputs)
+                outputs,out_b3, out_b1, tar_b3, tar_b1  = self.model(inputs, targets)
                 # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -313,7 +313,7 @@ class SpraseDDnetOld(object):
                 torch.cuda.nvtx.range_pop()  # H2D
 
                 torch.cuda.nvtx.range_push("forward pass")  # FP
-                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs)
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs, targets)
                 torch.cuda.nvtx.range_push("Loss calculation")  # Loss
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
@@ -355,7 +355,7 @@ class SpraseDDnetOld(object):
             targets = HQ_img.to(local_rank)
 
             with amp.autocast(enabled=self.amp_enabled):
-                outputs = self.model(inputs)
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs, targets)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
