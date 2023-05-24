@@ -78,7 +78,7 @@ export infer_command="conda run -n ${conda_env} python ddnet_inference.py --file
 if [ "$new_load" = "true" ]; then
   export file="trainers_new_dl.py"
 else
-  export file="trainers_vgg16.py"
+  export file="trainers.py"
 fi
 
 
