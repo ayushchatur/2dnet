@@ -201,7 +201,7 @@ class SpraseDDnetOld(object):
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
                 val_MSSSIM_loss[k] = val_msi
-                val_vgg[k] = val_vgg
+                val_vgg_loss[k] = val_vgg
 
             # optimizer.param_groups
         # torch.cuda.current_stream().synchronize()
