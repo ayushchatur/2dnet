@@ -12,9 +12,74 @@
 
 ### change 5-digit MASTER_PORT as you wish, slurm will raise Error if duplicated with others
 ### change WORLD_SIZE as gpus/node * num_nodes
+source_helpers () {
+  # Generate random integer in range [$1..$2]
+  random_number () {
+    shuf -i ${1}-${2} -n 1
+  }
+  export -f random_number
 
+  port_used_python() {
+    python -c "import socket; socket.socket().connect(('$1',$2))" >/dev/null 2>&1
+  }
 
-export MASTER_PORT=$(comm -23 <(seq 20000 65535) <(ss -tan | awk '{print $4}' | cut -d':' -f2 | grep "[0-9]\{1,5\}" | sort | uniq) | shuf | head -n 1)
+  port_used_python3() {
+    python3 -c "import socket; socket.socket().connect(('$1',$2))" >/dev/null 2>&1
+  }
+
+  port_used_nc(){
+    nc -w 2 "$1" "$2" < /dev/null > /dev/null 2>&1
+  }
+
+  port_used_lsof(){
+    lsof -i :"$2" >/dev/null 2>&1
+  }
+
+  port_used_bash(){
+    local bash_supported=$(strings /bin/bash 2>/dev/null | grep tcp)
+    if [ "$bash_supported" == "/dev/tcp/*/*" ]; then
+      (: < /dev/tcp/$1/$2) >/dev/null 2>&1
+    else
+      return 127
+    fi
+  }
+
+  # Check if port $1 is in use
+  port_used () {
+    local port="${1#*:}"
+    local host=$((expr "${1}" : '\(.*\):' || echo "localhost") | awk 'END{print $NF}')
+    local port_strategies=(port_used_nc port_used_lsof port_used_bash port_used_python port_used_python3)
+
+    for strategy in ${port_strategies[@]};
+    do
+      $strategy $host $port
+      status=$?
+      if [[ "$status" == "0" ]] || [[ "$status" == "1" ]]; then
+        return $status
+      fi
+    done
+
+    return 127
+  }
+  export -f port_used
+
+  # Find available port in range [$2..$3] for host $1
+  # Default: [2000..65535]
+  find_port () {
+    local host="${1:-localhost}"
+    local port=$(random_number "${2:-2000}" "${3:-65535}")
+    while port_used "${host}:${port}"; do
+      port=$(random_number "${2:-2000}" "${3:-65535}")
+    done
+    echo "${port}"
+  }
+  export -f find_port
+}
+export -f source_helpers
+
+source_helpers
+
+export MASTER_PORT=$(find_port)
 echo "master port: $MASTER_PORT"
 master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
 export MASTER_ADDR=$master_addr
