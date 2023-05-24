@@ -249,7 +249,7 @@ class SpraseDDnetOld(object):
             #             print('calculating loss')
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
-            train_vgg_loss.append(loss_vgg)
+            train_vgg_loss.append(loss_vgg.item())
             train_total_loss.append(loss.item())
             # model.zero_grad()
             # BW pass
