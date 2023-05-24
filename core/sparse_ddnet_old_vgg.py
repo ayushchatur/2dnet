@@ -167,6 +167,7 @@ class SpraseDDnetOld(object):
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
         for k in range(1, self.retrain + 1):
+            print(f'epoch: {k}')
             if sparsified == False and k <= 1:
                 densetime = str(datetime.now()- start)
                 print('pruning model on epoch: ', k)
