@@ -213,11 +213,13 @@ def main(args):
     dir_pre = args.out_dir
     print("dir prefix: " + dir_pre)
     batch= args.batch
+    mod= args.model
     epochs = args.epochs
+    retrain = args.retrain
     rank = 0
     world_size = 1
     model_path = args.filepath
-    model_file = "weights_" + str(epochs) + "_" + str(batch) + ".pt"
+    model_file = f'weights_{str(batch)}_{str(epochs+retrain)}.pt'
     file_m = model_path + "/" + model_file
     root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
     root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
@@ -225,10 +227,33 @@ def main(args):
     test_sampler = torch.utils.data.distributed.DistributedSampler(testset, num_replicas=world_size, rank=rank)
     test_loader = DataLoader(testset, batch_size=batch, drop_last=False, shuffle=False, num_workers=1,pin_memory=False, sampler=test_sampler)
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    device = torch.device("cuda", rank)
+    torch.cuda.set_device(device)
+    global gamma
+    global beta
+    if mod == "vgg16":
+        print("loading vgg16")
+        from core.vgg16.ddnet_model import DD_net
+        model = DD_net(devc=device)
+        gamma = 0.03
+        beta = 0.05
 
-    model = DD_net()
-    model.to(rank)
+    elif mod == "vgg19":
+        print("loading vgg19")
+        from core.vgg19.ddnet_model import DD_net
+        model = DD_net(devc=device)
+        gamma = 0.04
+        beta = 0.04
+
+    else:
+        print("loading vanilla ddnet")
+        from core import DD_net
+        model = DD_net()
+        gamma = 0.1
+        beta = 0.0
+    model.to(device)
     model = DDP(model, device_ids=[rank])
+
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     test_MSE_loss =[0]
     test_MSSSIM_loss = [0]
@@ -240,10 +265,24 @@ def main(args):
                                                     batch_samples['max'], batch_samples['min']
             inputs = LQ_img.to(rank)
             targets = HQ_img.to(rank)
-            outputs = model(inputs)
+            if mod == "ddnet":
+                outputs = model(inputs)
+            else:
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = model(inputs, targets)
             MSE_loss = nn.MSELoss()(outputs, targets)
             MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-            loss = MSE_loss + 0.1 * (MSSSIM_loss)
+            loss = MSE_loss + gamma * (MSSSIM_loss)
+            try:
+
+                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                             tar_b1)))
+                loss_vgg = (loss_vgg_b3 + loss_vgg_b1)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss =  loss + beta * loss_vgg
+            except Exception as e:
+                print(f'error calculating vgg loss: {e}')
 
             test_MSE_loss.append(MSE_loss.item())
             test_MSSSIM_loss.append(MSSSIM_loss.item())
@@ -295,7 +334,11 @@ if __name__ == '__main__':
                         help='model file path')
     parser.add_argument('--batch', default=1, type=int, metavar='b',
                         help='model file path')
-    parser.add_argument('--epochs', default=50, type=int, metavar='b',
+    parser.add_argument('--epochs', default=50, type=int, metavar='v',
+                        help='model file path')
+    parser.add_argument('--retrain', default=0, type=int, metavar='c',
+                        help='model file path')
+    parser.add_argument('--model', default="ddnet", type=str, metavar='z',
                         help='model file path')
     args = parser.parse_args()
     main(args)

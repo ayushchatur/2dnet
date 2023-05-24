@@ -73,7 +73,7 @@ fi
 #module load site/tinkercliffs/easybuild/arc.arcadm
 #module load Anaconda3/2022.05
 module restore cu117
-export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID}"
+export infer_command="conda run -n ${conda_env} python ddnet_inference.py --filepath ${SLURM_JOBID} --batch ${batch_size} --epochs ${epochs} --out_dir ${SLURM_JOBID} --model ${model} --retrain ${retrain}"
 
 if [ "$new_load" = "true" ]; then
   export file="trainers_new_dl.py"
