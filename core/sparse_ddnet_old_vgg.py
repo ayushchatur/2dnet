@@ -193,29 +193,34 @@ class SpraseDDnetOld(object):
             else:
                 train_total, train_mse, train_msi, train_vgg, val_total, val_mse, val_msi, val_vgg = \
                     self._epoch(local_rank)
+                try:
+                    train_total_loss[k] = train_total
+                    train_MSE_loss[k] = train_mse
+                    train_MSSSIM_loss[k] = train_msi
+                    train_vgg_loss[k] = train_vgg
 
-                train_total_loss[k] = train_total
-                train_MSE_loss[k] = train_mse
-                train_MSSSIM_loss[k] = train_msi
-                train_vgg_loss[k] = train_vgg
-
-                val_total_loss[k] = val_total
-                val_MSE_loss[k] = val_mse
-                val_MSSSIM_loss[k] = val_msi
-                val_vgg_loss[k] = val_vgg
+                    val_total_loss[k] = val_total
+                    val_MSE_loss[k] = val_mse
+                    val_MSSSIM_loss[k] = val_msi
+                    val_vgg_loss[k] = val_vgg
+                except Exception as e:
+                    print(f'error saving loss list for epoch {k}')
 
             # optimizer.param_groups
         # torch.cuda.current_stream().synchronize()
         print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
-        serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
-        serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)
-        serialize_loss_item(dir_pre,"train_mssim_loss",train_MSSSIM_loss,global_rank)
-        serialize_loss_item(dir_pre,"train_vgg_loss",train_vgg_loss,global_rank)
+        try:
+            serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
+            serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)
+            serialize_loss_item(dir_pre,"train_mssim_loss",train_MSSSIM_loss,global_rank)
+            serialize_loss_item(dir_pre,"train_vgg_loss",train_vgg_loss,global_rank)
 
-        serialize_loss_item(dir_pre,"val_mse_loss",val_MSE_loss,global_rank)
-        serialize_loss_item(dir_pre,"val_total_loss",val_total_loss,global_rank)
-        serialize_loss_item(dir_pre,"val_mssim_loss",val_MSSSIM_loss,global_rank)
-        serialize_loss_item(dir_pre,"val_vgg_loss",val_vgg_loss,global_rank)
+            serialize_loss_item(dir_pre,"val_mse_loss",val_MSE_loss,global_rank)
+            serialize_loss_item(dir_pre,"val_total_loss",val_total_loss,global_rank)
+            serialize_loss_item(dir_pre,"val_mssim_loss",val_MSSSIM_loss,global_rank)
+            serialize_loss_item(dir_pre,"val_vgg_loss",val_vgg_loss,global_rank)
+        except Exception as e:
+            print(f'error serializing loss values: {e}')
 
     def _epoch(self,local_rank):
         train_MSE_loss = []
