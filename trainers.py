@@ -30,7 +30,6 @@ import torch.distributed as dist
 # from apex.parallel import DistributedDataParallel as DDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
-from core import DD_net
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts,CosineAnnealingLR,ReduceLROnPlateau,ExponentialLR
 
 from socket import gethostname
@@ -59,9 +58,12 @@ def dd_train(args):
     prune_amt = float(args.prune_amt)
     # enable_gr = (args.enable_gr == "true")
     gr_mode = args.gr_mode
+    mod = args.model
     gr_backend = args.gr_backend
     amp_enabled = (args.amp == "true")
     global dir_pre
+    global gamma
+    global beta
     dir_pre = args.out_dir
     num_w = args.num_w
     en_wan = args.wan
@@ -69,16 +71,35 @@ def dd_train(args):
     enable_prof = (args.enable_profile == "true")
     new_load = (args.new_load == "true")
     gr_mode = (args.enable_gr == "true")
-
-    model = DD_net()
     if torch.cuda.is_available():
         device = torch.device("cuda", local_rank)
         torch.cuda.set_device(device)
     else:
         device = torch.device("cpu", local_rank)
+
     torch.cuda.manual_seed(1111)
     # necessary for AMP to work
 
+    # model.to(device)
+
+    model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet/weights_dense_" + str(epochs) + "_.pt"
+    if mod == "vgg16":
+        from core.vgg16.ddnet_model import DD_net
+        model = DD_net(devc=device)
+        gamma = 0.03
+        beta = 0.05
+        model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet_vgg16/dense_weights/weights_dense_" + str(epochs) + ".pt"
+    elif mod == "vgg19":
+        from core.vgg19.ddnet_model import DD_net
+        model = DD_net(devc=device)
+        gamma = 0.04
+        beta = 0.04
+        model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet_vgg19/dense_weights/weights_dense_" + str(epochs) + ".pt"
+    else:
+        from core import DD_net
+        model = DD_net()
+        gamma = 0.1
+        beta = 0.0
     model.to(device)
 
     if gr_mode:
@@ -106,7 +127,8 @@ def dd_train(args):
     else:
         scheduler = ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
-    model_file = "1447477/weights_dense_" + str(epochs) + "_.pt"
+
+    # model_file = "1447477/weights_dense_" + str(epochs) + "_.pt"
 
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     # if en_wan > 0:
@@ -118,13 +140,20 @@ def dd_train(args):
         print(f'loading model file: {model_file}')
         model.load_state_dict(torch.load(model_file, map_location=map_location))
 
-    print("initiating training")
-    from core import SpraseDDnetOld
-    trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, dir_pre, amp=amp_enabled, sched_type=sched_type)
+        print("initiating training")
+        if mod != "baseline":
+            print('running ddnet')
+            from core.sparse_ddnet_old_dl import SpraseDDnetOld
+        else:
+            print('running ddnet-ml-vgg')
+            from core.sparse_ddnet_old_vgg import SpraseDDnetOld
+
+    trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt,gamma, beta,dir_pre=dir_pre,  amp=amp_enabled, sched_type=sched_type)
     trainer.train_ddnet(rank,local_rank, enable_profile=enable_prof)
 
     if rank == 0:
         print("saving model file")
+        model_file = f'weights_{str(batch)}_{str(epochs+retrain)}.pt'
         torch.save(model.state_dict(), dir_pre + "/" + model_file)
         if not inference:
             print("not doing inference.. training only script")

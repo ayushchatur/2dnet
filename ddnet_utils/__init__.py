@@ -1,3 +1,3 @@
 # from image_read import read_correct_image
 from .pruning import ln_struc_spar,module_sparsity,calculate_global_sparsity,mag_prune,prune_thresh,unstructured_sparsity
-from .file_saving import serialize_loss_item, init_loss_params
+from .file_saving import serialize_loss_item, init_loss_params, init_vggloss_params

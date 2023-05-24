@@ -26,6 +26,7 @@ export distback="gloo"
 # options mag/l1_struc or random_unstru will be set otherwise
 export prune_t="random_unstru"
 export prune_amt=0.5
+export model="ddnet"
 #options enable/disable
 export mp="false"
 export schedtype="expo"

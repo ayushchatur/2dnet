@@ -20,6 +20,8 @@ def get_parser():
                         help='new data loader')
     parser.add_argument('--prune_amt', default=0.5, type=float, metavar='y',
                         help='prune amount ')
+    parser.add_argument('--model', default="ddnet", type=str, metavar='z',
+                        help='model type ')
     # options mag/l1_struc/random_unstru
     parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
                         help='pruning type')

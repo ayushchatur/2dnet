@@ -36,8 +36,8 @@ import torch.cuda.amp as amp
 
 from core import MSSSIM, SSIM
 from ddnet_utils import mag_prune,ln_struc_spar,unstructured_sparsity
-from ddnet_utils import serialize_loss_item, init_loss_params
-
+from ddnet_utils import serialize_loss_item, init_loss_params, init_vggloss_params
+from core.ddnet_model import DD_net
 # torch.backends.cuda.matmul.allow_tf32 = True
 # torch.backends.cudnn.allow_tf32 = True
 
@@ -121,15 +121,13 @@ class CTDataset(Dataset):
 
 
 class SpraseDDnetOld(object):
-    def __init__(self, epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, gamma, beta,dir_pre=".", amp = False, sched_type='expo'):
+    def __init__(self, epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t, prune_amt, gamma, beta, dir_pre=".", amp = False, sched_type='expo'):
         self.epochs = epochs
         self.retrain = retrain
         self.total_epoch = self.retrain + self.epochs
         self.batch_size = batch
         self.model = model
         self.optimizer = optimizer
-        self.gamma = gamma
-        self.beta = beta
         self.scheduler = scheduler
         # self.scaler = grad_scaler
         self.world_size = world_size
@@ -137,6 +135,8 @@ class SpraseDDnetOld(object):
         self.prune_amt = prune_amt
         self.output_path = dir_pre
         self.amp_enabled = amp
+        self.gamma = gamma
+        self.beta = beta
         self.sched_type = sched_type
 
     def init_dataset_dataloader(self, global_rank: int, num_workers: int = 1):
@@ -144,8 +144,6 @@ class SpraseDDnetOld(object):
         root_train_l = "/projects/synergy_lab/garvit217/enhancement_data/train/LQ/"
         root_val_h = "/projects/synergy_lab/garvit217/enhancement_data/val/HQ/"
         root_val_l = "/projects/synergy_lab/garvit217/enhancement_data/val/LQ/"
-        root_test_h = "/projects/synergy_lab/garvit217/enhancement_data/test/HQ/"
-        root_test_l = "/projects/synergy_lab/garvit217/enhancement_data/test/LQ/"
         trainset = CTDataset(root_dir_h=root_train_h, root_dir_l=root_train_l, length=5120)
         valset = CTDataset(root_dir_h=root_val_h, root_dir_l=root_val_l, length=784)
 
@@ -164,7 +162,7 @@ class SpraseDDnetOld(object):
 
         sparsified = False
         densetime=0
-        train_total_loss, train_MSSSIM_loss, train_MSE_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss = init_loss_params()
+        train_total_loss, train_MSSSIM_loss, train_MSE_loss,train_vgg_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss, val_vgg_loss = init_vggloss_params()
         start = datetime.now()
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
@@ -189,49 +187,45 @@ class SpraseDDnetOld(object):
             if enable_profile:
                 import nvidia_dlprof_pytorch_nvtx
                 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
-                train_total, train_mse, train_msi, val_total, val_mse, val_msi =\
-                   self._epoch_profile(local_rank)
-                train_total_loss[k] = train_total
-                train_MSE_loss[k] = train_mse
-                train_MSSSIM_loss[k] = train_msi
+                _ = self._epoch_profile(local_rank)
 
-                val_total_loss[k] = val_total
-                val_MSE_loss[k] = val_mse
-                val_MSSSIM_loss[k] = val_msi
             else:
-                train_total, train_mse, train_msi, val_total, val_mse, val_msi = \
+                train_total, train_mse, train_msi, train_vgg, val_total, val_mse, val_msi, val_vgg = \
                     self._epoch(local_rank)
 
                 train_total_loss[k] = train_total
                 train_MSE_loss[k] = train_mse
                 train_MSSSIM_loss[k] = train_msi
+                train_vgg_loss[k] = train_vgg
 
                 val_total_loss[k] = val_total
                 val_MSE_loss[k] = val_mse
                 val_MSSSIM_loss[k] = val_msi
-            # optimizer.param_groups
+                val_vgg[k] = val_vgg
 
-            if k % 5 ==0:
-                model_file = f"weights_dense_{self.epochs}_sparse_{k}.pt"
-                torch.save(self.model.state_dict(), dir_pre + "/" + model_file)
+            # optimizer.param_groups
         # torch.cuda.current_stream().synchronize()
         print("total time : ", str(datetime.now() - start), ' dense time: ', densetime)
         serialize_loss_item(dir_pre,"train_mse_loss",train_MSE_loss,global_rank)
         serialize_loss_item(dir_pre,"train_total_loss",train_total_loss,global_rank)
         serialize_loss_item(dir_pre,"train_mssim_loss",train_MSSSIM_loss,global_rank)
+        serialize_loss_item(dir_pre,"train_vgg_loss",train_vgg_loss,global_rank)
+
         serialize_loss_item(dir_pre,"val_mse_loss",val_MSE_loss,global_rank)
         serialize_loss_item(dir_pre,"val_total_loss",val_total_loss,global_rank)
         serialize_loss_item(dir_pre,"val_mssim_loss",val_MSSSIM_loss,global_rank)
+        serialize_loss_item(dir_pre,"val_vgg_loss",val_vgg_loss,global_rank)
 
     def _epoch(self,local_rank):
         train_MSE_loss = []
         train_MSSSIM_loss = []
         train_total_loss = []
+        train_vgg_loss = []
 
         val_total_loss = []
         val_MSE_loss = []
         val_MSSSIM_loss = []
-
+        val_vgg_loss = []
         for batch_index, batch_samples in enumerate(self.train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
@@ -240,14 +234,22 @@ class SpraseDDnetOld(object):
             targets = HQ_img.to(local_rank, non_blocking=True)
             inputs = LQ_img.to(local_rank, non_blocking=True)
             with amp.autocast(enabled=self.amp_enabled):
-                outputs = self.model(inputs)
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                # loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                              tar_b1)))
+                loss_vgg = (loss_vgg_b3 + loss_vgg_b1)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * loss_vgg
                 # print(loss)
             #             print('calculating loss')
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())
+            train_vgg_loss.append(loss_vgg)
             train_total_loss.append(loss.item())
             # model.zero_grad()
             # BW pass
@@ -271,18 +273,24 @@ class SpraseDDnetOld(object):
             inputs = LQ_img.to(local_rank)
             targets = HQ_img.to(local_rank)
             with amp.autocast(enabled=self.amp_enabled):
-                outputs = self.model(inputs)
+                outputs,out_b3, out_b1, tar_b3, tar_b1  = self.model(inputs)
                 # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
+                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                              tar_b1)))
+                vgg_loss = (loss_vgg_b3 + loss_vgg_b1)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * vgg_loss
 
             val_MSE_loss.append(MSE_loss.item())
             val_total_loss.append(loss.item())
+            val_vgg_loss.append(vgg_loss.item())
             val_MSSSIM_loss.append(MSSSIM_loss.item())
 
-        return train_total_loss, train_MSE_loss, train_MSSSIM_loss, val_total_loss, val_MSE_loss, val_MSSSIM_loss
+        return train_total_loss, train_MSE_loss, train_MSSSIM_loss, train_vgg_loss, val_total_loss, val_MSE_loss, val_MSSSIM_loss, val_vgg_loss
 
     def _epoch_profile(self, local_rank):
         train_MSE_loss = []
@@ -304,12 +312,18 @@ class SpraseDDnetOld(object):
                 inputs = LQ_img.to(local_rank, non_blocking=True)
                 torch.cuda.nvtx.range_pop()  # H2D
 
-                torch.cuda.nvtx.range_push("forward pass, step:" + str(batch_index))  # FP
-                outputs = self.model(inputs)
+                torch.cuda.nvtx.range_push("forward pass")  # FP
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = self.model(inputs)
                 torch.cuda.nvtx.range_push("Loss calculation")  # Loss
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                              tar_b1)))
+                vgg_loss = (loss_vgg_b3 + loss_vgg_b1)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * vgg_loss
                 torch.cuda.nvtx.range_pop()  # Loss
 
                 torch.cuda.nvtx.range_pop()  # FP
@@ -336,7 +350,7 @@ class SpraseDDnetOld(object):
         for batch_index, batch_samples in enumerate(self.val_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
-            torch.cuda.nvtx.range_push("Validation step: " + str(batch_index))
+            torch.cuda.nvtx.range_push("Validation step")
             inputs = LQ_img.to(local_rank)
             targets = HQ_img.to(local_rank)
 
@@ -345,7 +359,13 @@ class SpraseDDnetOld(object):
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
+                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
+                                                              tar_b1)))
+                vgg_loss = (loss_vgg_b3 + loss_vgg_b1)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * vgg_loss
 
             val_MSE_loss.append(MSE_loss.item())
             val_total_loss.append(loss.item())
