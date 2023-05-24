@@ -326,10 +326,11 @@ class DD_net(nn.Module):
         self.input = None  #######CHANGE
         self.nb_filter = 16
         blocks = []
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[:4].eval())
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[4:9].eval())
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[9:16].eval())
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[16:23].eval())
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[:5].eval()) # block 1
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[5:10].eval()) # block 2
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[10:17].eval()) # block 2
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[17:24].eval()) # block 3
+        blocks.append(torchvision.models.vgg16(pretrained=True).features[24:31].eval()) # block 4
         for bl in blocks:
             for p in bl.parameters():
                 p.requires_grad = False
