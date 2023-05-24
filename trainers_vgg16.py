@@ -32,12 +32,108 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts,CosineAnnealingLR,ReduceLROnPlateau,ExponentialLR
 import torchvision
-from core import denseblock
+
+
 from socket import gethostname
+INPUT_CHANNEL_SIZE = 1
+
+class denseblock(nn.Module):
+    def __init__(self, nb_filter=16, filter_wh=5):
+        super(denseblock, self).__init__()
+        self.input = None  ######CHANGE
+        self.nb_filter = nb_filter
+        self.nb_filter_wh = filter_wh
+        ##################CHANGE###############
+        self.conv1_0 = nn.Conv2d(in_channels=nb_filter, out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_0 = nn.Conv2d(in_channels=self.conv1_0.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_1 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels, out_channels=self.nb_filter * 4,
+                                 kernel_size=1)
+        self.conv2_1 = nn.Conv2d(in_channels=self.conv1_1.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_2 = nn.Conv2d(in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels,
+                                 out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_2 = nn.Conv2d(in_channels=self.conv1_2.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1_3 = nn.Conv2d(
+            in_channels=nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels,
+            out_channels=self.nb_filter * 4, kernel_size=1)
+        self.conv2_3 = nn.Conv2d(in_channels=self.conv1_3.out_channels, out_channels=self.nb_filter,
+                                 kernel_size=self.nb_filter_wh, padding=(2, 2))
+        self.conv1 = [self.conv1_0, self.conv1_1, self.conv1_2, self.conv1_3]
+        self.conv2 = [self.conv2_0, self.conv2_1, self.conv2_2, self.conv2_3]
+
+        self.batch_norm1_0 = nn.BatchNorm2d(nb_filter)
+        self.batch_norm2_0 = nn.BatchNorm2d(self.conv1_0.out_channels)
+        self.batch_norm1_1 = nn.BatchNorm2d(nb_filter + self.conv2_0.out_channels)
+        self.batch_norm2_1 = nn.BatchNorm2d(self.conv1_1.out_channels)
+        self.batch_norm1_2 = nn.BatchNorm2d(nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels)
+        self.batch_norm2_2 = nn.BatchNorm2d(self.conv1_2.out_channels)
+        self.batch_norm1_3 = nn.BatchNorm2d(
+            nb_filter + self.conv2_0.out_channels + self.conv2_1.out_channels + self.conv2_2.out_channels)
+        self.batch_norm2_3 = nn.BatchNorm2d(self.conv1_3.out_channels)
+
+        self.batch_norm1 = [self.batch_norm1_0, self.batch_norm1_1, self.batch_norm1_2, self.batch_norm1_3]
+        self.batch_norm2 = [self.batch_norm2_0, self.batch_norm2_1, self.batch_norm2_2, self.batch_norm2_3]
+
+    # def Forward(self, inputs):
+    def forward(self, inputs):  ######CHANGE
+        # x = self.input
+        x = inputs
+        # for i in range(4):
+        #    #conv = nn.BatchNorm2d(x.size()[1])(x)
+        #    conv = self.batch_norm1[i](x)
+        #    #if(self.conv1[i].weight.grad != None ):
+        #    #    print("weight_grad_" + str(i) + "_1", self.conv1[i].weight.grad.max())
+        #    conv = self.conv1[i](conv)      ######CHANGE
+        #    conv = F.leaky_relu(conv)
+
+        #    #conv = nn.BatchNorm2d(conv.size()[1])(conv)
+        #    conv = self.batch_norm2[i](conv)
+        #    #if(self.conv2[i].weight.grad != None ):
+        #    #    print("weight_grad_" + str(i) + "_2", self.conv2[i].weight.grad.max())
+        #    conv = self.conv2[i](conv)      ######CHANGE
+        #    conv = F.leaky_relu(conv)
+        #    x = torch.cat((x, conv),dim=1)
+
+        conv_1 = self.batch_norm1_0(x)
+        conv_1 = self.conv1_0(conv_1)
+        conv_1 = F.leaky_relu(conv_1)
+        conv_2 = self.batch_norm2_0(conv_1)
+        conv_2 = self.conv2_0(conv_2)
+        conv_2 = F.leaky_relu(conv_2)
+
+        x = torch.cat((x, conv_2), dim=1)
+        conv_1 = self.batch_norm1_1(x)
+        conv_1 = self.conv1_1(conv_1)
+        conv_1 = F.leaky_relu(conv_1)
+        conv_2 = self.batch_norm2_1(conv_1)
+        conv_2 = self.conv2_1(conv_2)
+        conv_2 = F.leaky_relu(conv_2)
+
+        x = torch.cat((x, conv_2), dim=1)
+        conv_1 = self.batch_norm1_2(x)
+        conv_1 = self.conv1_2(conv_1)
+        conv_1 = F.leaky_relu(conv_1)
+        conv_2 = self.batch_norm2_2(conv_1)
+        conv_2 = self.conv2_2(conv_2)
+        conv_2 = F.leaky_relu(conv_2)
+
+        x = torch.cat((x, conv_2), dim=1)
+        conv_1 = self.batch_norm1_3(x)
+        conv_1 = self.conv1_3(conv_1)
+        conv_1 = F.leaky_relu(conv_1)
+        conv_2 = self.batch_norm2_3(conv_1)
+        conv_2 = self.conv2_3(conv_2)
+        conv_2 = F.leaky_relu(conv_2)
+        x = torch.cat((x, conv_2), dim=1)
+
+        return x
+
+
 class DD_net(nn.Module):
     def __init__(self, devc):
         super(DD_net, self).__init__()
-        INPUT_CHANNEL_SIZE= 1
         resize = True
         self.input = None  #######CHANGE
         self.nb_filter = 16
