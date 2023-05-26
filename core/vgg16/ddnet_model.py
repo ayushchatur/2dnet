@@ -22,8 +22,8 @@ class DD_net(nn.Module):
         blocks.append(torchvision.models.vgg16(pretrained=True).features[:5].eval()) # block 1
         blocks.append(torchvision.models.vgg16(pretrained=True).features[5:10].eval()) # block 2
         blocks.append(torchvision.models.vgg16(pretrained=True).features[10:17].eval()) # block 3
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[17:24].eval()) # block 4
-        blocks.append(torchvision.models.vgg16(pretrained=True).features[24:31].eval()) # block 5
+        # blocks.append(torchvision.models.vgg16(pretrained=True).features[17:24].eval()) # block 4
+        # blocks.append(torchvision.models.vgg16(pretrained=True).features[24:31].eval()) # block 5
         for bl in blocks:
             for p in bl.parameters():
                 p.requires_grad = False
