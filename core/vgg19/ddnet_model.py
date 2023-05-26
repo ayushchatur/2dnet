@@ -144,8 +144,8 @@ class DD_net(nn.Module):
         output = (output - self.mean) / self.std
         target = (target - self.mean) / self.std
 
-        output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
-        target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
+        # output = self.transform(output, mode='bilinear', size=(224, 224), align_corners=False)
+        # target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
         # y = target
         # b1,b3
         out_b1 = self.blocks[0](output)
