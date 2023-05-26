@@ -157,12 +157,10 @@ class DD_net(nn.Module):
         # y = target
         # b1,b3
         out_b1 = self.blocks[0](output)
-        out_b2 = self.blocks[1](out_b1)
-        out_b3 = self.blocks[2](out_b2)
+        out_b3 = self.blocks[2](self.blocks[1](out_b1))
 
         tar_b1 = self.blocks[0](target)
-        tar_b2 = self.blocks[1](tar_b1)
-        tar_b3 = self.blocks[2](tar_b2)
+        tar_b3 = self.blocks[2](self.blocks[1](tar_b1))
 
         # print('sizes out_b1: {} tar_b1{}: '.format(out_b1.shape,tar_b1.shape))
         # print('sizes out_b3: {} tar_b3{}: '.format(out_b3.shape,tar_b3.shape))
