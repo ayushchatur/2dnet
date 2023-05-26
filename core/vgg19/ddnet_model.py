@@ -13,6 +13,7 @@ from core import denseblock
 
 class DD_net(nn.Module):
     def __init__(self, devc):
+        print('loading ddnet_ml_vgg19')
         INPUT_CHANNEL_SIZE=1
         super(DD_net, self).__init__()
         resize = True
