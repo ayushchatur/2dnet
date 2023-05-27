@@ -89,14 +89,14 @@ def dd_train(args):
         model = DD_net(devc=device)
         gamma = 0.03
         beta = 0.05
-        model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet_vgg16/dense_weights/weights_dense_" + str(epochs) + ".pt"
+        model_file = "/projects/synergy_lab/ayush/weights_vgg16/weights_dense_" + str(epochs) + ".pt"
     elif mod == "vgg19":
         print("loading vgg19")
         from core.vgg19.ddnet_model import DD_net
         model = DD_net(devc=device)
         gamma = 0.04
         beta = 0.04
-        model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet_vgg19/dense_weights/weights_dense_" + str(epochs) + ".pt"
+        model_file = "/projects/synergy_lab/ayush/weights_vgg19/weights_dense_" + str(epochs) + ".pt"
     else:
         print("loading vanilla ddnet")
         from core import DD_net
