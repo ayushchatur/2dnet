@@ -22,6 +22,8 @@ def get_parser():
                         help='prune amount ')
     parser.add_argument('--model', default="ddnet", type=str, metavar='z',
                         help='model type ')
+    parser.add_argument('--port', default=9191, type=int, metavar='y',
+                        help='port define')
     # options mag/l1_struc/random_unstru
     parser.add_argument('--prune_t', default="l1_stru", type=str, metavar='t',
                         help='pruning type')

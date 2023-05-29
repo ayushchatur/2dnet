@@ -33,11 +33,14 @@ import argparse
 
 from ddnet_utils.pruning import mag_prune,ln_struc_spar,unstructured_sparsity
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts,CosineAnnealingLR,ReduceLROnPlateau,ExponentialLR
-from core import MSSSIM, SSIM
+from core import MSSSIM, SSIM,VGGloss
 from ddnet_utils import serialize_loss_item
 from socket import gethostname
 import torch.cuda.amp as amp
+
 def dd_train(args):
+    port = args.port
+    os.environ['MASTER_PORT'] = port
     torch.manual_seed(torch.initial_seed())
     world_size =  int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["SLURM_PROCID"])
@@ -463,10 +466,8 @@ def _epoch_vgg(model, train_index_list, val_index_list, train_loader, val_loader
             outputs, out_b3, out_b1, tar_b3, tar_b1 = model(LQ_img, HQ_img)
             MSE_loss = nn.MSELoss()(outputs, HQ_img)
             MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
-            loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
-                                                         tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-            loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
-                                                         tar_b1)))
+            loss_vgg_b1 = VGGloss()(out_b1,tar_b1)  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+            loss_vgg_b3 = VGGloss()(out_b3, tar_b3)
             loss_vgg = (loss_vgg_b3 + loss_vgg_b1)
             # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
             loss = MSE_loss + gamma * (MSSSIM_loss) + beta * loss_vgg

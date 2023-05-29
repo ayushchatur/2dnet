@@ -40,7 +40,7 @@ from ddnet_utils import serialize_loss_item, init_loss_params, init_vggloss_para
 from core.ddnet_model import DD_net
 # torch.backends.cuda.matmul.allow_tf32 = True
 # torch.backends.cudnn.allow_tf32 = True
-
+from losses import VGGloss
 def read_correct_image(path):
     offset = 0
     ct_org = None
@@ -244,10 +244,8 @@ class SpraseDDnetOld(object):
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
                 # loss = MSE_loss + 0.1 * (MSSSIM_loss)
-                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
-                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
-                                                              tar_b1)))
+                loss_vgg_b1 = VGGloss()( out_b1,tar_b1)  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = VGGloss()(out_b3,tar_b3)
                 loss_vgg = (loss_vgg_b3 + loss_vgg_b1)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * loss_vgg
@@ -283,10 +281,8 @@ class SpraseDDnetOld(object):
                 # outputs = model(inputs)
                 MSE_loss = nn.MSELoss()(outputs, targets)
                 MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss_vgg_b1 = torch.mean(torch.abs(torch.sub(out_b3,
-                                                             tar_b3)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
-                loss_vgg_b3 = torch.mean(torch.abs(torch.sub(out_b1,
-                                                              tar_b1)))
+                loss_vgg_b1 = VGGloss()(out_b1,tar_b1)  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 =  VGGloss()(out_b3,tar_b3)
                 vgg_loss = (loss_vgg_b3 + loss_vgg_b1)
                 # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
                 loss = MSE_loss + self.gamma * (MSSSIM_loss) + self.beta * vgg_loss

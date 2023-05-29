@@ -152,4 +152,18 @@ class MSSSIM(torch.nn.Module):
     def forward(self, img1, img2):
         # TODO: store window between calls if possible
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize="simple")
-        # return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
+
+class VGGloss(torch.nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(VGGloss, self).__init__()
+
+      ## Target block 1, Target block
+
+    def forward(self, input, target):
+
+        # assert (input.shape[0] == target.shape[0])
+
+        loss_value = torch.mean(torch.abs(torch.sub(input,target)))  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+
+        return loss_value
+# return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average)
