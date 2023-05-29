@@ -67,9 +67,7 @@ def dd_train(args):
     prune_t = args.prune_t
     global prune_amt
     prune_amt = float(args.prune_amt)
-    # enable_gr = (args.enable_gr == "true")
-    gr_mode = args.gr_mode
-    gr_backend = args.gr_backend
+
     global amp_enabled
     amp_enabled = (args.amp == "true")
     global dir_pre
@@ -77,13 +75,10 @@ def dd_train(args):
     global gamma
     global beta
     mod = args.model
-    num_w = args.num_w
-    en_wan = args.wan
-    inference = (args.do_infer == "true")
     enable_prof = (args.enable_profile == "true")
-    new_load = (args.new_load == "true")
-    gr_mode = (args.enable_gr == "true")
 
+    gr_mode = (args.enable_gr == "true")
+    gr_backend = args.gr_backend
 
     if torch.cuda.is_available():
         device = torch.device("cuda", local_rank)
@@ -94,7 +89,7 @@ def dd_train(args):
 
     torch.cuda.manual_seed(1111)
     # necessary for AMP to work
-
+    model_file: str
     model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet/weights_dense_" + str(epochs) + "_.pt"
     if mod == "vgg16":
         from core.vgg16.ddnet_model import DD_net
@@ -143,17 +138,23 @@ def dd_train(args):
     else:
         scheduler = ExponentialLR(optimizer=optimizer, gamma=decayRate)
 
-    model_file = "./dense_weights/weights_dense_" + str(epochs) + "_.pt"
-
     map_location = {'cuda:%d' % 0: 'cuda:%d' % rank}
     # if en_wan > 0:
     #     wandb.watch(model, log_freq=100)
+
     dist.barrier()
-    if (not (path.exists(model_file))):
-        print('model file not found')
-    else:
-        print(f'loading model file: {model_file}')
-        model.load_state_dict(torch.load(model_file, map_location=map_location))
+    try:
+
+        if (not (path.exists(model_file))):
+            print('model file not found')
+        else:
+            print(f'loading model file: {model_file}')
+            model.load_state_dict(torch.load(model_file, map_location=map_location))
+    except FileExistsError as f:
+        print(f'file not found {f}')
+    except Exception as e:
+        print(f'error loading model: {e}')
+
     if mod =="ddnet":
         print("training ddnet")
         trainer_new(model, world_size, rank, local_rank, scheduler, optimizer, sched_type, dir_pre, enable_prof )
@@ -164,8 +165,7 @@ def dd_train(args):
         print("saving model file")
         model_file = f'weights_{str(batch_size)}_{str(epochs + retrain)}.pt'
         torch.save(model.state_dict(), dir_pre + "/" + model_file)
-        if not inference:
-            print("not doing inference.. training only script")
+    print("not doing inference.. training only script")
     # dist.barrier()
     dist.destroy_process_group()
     return

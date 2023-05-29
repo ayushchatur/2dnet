@@ -129,6 +129,7 @@ class SpraseDDnetOld(object):
         self.optimizer = optimizer
         self.scheduler = scheduler
         # self.scaler = grad_scaler
+        self.scaler = torch.cuda.amp.GradScaler()
         self.world_size = world_size
         self.prune_t = prune_t
         self.prune_amt = prune_amt
@@ -163,6 +164,7 @@ class SpraseDDnetOld(object):
         densetime=0
         train_total_loss, train_MSSSIM_loss, train_MSE_loss,train_vgg_loss, val_total_loss, val_MSSSIM_loss, val_MSE_loss, val_vgg_loss = init_vggloss_params()
         start = datetime.now()
+
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
         for k in range(1, self.retrain + 1):
@@ -231,6 +233,7 @@ class SpraseDDnetOld(object):
         val_MSE_loss = []
         val_MSSSIM_loss = []
         val_vgg_loss = []
+        # self.optimizer.zero_grad(set_to_none=True)
         for batch_index, batch_samples in enumerate(self.train_loader):
             file_name, HQ_img, LQ_img, maxs, mins = batch_samples['vol'], batch_samples['HQ'], batch_samples['LQ'], \
                 batch_samples['max'], batch_samples['min']
