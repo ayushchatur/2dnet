@@ -55,8 +55,9 @@ echo "custom module path: $EASYBUILD_INSTALLPATH_MODULES"
 
 
 echo "current dir: $PWD"
-chmod 755 * -R
-
+chmod u+x trainers_new_dl.py
+chmod u+x trainers.py
+chmod u+x ddnet_inference.py
 
 : "${NEXP:=1}"
 
