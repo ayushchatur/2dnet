@@ -34,13 +34,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import argparse
 import torch.cuda.amp as amp
 
-from core import MSSSIM, SSIM
+from core import MSSSIM, SSIM, VGGloss
 from ddnet_utils import mag_prune,ln_struc_spar,unstructured_sparsity
 from ddnet_utils import serialize_loss_item, init_loss_params, init_vggloss_params
 from core.ddnet_model import DD_net
 # torch.backends.cuda.matmul.allow_tf32 = True
 # torch.backends.cudnn.allow_tf32 = True
-from losses import VGGloss
 def read_correct_image(path):
     offset = 0
     ct_org = None
