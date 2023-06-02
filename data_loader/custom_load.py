@@ -27,47 +27,57 @@ def read_correct_image(path):
     ct_org[neg_val_index] = -1024
     return ct_org
 
+from torch.utils.data._utils.collate import default_collate
+
+
 class CTDataset(object):
     def batch(self, iterable, n=1):
         l = len(iterable)
         for ndx in range(0, l, n):
             yield iterable[ndx:min(ndx + n, l)]
 
-    def create_batch(self, index_list, item_list, is_tensor: bool):
-        # batch_list = []
+    def create_batch(self, index_list: list, item_list: list, is_tensor: bool):
+        batch_list = []
         if is_tensor:
-            res_list = list(itemgetter(*index_list)(item_list))
-            return torch.stack(res_list)
+            for x in index_list:
+                batch_list.append(item_list[x])
+            return default_collate(batch_list)
         else:
-            res_list = list(itemgetter(*index_list)(item_list))
-            return res_list
-    def __len__(self):
-        return len(self.tensor_list_fname)
+            for x in index_list:
+                batch_list.append(item_list[x])
+            return default_collate(batch_list)
 
-    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.float32):
+    def __len__(self):
+        return len(self.tensor_list_hq)
+
+    def __init__(self, root_dir_h, root_dir_l, length, device="cpu", batch_size=1, seed=333, dtype=torch.FloatTensor):
+        rmax = 1
+        rmin = 0
+
         self.batch_size = batch_size
         self.device = device
         self.dtype = dtype
-        data_root_l = root_dir_l + "/"
-        data_root_h = root_dir_h + "/"
-        img_list_l = os.listdir(data_root_l)
-        img_list_h = os.listdir(data_root_h)
-        img_list_l.sort()
-        img_list_h.sort()
-        img_list_l = img_list_l[0:length]
-        img_list_h = img_list_h[0:length]
+
+        self.data_root_l = root_dir_l + "/"
+        self.data_root_h = root_dir_h + "/"
+        self.img_list_l = os.listdir(self.data_root_l)
+        self.img_list_h = os.listdir(self.data_root_h)
+        self.img_list_l.sort()
+        self.img_list_h.sort()
+        self.img_list_l = self.img_list_l[0:length]
+        self.img_list_h = self.img_list_h[0:length]
+        #         self.transform = transform
 
         self.tensor_list_hq = []
         self.tensor_list_lq = []
         self.tensor_list_maxs = []
         self.tensor_list_mins = []
         self.tensor_list_fname = []
-        for i in range(len(img_list_l)):
-            rmax = 0
-            rmin = 1
-            image_target = read_correct_image(data_root_h + img_list_h[i])
-            image_input = read_correct_image(data_root_l + img_list_l[i])
-            input_file = img_list_l[i]
+        for idx in range(len(self.img_list_l)):
+            image_target = read_correct_image(self.data_root_h + self.img_list_h[idx])
+            image_input = read_correct_image(self.data_root_l + self.img_list_l[idx])
+
+            input_file = self.img_list_l[idx]
             assert (image_input.shape[0] == 512 and image_input.shape[1] == 512)
             assert (image_target.shape[0] == 512 and image_target.shape[1] == 512)
             cmax1 = np.amax(image_target)
@@ -82,11 +92,16 @@ class CTDataset(object):
             maxs = ((cmax1 + cmax2) / 2)
             image_target = image_target.reshape((1, 512, 512))
             image_input = image_input.reshape((1, 512, 512))
+            inputs_np = image_input
+            targets_np = image_target
+
+            inputs = torch.from_numpy(inputs_np)
+            targets = torch.from_numpy(targets_np)
+            inputs = inputs.type(torch.FloatTensor)
+            targets = targets.type(torch.FloatTensor)
             try:
-                inputs = torch.from_numpy(image_input)
-                targets = torch.from_numpy(image_target)
-                inputs = inputs.to(self.device, dtype=self.dtype)
-                targets = targets.to(self.device, dtype=self.dtype)
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
                 self.tensor_list_fname.append(input_file)
                 self.tensor_list_hq.append(targets)
                 self.tensor_list_lq.append(inputs)
@@ -106,11 +121,11 @@ class CTDataset(object):
     def get_item(self, index_list):
         try:
             # assert (len(index_list) == self.batch_size)
-            print(f'creating batch for rank: {self.device} with index list: {index_list}')
+            # print(f'creating batch for rank: {self.device} with index list: {index_list}')
             hq = self.create_batch(index_list, self.tensor_list_hq, True)
             lq = self.create_batch(index_list, self.tensor_list_lq, True)
             mins = self.create_batch(index_list, self.tensor_list_mins, False)
-            maxs = self.create_batch(index_list, self.tensor_list_maxs,  False)
+            maxs = self.create_batch(index_list, self.tensor_list_maxs, False)
             vol = self.create_batch(index_list, self.tensor_list_fname, False)
             # lq = self.ba_tensor_list_lq[idx]
             # mins = self.ba_tensor_list_mins[idx]
@@ -122,13 +137,14 @@ class CTDataset(object):
                 'LQ': lq,
                 'min': mins,
                 'max': maxs
+                # 'idx': index_list
             }
             return sample
         except AssertionError as e:
-            print (f"batch size: {self.batch_size} and len: {len(index_list)} mismatch", e)
+            print(f"batch size: {self.batch_size} and len: {len(index_list)} mismatch", e)
             return None
         except Exception as ex:
-            print ("exception occured during fetching element", ex)
+            print("exception occured during fetching element", ex)
             return None
 
 def main():
