@@ -84,6 +84,7 @@ def dd_train(args):
 
     # model.to(device)
     model_file: str
+    model_file = f'weights_{str(batch)}_{str(epochs + retrain)}.pt'
     # model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet/weights_dense_" + str(epochs) + "_.pt"
     if mod == "vgg16":
         print("loading vgg16")
@@ -161,7 +162,7 @@ def dd_train(args):
 
     if rank == 0:
         print("saving model file")
-        model_file = f'weights_{str(batch)}_{str(epochs+retrain)}.pt'
+        # model_file = f'weights_{str(batch)}_{str(epochs+retrain)}.pt'
         torch.save(model.state_dict(), dir_pre + "/" + model_file)
         if not inference:
             print("not doing inference.. training only script")

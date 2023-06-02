@@ -90,21 +90,21 @@ def dd_train(args):
     torch.cuda.manual_seed(1111)
     # necessary for AMP to work
     model_file: str
-    model_file = "/projects/synergy_lab/ayush/dense_weights_ddnet/weights_dense_" + str(epochs) + "_.pt"
+    model_file = f'weights_{str(batch_size)}_{str(epochs + retrain)}.pt'
     if mod == "vgg16":
         from core.vgg16.ddnet_model import DD_net
         model = DD_net(devc=device)
         gamma = 0.03
         beta = 0.05
-        model_file = "/projects/synergy_lab/ayush/weights_vgg16/weights_dense_" + str(
-            epochs) + ".pt"
+        # model_file = "/projects/synergy_lab/ayush/weights_vgg16/weights_dense_" + str(
+        #     epochs) + ".pt"
     elif mod == "vgg19":
         from core.vgg19.ddnet_model import DD_net
         model = DD_net(devc=device)
         gamma = 0.04
         beta = 0.04
-        model_file = "/projects/synergy_lab/ayush/weights_vgg19/weights_dense_" + str(
-            epochs) + ".pt"
+        # model_file = "/projects/synergy_lab/ayush/weights_vgg19/weights_dense_" + str(
+        #     epochs) + ".pt"
     else:
         from core import DD_net
         model = DD_net()
@@ -142,7 +142,7 @@ def dd_train(args):
     # if en_wan > 0:
     #     wandb.watch(model, log_freq=100)
 
-    dist.barrier()
+    # dist.barrier()
     try:
 
         if (not (path.exists(model_file))):
@@ -163,7 +163,6 @@ def dd_train(args):
         trainer_new_vgg(model, world_size, rank, local_rank, scheduler, optimizer, sched_type, dir_pre, enable_prof)
     if rank == 0:
         print("saving model file")
-        model_file = f'weights_{str(batch_size)}_{str(epochs + retrain)}.pt'
         torch.save(model.state_dict(), dir_pre + "/" + model_file)
     print("not doing inference.. training only script")
     # dist.barrier()
