@@ -40,7 +40,7 @@ import torch.cuda.amp as amp
 
 def dd_train(args):
     port = args.port
-    os.environ['MASTER_PORT'] = port
+    os.environ['MASTER_PORT'] = str(port)
     torch.manual_seed(torch.initial_seed())
     world_size =  int(os.environ["WORLD_SIZE"])
     rank = int(os.environ["SLURM_PROCID"])
