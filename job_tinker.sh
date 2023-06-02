@@ -107,7 +107,7 @@ else
   for _experiment_index in $(seq 1 "${NEXP}"); do
     (
   	echo "Beginning trial ${_experiment_index} of ${NEXP}"
-  	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none $BASE $CMD
+  	srun  --unbuffered --wait=120 --kill-on-bad-exit=0 --cpu-bind=none $BASE $CMD
     )
   done
   wait
