@@ -140,6 +140,7 @@ def dd_train(args):
     # if en_wan > 0:
     #     wandb.watch(model, log_freq=100)
     dist.barrier()
+    trainer = None
     if (not (path.exists(model_file))):
         print('model file not found')
     else:
@@ -155,7 +156,7 @@ def dd_train(args):
             print('running ddnet-ml-vgg')
             from core.sparse_ddnet_old_vgg import SpraseDDnetOld
 
-    trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t,
+        trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t,
                              prune_amt, gamma, beta, dir_pre=dir_pre, amp=amp_enabled, sched_type=sched_type)
     trainer.train_ddnet(rank, local_rank, enable_profile=enable_prof)
 
