@@ -167,22 +167,8 @@ class SpraseDDnetOld(object):
 
         print("beginning training epochs")
         print(f'profiling: {enable_profile}')
-        for k in range(1, self.retrain + 1):
+        for k in range(1, self.epochs + self.retrain + 1):
             print(f'epoch: {k}')
-            if sparsified == False and k <= 1:
-                densetime = str(datetime.now()- start)
-                print('pruning model on epoch: ', k)
-                if self.prune_t == "mag":
-                    print("pruning model by top k with %: ", self.prune_amt)
-                    mag_prune(self.model,self.prune_amt)
-                elif self.prune_t == "l1_struc":
-                    print("pruning model by L1 structured with %: ", self.prune_amt)
-                    ln_struc_spar(self.model, self.prune_amt)
-                else:
-                    print("pruning model by random unstructured with %: ", self.prune_amt)
-                    unstructured_sparsity(self.model, self.prune_amt)
-
-                sparsified = True
             # train_sampler.set_epoch(epochs + retrain)
             # print("Training for Epocs: ", self.epochs + self.retrain)
             self.train_sampler.set_epoch(k)
@@ -190,7 +176,6 @@ class SpraseDDnetOld(object):
                 import nvidia_dlprof_pytorch_nvtx
                 nvidia_dlprof_pytorch_nvtx.init(enable_function_stack=True)
                 _ = self._epoch_profile(local_rank)
-
             else:
                 train_total, train_mse, train_msi, train_vgg, val_total, val_mse, val_msi, val_vgg = \
                     self._epoch(local_rank)
@@ -206,6 +191,21 @@ class SpraseDDnetOld(object):
                     val_vgg_loss[k] = val_vgg
                 except Exception as e:
                     print(f'error saving loss list for epoch {k}')
+
+            if sparsified == False and  self.retrain > 0 and k == self.epochs  :
+                densetime = str(datetime.now()- start)
+                print('pruning model on epoch: ', k)
+                if self.prune_t == "mag":
+                    print("pruning model by top k with %: ", self.prune_amt)
+                    mag_prune(self.model,self.prune_amt)
+                elif self.prune_t == "l1_struc":
+                    print("pruning model by L1 structured with %: ", self.prune_amt)
+                    ln_struc_spar(self.model, self.prune_amt)
+                else:
+                    print("pruning model by random unstructured with %: ", self.prune_amt)
+                    unstructured_sparsity(self.model, self.prune_amt)
+
+                sparsified = True
 
             # optimizer.param_groups
         # torch.cuda.current_stream().synchronize()

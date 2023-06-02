@@ -208,10 +208,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
     print(f"beginning training epochs on rank: {global_rank} ")
     print(f'profiling: {enable_profile}')
     dist.barrier()
-    for k in range( epochs +  retrain):
-        if k %5 == 0:
-            model_file = "weights_dense_" + str(k) + ".pt"
-            torch.save(model.state_dict(), model_file)
+    for k in range( 1, epochs +  retrain + 1):
         print(f"epoch: {k}")
         if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
         train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
@@ -246,7 +243,7 @@ def trainer_new(model, world_size, global_rank, local_rank,scheduler, optimizer,
             val_MSSSIM_loss[k] = val_msi
         # dist.barrier()
         start = datetime.now()
-        if sparsified == False and  retrain > 0 and k == ( epochs - 1):
+        if sparsified == False and  retrain > 0 and k == epochs :
             densetime = str(datetime.now() - start)
             print('pruning model on epoch: ', k)
             if  prune_t == "mag":
@@ -306,7 +303,7 @@ def trainer_new_vgg(model, world_size, global_rank, local_rank,scheduler, optimi
     print(f"beginning training epochs on rank: {global_rank} ")
     print(f'profiling: {enable_profile}')
     dist.barrier()
-    for k in range( epochs +  retrain):
+    for k in range(1, epochs +  retrain + 1):
         print(f"epoch: {k}")
         if global_rank == 0: print(f"q_factor train {q_fact_train} , qfactor va : {q_fact_val} ")
         train_index_list = train_index_list[global_rank * q_fact_train: (global_rank * q_fact_train + q_fact_train)]
@@ -344,7 +341,7 @@ def trainer_new_vgg(model, world_size, global_rank, local_rank,scheduler, optimi
             val_MSSSIM_loss[k] = val_msi
         # dist.barrier()
         start = datetime.now()
-        if sparsified == False and  retrain > 0 and k == ( epochs - 1):
+        if sparsified == False and  retrain > 0 and k == epochs :
             densetime = str(datetime.now() - start)
             print('pruning model on epoch: ', k)
             if  prune_t == "mag":

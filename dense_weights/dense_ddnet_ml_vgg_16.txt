@@ -1,0 +1,112 @@
+ [ayushchatur@tc-dgx009 2dnet]$ for i in {5..50..5}; do   python infer_cus.py --filepath=$path --batch 16 --epochs $i --model vgg16 --out_dir="dense_results";cat dense_results/results.txt ; done
+dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_5.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0027284910180605947std dev.: 0.0011534843786481504Final average MS-SSIM: 93.35007011890411std dev : 0.014464482349851104calculation via single image avergae MSE: 0.0027841745256725462std dev.: 0.0022891344280195837calculation via single image avergae MS-SSIM: 93.13289774771856std dev.: 3.8435731823967187dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_10.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.004790590214543045std dev.: 0.0019181770266273352Final average MS-SSIM: 93.5634034872055std dev : 0.014311936842610793calculation via single image avergae MSE: 0.004888357412524709std dev.: 0.0036099958008701367calculation via single image avergae MS-SSIM: 93.3722625429533std dev.: 3.1565311678973607dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_15.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.003703288217075169std dev.: 0.0014723005024589709Final average MS-SSIM: 94.62332808971405std dev : 0.013009209132510994calculation via single image avergae MSE: 0.0037788654874243454std dev.: 0.0029366745677262764calculation via single image avergae MS-SSIM: 94.45371120711978std dev.: 2.803024014689011dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_20.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.004247274366207421std dev.: 0.0017937074320784879Final average MS-SSIM: 94.8758190870285std dev : 0.012837375498525394calculation via single image avergae MSE: 0.0043339534127064365std dev.: 0.0034129349412249615calculation via single image avergae MS-SSIM: 94.7215899368938std dev.: 2.5991631720054493dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_25.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0024879952799528836std dev.: 0.0009187201516745784Final average MS-SSIM: 96.26810133457184std dev : 0.010182549007325983calculation via single image avergae MSE: 0.0025387706784237465std dev.: 0.002115323050332941calculation via single image avergae MS-SSIM: 96.15179284342697std dev.: 2.6094147718975567dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_30.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0029297484387643636std dev.: 0.0012807918127060744Final average MS-SSIM: 95.85036218166351std dev : 0.013228356751609101calculation via single image avergae MSE: 0.002989539223488798std dev.: 0.002268798979437866calculation via single image avergae MS-SSIM: 95.7271906338176std dev.: 2.5169418559774765dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_35.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0018568842485547066std dev.: 0.0008538943067073251Final average MS-SSIM: 96.67033779621124std dev : 0.01115525698877148calculation via single image avergae MSE: 0.0018947798472458534std dev.: 0.0015598262446370735calculation via single image avergae MS-SSIM: 96.56739984543957std dev.: 2.308925178627463dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_40.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0016427694214507938std dev.: 0.0005400556643777989Final average MS-SSIM: 96.82577073574066std dev : 0.008764021447802481calculation via single image avergae MSE: 0.0016762953158349218std dev.: 0.0012366141707286173calculation via single image avergae MS-SSIM: 96.73073876421063std dev.: 2.1362260939221356dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_45.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0017188990651629864std dev.: 0.0006248233218417188Final average MS-SSIM: 97.01560544967651std dev : 0.00909799859121899calculation via single image avergae MSE: 0.001753978654849153std dev.: 0.0013401059409158258calculation via single image avergae MS-SSIM: 96.92394814777131std dev.: 2.354226876245285dir prefix: dense_results
+loading file /projects/synergy_lab/ayush/weights_vgg16/weights_dense_50.pt 
+loading vgg16
+loading ddnet_ml_vgg16
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/ayushchatur/.conda/envs/py_13_1_cuda11_7/lib/python3.10/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=VGG16_Weights.IMAGENET1K_V1`. You can also use `weights=VGG16_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+serializing test losses
+testing end
+~~~~~~~~~~~~~~~~~~ everything completed ~~~~~~~~~~~~~~~~~~~~~~~~
+Final avergae MSE: 0.0015644328366033733std dev.: 0.0006010665729930221Final average MS-SSIM: 97.27711093425751std dev : 0.008275426160730601calculation via single image avergae MSE: 0.0015963600406542597std dev.: 0.0012301134741411553calculation via single image avergae MS-SSIM: 97.19542619221065std dev.: 2.1013327630056704(py_13_1_cuda11_7) [ayushchatur@tc-dgx009 2dnet]$ 
