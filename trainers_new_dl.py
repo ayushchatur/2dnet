@@ -450,9 +450,10 @@ def trainer_new_vgg(model, world_size, global_rank, local_rank,scheduler, optimi
         # dist.barrier()
 
         if sparsified == False and  retrain > 0 and k == epochs :
-            start = datetime.now()
+            # start = datetime.now()
             densetime = str(datetime.now() - start)
-            print('pruning model on epoch: ', k)
+
+            print(f'pruning model on epoch: {k}, dense time spent: {densetime} ')
             if  prune_t == "mag":
                 print("pruning model by top k with %: ",  prune_amt)
                 mag_prune( model,  prune_amt)
