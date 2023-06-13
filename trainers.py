@@ -151,6 +151,8 @@ def dd_train(args):
     if mod == "ddnet":
         print('running ddnet')
         from core.sparse_ddnet_old_dl import SpraseDDnetOld
+        trainer = SpraseDDnetOld(epochs, retrain, batch, model, optimizer, scheduler, world_size, prune_t,
+                                 prune_amt, gamma, beta, dir_pre=dir_pre, amp=amp_enabled, sched_type=sched_type)
     else:
         print('running ddnet-ml-vgg')
         from core.sparse_ddnet_old_vgg import SpraseDDnetOld
