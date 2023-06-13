@@ -131,7 +131,7 @@ class SpraseDDnetOld(object):
         self.gamma = gamma
         self.beta = beta
         self.scheduler = scheduler
-        # self.scaler = grad_scaler
+        self.scaler = torch.cuda.amp.GradScaler()
         self.world_size = world_size
         self.prune_t = prune_t
         self.prune_amt = prune_amt
