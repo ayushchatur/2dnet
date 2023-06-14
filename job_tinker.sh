@@ -6,7 +6,7 @@
 #SBATCH --mem-per-cpu=8384                # total memory per node (4 GB per cpu-core is default)
 #SBATCH --ntasks-per-node 1
 #SBATCH --gpus-per-node 1             #GPU per node
-#SBATCH --partition=a100_normal_q # slurm partition
+#SBATCH --partition=dgx_normal_q # slurm partition
 #SBATCH --time=24:30:00          # time limit
 #SBATCH -A HPCBIGDATA2           # account name
 
