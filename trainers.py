@@ -38,8 +38,8 @@ def dd_train(args):
     port = args.port
     os.environ['MASTER_PORT'] = str(port)
     torch.manual_seed(torch.initial_seed())
-    world_size =  int(os.environ["WORLD_SIZE"])
-    rank = int(os.environ["SLURM_PROCID"])
+    world_size =  int(os.environ["OMPI_COMM_WORLD_SIZE"])
+    rank = int(os.environ["OMPI_COMM_WORLD_RANK"])
     gpus_per_node  = torch.cuda.device_count()
     if gpus_per_node >0:
         local_rank = rank - gpus_per_node * (rank // gpus_per_node)
