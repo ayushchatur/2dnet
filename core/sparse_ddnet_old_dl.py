@@ -252,6 +252,7 @@ class SpraseDDnetOld(object):
             # BW pass
             if self.amp_enabled:
                 # print('bw pass')
+                self.model.zero_grad()
                 self.scaler.scale(loss).backward()
                 self.scaler.step(self.optimizer)
                 self.scaler.update()

@@ -641,19 +641,24 @@ def _epoch_profile(model, train_index_list, val_index_list, train_loader, val_lo
             HQ_img, LQ_img, maxs, mins, file_name = sample_batched['HQ'], sample_batched['LQ'], \
                 sample_batched['max'], sample_batched['min'], sample_batched['vol']
             optimizer.zero_grad(set_to_none=True)
-            targets = HQ_img
-            inputs = LQ_img
+            # targets = HQ_img
+            # inputs = LQ_img
             torch.cuda.nvtx.range_push("Training loop:  ")
-            torch.cuda.nvtx.range_push("Forward pass")
             with amp.autocast(enabled= amp_enabled):
-                outputs =  model(inputs)
-                torch.cuda.nvtx.range_push("Loss calculation")
-                MSE_loss = nn.MSELoss()(outputs, targets)
-                MSSSIM_loss = 1 - MSSSIM()(outputs, targets)
-                loss = MSE_loss + 0.1 * (MSSSIM_loss)
+                torch.cuda.nvtx.range_push("forward pass, step:" + str(index))  # FP
+                outputs, out_b3, out_b1, tar_b3, tar_b1 = model(LQ_img, HQ_img)
+                torch.cuda.nvtx.range_push("Loss calculation")  # Loss
+                MSE_loss = nn.MSELoss()(outputs, HQ_img)
+                MSSSIM_loss = 1 - MSSSIM()(outputs, HQ_img)
+                loss_vgg_b1 = VGGloss()(out_b1,
+                                        tar_b1)  # enhanced image : [1, 256, 56, 56] dim should be same (1,256,56,56)
+                loss_vgg_b3 = VGGloss()(out_b3, tar_b3)
+                loss_vgg = (loss_vgg_b3 + loss_vgg_b1)
+                # loss = nn.MSELoss()(outputs , targets_val) + 0.1*(1-MSSSIM()(outputs,targets_val))
+                loss = MSE_loss + gamma * (MSSSIM_loss) + beta * loss_vgg
                 torch.cuda.nvtx.range_pop()
-                print(loss)
-            torch.cuda.nvtx.range_pop()
+                # print(loss)
+                torch.cuda.nvtx.range_pop()
 
             train_MSE_loss.append(MSE_loss.item())
             train_MSSSIM_loss.append(MSSSIM_loss.item())

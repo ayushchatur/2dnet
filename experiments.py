@@ -12,13 +12,6 @@ from os import path
 
 # from matplotlib import pyplot as plt
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-import torch.multiprocessing as mp
-import torch.distributed as dist
-# from apex.parallel import DistributedDataParallel as DDP
-from torch.nn.parallel import DistributedDataParallel as DDP
-import argparse
-import torch.cuda.amp as amp
 # from apex.contrib.sparsity import ASP
 from socket import gethostname
 # from dataload import CTDataset

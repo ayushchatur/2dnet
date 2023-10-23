@@ -15,14 +15,14 @@ plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 # Values for your 7 data points
-values = [1, 1.49, 1.17 , 1.16, 1.14, 1.14, 1.14]
+values = [ 1.14, 1.14, 1.14]
 
 # Corresponding labels for the data points
-labels = ['Dense', 'MP', 'UD', 'GCO', 'SS', 'RUS', 'TKS']
+labels = ['SS', 'RUS', 'TKS']
 
 # Create a figure and a set of subplots
 # colors = ['blue', 'green', 'red', 'yellow', 'maroon', 'magenta', 'orange']
-colors = ['gray', 'gray', 'gray', 'gray', 'gray', 'gray', 'gray']
+colors = [ 'gray', 'gray', 'gray']
 
 # Create a figure and a set of subplots
 plt.subplots()
@@ -34,7 +34,7 @@ plt.grid(True, zorder=1)
 # Add the value on top of each bar
 for bar in bars:
     yval = bar.get_height()
-    plt.text(bar.get_x() + bar.get_width()/8.0, yval, yval, va='bottom',fontsize=14) # va: vertical alignment
+    plt.text(bar.get_x() + bar.get_width()/3.0, yval, yval, va='bottom',fontsize=14) # va: vertical alignment
 
 
 # Add gridlines
