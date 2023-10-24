@@ -1,7 +1,7 @@
 # 2D-DDNet with VGG Loss and architecture aware sparse optimizations 
-2dnet
+2D-DDNet with optimizations 
 
-### instructions on running
+### instructions on running at ARC ( or similar system with Slurm and Singularity)
 - Read Access to "/projects/synergy_lab/garvit217/enhancement_data/"
 - Pytorch container [22.04](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags)
 
@@ -59,3 +59,22 @@ export prune_amt=0.5
 ```
 ### Enabling VGG loss 
 ```export model="ddnet" # choice ddnet, vgg16 (ddnet with vgg-16 based loss), vgg19 (ddnet with vgg-16 based loss)```
+
+### Scaling 
+
+Make the following changes in job_tinker.sh file 
+```
+export MASTER_PORT=<some unique value> 
+```
+
+And update below SLURM headers 
+
+#SBATCH --ntasks-per-node P
+#SBATCH --gpus-per-node G
+#SBATCH --nodes N
+
+P: number of parallel process 
+G: Number of GPUs per node 
+> G=P 
+
+N: number of nodes
