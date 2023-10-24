@@ -41,21 +41,21 @@ Provide access to all users to Python file
 
 ### Enabling Architecture-Aware Optimizations: 
 - Mixed precision:
-export mp=true
+```export mp=true```
 - DoLL Data Loader for Small Datasets
-export new_load=true
+```export new_load=true```
 - Graph Optimizations:
-export enable_gr="false"
+```export enable_gr="false"
 #to enable graph change pytorch version above otherwise, the below two parameters won't be respected
 
 export gr_mode="reduce-overhead"
 export gr_back="aot-eager"
-
+```
 ### Enabling Sparse Optimizations: 
-
-export retrain=0 # options for prune_t (prune type) mag, l1_struc or random_unstru (default) will be set otherwise
+```
+export retrain=0 # should be >0 options for prune_t (prune type) mag, l1_struc or random_unstru (default) will be set otherwise
 export prune_t="random_unstru" 
 export prune_amt=0.5 
-
+```
 ### Enabling VGG loss 
-export model="ddnet" # choice ddnet, vgg16 (ddnet with vgg-16 based loss), vgg19 (ddnet with vgg-16 based loss)
+```export model="ddnet" # choice ddnet, vgg16 (ddnet with vgg-16 based loss), vgg19 (ddnet with vgg-16 based loss)```
