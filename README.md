@@ -1,4 +1,4 @@
-# 2dnet
+# 2D-DDNet with VGG Loss and architecture aware sparse optimizations 
 2dnet
 
 ### instructions on running
@@ -32,3 +32,9 @@ Provide access to all users to Python file
   chmod 766 sparse_ddnet.py
   chmod 766 trainers.py
  ```
+
+### DDNet baseline hyper-parameters
+- batch size: 1
+- learning rate: 0.0001
+- epochs: 50
+- decay rate: 0.95
