@@ -68,11 +68,11 @@ export MASTER_PORT=<some unique value>
 ```
 
 And update below SLURM headers 
-
+```
 #SBATCH --ntasks-per-node P
 #SBATCH --gpus-per-node G
 #SBATCH --nodes N
-
+```
 P: number of parallel process 
 G: Number of GPUs per node 
 > G=P 
