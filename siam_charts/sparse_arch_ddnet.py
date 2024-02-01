@@ -15,19 +15,19 @@ plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 # Data
-categories = ['Dense', 'Structured \nSparse' ,'Random\nSparse', 'Magnitude\nSparse']
+categories = ['Dense', 'Structured \nSparse' ,'Random\nSparse', 'Top-K\nSparse']
 sub_categories = ['MP', 'UD', 'GC']
 values = np.array([
     [1.49, 1.21, 1.16],
-    [1.38, 1.24, 1.16],
-    [1.35, 1.24, 1.16],
-    [1.34, 1.24, 1.16]
+    [1.38, 1.21, 1.16],
+    [1.35, 1.21, 1.16],
+    [1.34, 1.21, 1.16]
 ])
 
 x = np.arange(len(categories))  # the label locations
 width = 0.25  # the width of the bars
 
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, ax = plt.subplots(figsize=(12, 6))
 
 # Add bars for each sub-category
 for i in range(len(sub_categories)):
@@ -38,15 +38,15 @@ for i in range(len(sub_categories)):
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
 # ax.set_xlabel('Categories')
-ax.set_ylabel('Speedup', fontsize=24)
-ax.set_ylim([0.0,1.6])
-ax.set_xticks(x + 0.15)
+ax.set_ylabel('Speedup', fontsize=26)
+ax.set_ylim([0.0,3.0])
+ax.set_xticks(x + width)
 ax.set_xticklabels(categories, fontsize=24)
 formatter = ticker.FuncFormatter(lambda x, pos: '{:.1f}'.format(x))
 plt.gca().yaxis.set_major_formatter(formatter)
 
 # Move legend to top right corner
-ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.25), ncol=4)
+ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.215), ncol=4)
 
 # Add grid lines and put them behind the bars
 ax.grid(True, zorder=0)

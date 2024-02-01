@@ -28,17 +28,17 @@ x = np.arange(len(categories))  # the label locations
 width = 0.2  # the width of the bars
 
 fig, ax = plt.subplots(figsize=(12, 6))
-
+colors = ['sienna', 'olive','firebrick', 'gold']
 # Add bars for each sub-category
 for i in range(len(sub_categories)):
-    bars = ax.bar(x - width/2 + i*width, values[:, i], width, label=sub_categories[i])
+    bars = ax.bar(x - width/2 + i*width, values[:, i], width, label=sub_categories[i],color = colors[i])
     for bar in bars:
         yval = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 8.0, yval, yval, va='bottom', fontsize=14)  # va: vertical alignment
 # Add some text for labels, title and custom x-axis tick labels, etc.
 # ax.set_xlabel('Categories')
 ax.set_ylabel('Speedup', fontsize=26)
-ax.set_ylim([0.0,2.2])
+ax.set_ylim([0.0,3.0])
 ax.set_xticks(x + width)
 ax.set_xticklabels(categories, fontsize=24)
 formatter = ticker.FuncFormatter(lambda x, pos: '{:.1f}'.format(x))

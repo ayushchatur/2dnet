@@ -28,10 +28,10 @@ x = np.arange(len(categories))  # the label locations
 width = 0.2  # the width of the bars
 
 fig, ax = plt.subplots(figsize=(12, 6))
-
+colors = ['sienna', 'olive','firebrick', 'gold']
 # Add bars for each sub-category
 for i in range(len(sub_categories)):
-    bars = ax.bar(x - width/2 + i*width, values[:, i], width, label=sub_categories[i])
+    bars = ax.bar(x - width/2 + i*width, values[:, i], width, label=sub_categories[i], color=colors[i])
     for bar in bars:
         yval = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 8.0, yval, yval, va='bottom', fontsize=14)  # va: vertical alignment

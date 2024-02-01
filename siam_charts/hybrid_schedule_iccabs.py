@@ -3,20 +3,20 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
 # plt.rcParams.update({'font.size': 14})
 import matplotlib.pyplot as plt
-
-SMALL_SIZE = 10
-MEDIUM_SIZE = 14
-BIGGER_SIZE = 18
-
+SMALL_SIZE = 8
+MEDIUM_SIZE = 28
+BIGGER_SIZE = 34
+# plt.rc("xtick.top", True)
+# plt.rc("xtick.labeltop", True)
 plt.rc('font', size=BIGGER_SIZE)          # controls default text sizes
 plt.rc('axes', titlesize=BIGGER_SIZE)     # fontsize of the axes title
 plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
 plt.rc('xtick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=BIGGER_SIZE)    # fontsize of the tick labels
-plt.rc('legend', fontsize=20)    # legend fontsize
-plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+plt.rc('legend', fontsize=MEDIUM_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)
+fig, ax1 = plt.subplots(figsize=(12, 10), dpi=300)
 
-fig, ax1 = plt.subplots(figsize=(10, 10))
 x_ep = list(range(5,55,5))
 # figure(figsize=(12, 6), dpi=300, layout='tight')
 # ax1.tight_layout()
